@@ -66,6 +66,17 @@ main = do
 
   ViewOptions.initComponent builder contextSettings
 
+  -- Redraw canvas every 3ms:
+  updateSettingsTimer <- Gtk.timeoutAddFull (do
+      settings <- get contextSettings
+      -- Update context settings:
+      contextSettings $=! settings { DT.angle = (DT.angle settings)+1 }
+      return True)
+    Gtk.priorityDefaultIdle 3
+
+  -- Remove timer for redrawing canvas when closing window:
+  Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSettingsTimer)
+
   -- Display window:
   Gtk.widgetShowAll mainWindow
 

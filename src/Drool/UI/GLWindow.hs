@@ -43,7 +43,7 @@ display contextSettings = do
   settings <- get contextSettings
   let angle = DT.angle settings
 
-  rotate angle $ Vector3 1.0 0 0
+  rotate angle $ Vector3 0 1.0 0
 
   renderPrimitive Polygon $ do
     vertex (Vertex3 0.25 0.25 0.0 :: Vertex3 GLfloat)
@@ -110,10 +110,13 @@ initComponent gtkBuilder contextSettings = do
   Gtk.set window [ Gtk.containerChild := canvas ]
 
   -- Redraw canvas every 3ms:
-  Gtk.timeoutAddFull (do
+  updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
     Gtk.priorityDefaultIdle 3
+
+  -- Remove timer for redrawing canvas when closing window:
+  Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
 
   Gtk.widgetShowAll window
 
