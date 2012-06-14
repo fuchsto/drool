@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module ViewOptions (
+module Drool.UI.ViewOptions (
   initComponent
 ) where
 
@@ -21,7 +21,7 @@ import Graphics.UI.Gtk.Builder as GtkBuilder
 
 -- Initializes GUI component for view options.
 -- Expects a GtkBuilder instance.
-initComponent gtkBuilder = do
+initComponent gtkBuilder settings = do
   putStrLn "Initializing Perspective component"
 
   button_view_perspectiveTop <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveTop"
@@ -29,15 +29,15 @@ initComponent gtkBuilder = do
     putStrLn "Perspective: Top"
 
   button_view_perspectiveFront <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveFront"
-  Gtk.onClicked button_view_perspectiveTop $ do
+  Gtk.onClicked button_view_perspectiveFront $ do
     putStrLn "Perspective: Front"
 
   button_view_perspectiveSide <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveSide"
-  Gtk.onClicked button_view_perspectiveTop $ do
+  Gtk.onClicked button_view_perspectiveSide $ do
     putStrLn "Perspective: Side"
 
   button_view_perspectiveIso <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveIsometric"
-  Gtk.onClicked button_view_perspectiveTop $ do
+  Gtk.onClicked button_view_perspectiveIso $ do
     putStrLn "Perspective: Isometric"
 
 

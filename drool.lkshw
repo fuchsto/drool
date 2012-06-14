@@ -1,10 +1,10 @@
 Version of workspace file format:
                1
 Time of storage:
-               ""
+               "Wed Jun 13 04:50:09 Mitteleurop\228ische Sommerzeit 2012"
 Name of the workspace:
                "drool"
 File paths of contained packages:
-               []
+               ["drool.cabal"]
 Maybe file path of an active package:
-               Nothing
+               Just "drool.cabal"

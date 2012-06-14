@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  GLViewport
+-- Module      :  Drool.UI.GLWindow
 -- Copyright   :
 -- License     :  AllRightsReserved
 --
@@ -12,9 +12,10 @@
 --
 -----------------------------------------------------------------------------
 
-module GLViewport (
-  initComponent
+module Drool.UI.GLWindow (
+    initComponent
 ) where
+
 
 import Control.Monad (unless)
 import Data.List (stripPrefix)
@@ -30,13 +31,20 @@ import System.Random
 
 import Graphics.UI.Gtk (AttrOp((:=)))
 
+import qualified Drool.Types as DT
+
 import Data.Maybe (fromMaybe)
 
 
-display = do
+display contextSettings = do
   loadIdentity
   color (Color3 1 1 1 :: Color3 GLfloat)
-  -- Instead of glBegin ... glEnd there is renderPrimitive.
+
+  settings <- get contextSettings
+  let angle = DT.angle settings
+
+  rotate angle $ Vector3 1.0 0 0
+
   renderPrimitive Polygon $ do
     vertex (Vertex3 0.25 0.25 0.0 :: Vertex3 GLfloat)
     vertex (Vertex3 0.75 0.25 0.0 :: Vertex3 GLfloat)
@@ -55,20 +63,20 @@ reconfigure w h = do
   reshape $ Just (w', h')
   return (w', h')
 
-reshape :: Maybe (Int, Int) -> IO ()
-reshape dims = do
-  let (width, height) = fromMaybe (canvasWidth, canvasHeight) dims
+reshape allocation = do
+  let width  = 400
+  let height = 400
   viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-  matrixMode $= Projection
-  loadIdentity
-  let (w, h) = if width <= height
-                then (fromIntegral height, fromIntegral width )
-                else (fromIntegral width,  fromIntegral height)
-  perspective 60.0 (fromIntegral canvasWidth / fromIntegral canvasHeight) 1.0 20.0
   matrixMode $= Modelview 0
-  loadIdentity
+  return ()
 
-initComponent gtkBuilder = do
+initComponent gtkBuilder contextSettings = do
+
+  window <- Gtk.windowNew
+
+  Gtk.set window [ Gtk.containerBorderWidth := 8,
+                   Gtk.windowTitle := "drool visualizer" ]
+
   putStrLn "Initializing OpenGL viewport"
 
   glConfig <- GtkGL.glConfigNew [GtkGL.GLModeRGBA, GtkGL.GLModeMultiSample,
@@ -81,9 +89,6 @@ initComponent gtkBuilder = do
   -- (We can't initialise these things earlier since the GL resources that
   -- we are using wouldn't heve been setup yet)
 
-  -- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
-  --   GL.drawBuffer $= GL.BackBuffers
-
   Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
     reconfigure canvasWidth canvasHeight
     return ()
@@ -92,32 +97,26 @@ initComponent gtkBuilder = do
   Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
       GL.clear [GL.DepthBuffer, GL.ColorBuffer]
-      display
+      display contextSettings
       GtkGL.glDrawableSwapBuffers glwindow
     return True
 
-
-  Gtk.onConfigure canvas $ \ (Gtk.Configure _ _ _ w h) -> do
-    (w', h') <- reconfigure w h
-    return True
-
   -- Resize handler:
-  -- Gtk.onSizeAllocate canvas (reshape canvas)
+  Gtk.onSizeAllocate canvas (reshape)
 
   -- Add canvas (OpenGL drawing area) to GUI:
-  Gtk.widgetSetSizeRequest canvas 400 300
-  -- gtkViewport <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToViewport "glViewport"
-  gtkViewport <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToHBox "glViewport"
-  Gtk.widgetSetSizeRequest gtkViewport 400 300
-  -- Gtk.containerAdd gtkViewport canvas
-  Gtk.set gtkViewport [ Gtk.containerChild := canvas ]
+  Gtk.widgetSetSizeRequest canvas canvasWidth canvasHeight
 
-  Gtk.containerResizeChildren gtkViewport
+  Gtk.set window [ Gtk.containerChild := canvas ]
 
+  -- Redraw canvas every 3ms:
   Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
     Gtk.priorityDefaultIdle 3
 
+  Gtk.widgetShowAll window
+
 canvasWidth = 400
-canvasHeight = 300
+canvasHeight = 400
+
