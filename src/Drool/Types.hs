@@ -15,31 +15,44 @@
 module Drool.Types (
    RotationVector,
    ContextSettings(..),
-   Signal,
-   SignalBuffer,
+   Signal(..),
+   SignalBuffer(..),
+   RenderPerspective(..),
    rvector_x, rvector_y, rvector_z,
-   newSignalBuffer
+   newSignalBuffer,
+   getSignal,
+   getBufferSample,
+   getSignalSample
 ) where
 
 import Data.Array.IO
 import Graphics.Rendering.OpenGL
 import Data.IORef
 
-newtype Signal = CSignal (IOArray Int GLfloat)
--- An array of signal[time] = [ GLFloat, ... ]
--- In effect, a two-dimensional matrix.
-newtype SignalBuffer = CSignalBuffer (IOArray Int Signal)
+-- A signal is an array of samples (sample type is GLfloat):
+newtype Signal = CSignal { signalArray :: IOArray Int GLfloat }
+
+-- A signal buffer is an array of signals, signal[t] = signal_t
+-- In effect, a two-dimensional matrix over samples.
+newtype SignalBuffer = CSignalBuffer { signalBufferArray :: IOArray Int Signal }
 
 -- Type for translation vector
 -- newtype TVector = TVector (Vector3 GLfloat GLfloat GLfloat)
 -- Type for rotation vector
 type RotationVector = (GLfloat, GLfloat, GLfloat)
 
+data RenderPerspective = Top | Left | Front | Isometric
+
 -- Shared settings for communication between main controller, view options
 -- and rendering:
 data ContextSettings = ContextSettings { translation :: Vector3(GLfloat,GLfloat,GLfloat),
                                          rotation :: RotationVector,
-                                         angle :: GLfloat }
+                                         angle :: GLfloat,
+                                         scaling :: GLfloat,
+                                         gridOpacity :: GLfloat,
+                                         surfaceOpacity :: GLfloat,
+                                         renderPerspective :: RenderPerspective,
+                                         signalBuf :: SignalBuffer }
 
 rvector_x :: (a,a,a) -> a
 rvector_x (x,y,z) = x
@@ -51,8 +64,20 @@ rvector_z :: (a,a,a) -> a
 rvector_z (x,y,z) = z
 
 newSignal :: IO Signal
-newSignal = fmap CSignal $ newArray(1,1024) (0::GLfloat) :: IO Signal
+newSignal = fmap CSignal $ newArray(0,1023) (0::GLfloat) :: IO Signal
 
 newSignalBuffer = do
   blankSignal <- newSignal
-  fmap CSignalBuffer $ newArray(1,100) (blankSignal) :: IO SignalBuffer
+  fmap CSignalBuffer $ newArray(0,999) (blankSignal) :: IO SignalBuffer
+
+getSignal signalBuf time_idx = readArray (signalBufferArray signalBuf) time_idx
+
+getBufferSample signalBuf time_idx sample_idx = do
+  signal <- getSignal signalBuf time_idx
+  sample <- readArray (signalArray signal) sample_idx
+  return sample
+
+getSignalSample signal sample_idx = do
+  sample <- readArray (signalArray signal) sample_idx
+  return sample
+

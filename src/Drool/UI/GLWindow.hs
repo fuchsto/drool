@@ -17,39 +17,85 @@ module Drool.UI.GLWindow (
 ) where
 
 
-import Control.Monad (unless)
-import Data.List (stripPrefix)
-import System.Exit (exitFailure)
+-- import Control.Monad (unless)
+-- import Data.List (stripPrefix)
+-- import System.Exit (exitFailure)
 import Data.IORef
+import Data.Array.IO
 import Data.List
 import Graphics.Rendering.OpenGL as GL
-import qualified Graphics.UI.Gtk as Gtk
+
 import Graphics.UI.Gtk.Abstract.Widget as GtkAbstractWidget
 import Graphics.UI.Gtk.Builder as GtkBuilder
+
+import qualified Graphics.UI.Gtk as Gtk
+import qualified Graphics.UI.GLUT as GLUT
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
-import System.Random
 
 import Graphics.UI.Gtk (AttrOp((:=)))
 
 import qualified Drool.Types as DT
 
-import Data.Maybe (fromMaybe)
+-- import Data.Maybe (fromMaybe)
 
 
 display contextSettings = do
   loadIdentity
+
+  settings <- readIORef contextSettings
+  let angle  = DT.angle settings
+  let hScale = (DT.scaling settings) / (100.0::GLfloat) * 1.5
+  let vscale = 2.0
+  let signalLineDist = 0.1::GLfloat
+
+  -- Rotate to change view perspective to isometric
+  GL.rotate (30::GLfloat) $ Vector3 1.0 0.0 0.0
+
+  GL.rotate angle $ Vector3 0.0 1.0 0.0
+
+  GL.translate $ Vector3 (-0.5 * vscale) 0 (0::GLfloat)
+
+  GL.scale 1 hScale (1::GLfloat)
+
+  -- Signal line color
   color (Color3 1 1 1 :: Color3 GLfloat)
 
-  settings <- get contextSettings
-  let angle = DT.angle settings
+  -- Load signal buffer from context
+  let signalBuf = (DT.signalBuf settings)
 
-  rotate angle $ Vector3 0 1.0 0
+  -- Load first signal from buffer
+  firstSignal <- DT.getSignal signalBuf 0
 
-  renderPrimitive Polygon $ do
-    vertex (Vertex3 0.25 0.25 0.0 :: Vertex3 GLfloat)
-    vertex (Vertex3 0.75 0.25 0.0 :: Vertex3 GLfloat)
-    vertex (Vertex3 0.75 0.75 0.0 :: Vertex3 GLfloat)
-    vertex (Vertex3 0.25 0.75 0.0 :: Vertex3 GLfloat)
+  signalBounds <- (getBounds $ DT.signalBufferArray signalBuf)
+  let numSignals = rangeSize signalBounds
+
+  samples <- getElems $ DT.signalArray firstSignal
+  let numSamples = length samples
+
+  GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
+
+  -- List of all signals in buffer [ Signal_0, ... , Signal_n ]
+  signalList <- getElems $ DT.signalBufferArray signalBuf
+
+  -- values -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
+  let toVertexList = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (0::GLfloat))
+
+  -- Expects a list of samples [GLfloat] and renders them as line:
+  let renderSamples sampleList = do color (Color3 1 1 1 :: Color3 GLfloat)
+                                    renderPrimitive LineStrip $ mapM_ GL.vertex (toVertexList [0..numSamples] sampleList)
+                                    -- render base line
+                                    color (Color3 0.5 0.5 1 :: Color3 GLfloat)
+                                    renderPrimitive LineStrip $ mapM_ vertex [
+                                      Vertex3 0.0 0 0.0, Vertex3 (1.0*vscale) 0 (0.0::GLfloat) ]
+                                    GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
+
+  -- Render every signal in the buffer
+  mapM_ (\signal -> do
+    samples <- getElems $ DT.signalArray signal
+    renderSamples samples
+    return() )
+    signalList
+
 
 reconfigure :: Int -> Int -> IO (Int, Int)
 reconfigure w h = do

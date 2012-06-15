@@ -20,6 +20,7 @@ module Main where
 import Debug.Trace
 
 import Data.IORef
+import Data.Array.IO
 
 import Graphics.Rendering.OpenGL
 import qualified Graphics.UI.Gtk as Gtk
@@ -34,14 +35,30 @@ import qualified Drool.UI.GLWindow as GLWindow
 main = do
   Gtk.initGUI
 
--- IORef to list of fourier transformations.
-  signalBuf <- newIORef(DT.newSignalBuffer)
-
+  emptyBuffer <- DT.newSignalBuffer
   contextSettings <- newIORef(
     DT.ContextSettings { DT.translation = undefined,
                          DT.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
-                         DT.angle = (0.0::GLfloat) } )
+                         DT.angle = (0.0::GLfloat),
+                         DT.scaling = 0.5,
+                         DT.gridOpacity = 0.8,
+                         DT.surfaceOpacity = 0.3,
+                         DT.renderPerspective = DT.Isometric,
+                         DT.signalBuf = emptyBuffer } )
 
+  -- samples as list
+  let samples = [ sin (x/50) | x <- [0..512] ] :: [GLfloat]
+  -- let samples = [ 0..10 ]
+  let buildSamples phase = [ sin (x/phase) | x <- [0..512] ] :: [GLfloat]
+
+  -- samples to array
+  signal <- (newListArray (0, length samples - 1) samples)::IO (IOArray Int GLfloat)
+  -- Construct signal buffer with 10 signals (10 times the same signal)
+  signals <- ((newArray(0,9) ((DT.CSignal signal)::DT.Signal))::IO (IOArray Int DT.Signal))
+  let buf = (DT.CSignalBuffer signals)::DT.SignalBuffer
+
+  settings <- readIORef contextSettings
+  contextSettings $=! settings { DT.signalBuf = buf }
 
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew

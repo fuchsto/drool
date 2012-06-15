@@ -89,6 +89,18 @@
                 <property name="homogeneous">True</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkToolButton" id="toolbuttonPlay">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">Play</property>
+                <property name="use_underline">True</property>
+                <property name="stock_id">gtk-media-play</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -332,10 +344,10 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkHScale" id="hscale2">
+                  <object class="GtkHScale" id="hscaleGridOpacity">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="adjustment">gridOpacityAdjustment</property>
+                    <property name="adjustment">adjGridOpacity</property>
                     <property name="fill_level">100</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
@@ -367,10 +379,10 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkHScale" id="hscale3">
+                  <object class="GtkHScale" id="hscaleSurfaceOpacity">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="adjustment">surfaceOpacityAdjustment</property>
+                    <property name="adjustment">adjSurfaceOpacity</property>
                     <property name="fill_level">100</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
@@ -417,10 +429,10 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkHScale" id="hscale1">
+                  <object class="GtkHScale" id="hscaleHorizontalScaling">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="adjustment">horizontalScalingAdjustment</property>
+                    <property name="adjustment">adjHorizontalScaling</property>
                     <property name="fill_level">100</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
@@ -543,16 +555,16 @@
       </object>
     </child>
   </object>
-  <object class="GtkAdjustment" id="gridOpacityAdjustment">
+  <object class="GtkAdjustment" id="adjGridOpacity">
     <property name="lower">1</property>
     <property name="upper">100</property>
     <property name="step_increment">1</property>
   </object>
-  <object class="GtkAdjustment" id="surfaceOpacityAdjustment">
+  <object class="GtkAdjustment" id="adjSurfaceOpacity">
     <property name="upper">100</property>
     <property name="step_increment">1</property>
   </object>
-  <object class="GtkAdjustment" id="horizontalScalingAdjustment">
+  <object class="GtkAdjustment" id="adjHorizontalScaling">
     <property name="lower">1</property>
     <property name="upper">100</property>
     <property name="step_increment">1</property>

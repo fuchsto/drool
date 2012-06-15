@@ -16,12 +16,18 @@ module Drool.UI.ViewOptions (
   initComponent
 ) where
 
-import Graphics.UI.Gtk as Gtk
-import Graphics.UI.Gtk.Builder as GtkBuilder
+import Data.IORef
+
+import qualified Graphics.UI.Gtk as Gtk
+import qualified Graphics.UI.Gtk.Builder as GtkBuilder
+
+import Graphics.Rendering.OpenGL
+
+import qualified Drool.Types as DT
 
 -- Initializes GUI component for view options.
 -- Expects a GtkBuilder instance.
-initComponent gtkBuilder settings = do
+initComponent gtkBuilder contextSettings = do
   putStrLn "Initializing Perspective component"
 
   button_view_perspectiveTop <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveTop"
@@ -40,5 +46,9 @@ initComponent gtkBuilder settings = do
   Gtk.onClicked button_view_perspectiveIso $ do
     putStrLn "Perspective: Isometric"
 
-
-
+  scale_view_horScaling <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToHScale "hscaleHorizontalScaling"
+  scale_view_horScalingAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjHorizontalScaling"
+  Gtk.onValueChanged scale_view_horScalingAdj $ do
+    val <- Gtk.adjustmentGetValue scale_view_horScalingAdj
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { DT.scaling = (realToFrac(val)::GLfloat) }
