@@ -15,9 +15,9 @@
 -- Main controller of the application, managing IORefs between ViewOptions
 -- and rendering display.
 
-module Main where
+{-# OPTIONS -O2 -Wall #-}
 
-import Debug.Trace
+module Main where
 
 import Data.IORef
 import Data.Array.IO
@@ -30,12 +30,17 @@ import qualified Drool.Types as DT
 import qualified Drool.UI.ViewOptions as ViewOptions
 import qualified Drool.UI.GLWindow as GLWindow
 
+-- import qualified Drool.Utils.MFifoQ as MFifoQ
+-- import Control.Monad.Queue.Allison
 
-
+main :: IO()
 main = do
-  Gtk.initGUI
+  _ <- Gtk.initGUI
 
-  emptyBuffer <- DT.newSignalBuffer
+  -- emptyBuffer <- DT.newSignalBuffer
+  emptySignal <- DT.newSignal
+  let emptySignalList = (DT.newSignalList (50::Integer) emptySignal)
+  signalBuffer <- newIORef (DT.CSignalList emptySignalList)
   contextSettings <- newIORef(
     DT.ContextSettings { DT.translation = undefined,
                          DT.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
@@ -44,21 +49,24 @@ main = do
                          DT.gridOpacity = 0.8,
                          DT.surfaceOpacity = 0.3,
                          DT.renderPerspective = DT.Isometric,
-                         DT.signalBuf = emptyBuffer } )
+                         DT.signalBuf = signalBuffer } )
 
   -- samples as list
-  let samples = [ sin (x/50) | x <- [0..512] ] :: [GLfloat]
-  -- let samples = [ 0..10 ]
-  let buildSamples phase = [ sin (x/phase) | x <- [0..512] ] :: [GLfloat]
+  let sampleList = [ sin (x/50) | x <- [0..512] ] :: [GLfloat]
 
-  -- samples to array
-  signal <- (newListArray (0, length samples - 1) samples)::IO (IOArray Int GLfloat)
+
+{-
   -- Construct signal buffer with 10 signals (10 times the same signal)
+  signal <- (newListArray (0, length samples - 1) samples)::IO (IOArray Int GLfloat)
   signals <- ((newArray(0,9) ((DT.CSignal signal)::DT.Signal))::IO (IOArray Int DT.Signal))
   let buf = (DT.CSignalBuffer signals)::DT.SignalBuffer
+-}
+ settings <- readIORef contextSettings
+--  contextSettings $=! settings { DT.signalBuf = buf }
 
-  settings <- readIORef contextSettings
-  contextSettings $=! settings { DT.signalBuf = buf }
+  -- let repeatSignal sig = sig : (repeatSignal sig)
+  -- let signals = (map (\s -> DT.CSignal s) (take 50 (repeatSignal signal)))
+  -- contextSettings $=! settings { DT.signalBuf = DT.CSignalList signals }
 
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew
@@ -84,15 +92,21 @@ main = do
   ViewOptions.initComponent builder contextSettings
 
   -- Redraw canvas every 3ms:
-  updateSettingsTimer <- Gtk.timeoutAddFull (do
-      settings <- get contextSettings
-      -- Update context settings:
-      contextSettings $=! settings { DT.angle = (DT.angle settings)+1 }
+  updateSamplesTimer <- Gtk.timeoutAddFull (do
+
+      cSettings <- readIORef contextSettings
+
+      -- Sample list to array:
+      newSignal <- (newListArray (0, length sampleList - 1) sampleList)::IO (IOArray Int GLfloat)
+      -- pop first signal in buffer, append sample list as new signal to buffer:
+      modifyIORef signalBuffer (\list -> DT.CSignalList( (drop 1 (DT.signalList list)) ++ [ DT.CSignal newSignal ]) )
+
+      contextSettings $=! cSettings { DT.angle = (DT.angle cSettings)+1 }
       return True)
-    Gtk.priorityDefaultIdle 3
+    Gtk.priorityDefaultIdle 17
 
   -- Remove timer for redrawing canvas when closing window:
-  Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSettingsTimer)
+  Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSamplesTimer)
 
   -- Display window:
   Gtk.widgetShowAll mainWindow

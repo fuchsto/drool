@@ -12,6 +12,8 @@
 --
 -----------------------------------------------------------------------------
 
+{-# OPTIONS -O2 -Wall #-}
+
 module Drool.UI.GLWindow (
     initComponent
 ) where
@@ -22,14 +24,14 @@ module Drool.UI.GLWindow (
 -- import System.Exit (exitFailure)
 import Data.IORef
 import Data.Array.IO
-import Data.List
+
 import Graphics.Rendering.OpenGL as GL
 
-import Graphics.UI.Gtk.Abstract.Widget as GtkAbstractWidget
-import Graphics.UI.Gtk.Builder as GtkBuilder
+-- import Graphics.UI.Gtk.Abstract.Widget as GtkAbstractWidget
+-- import Graphics.UI.Gtk.Builder as GtkBuilder
 
 import qualified Graphics.UI.Gtk as Gtk
-import qualified Graphics.UI.GLUT as GLUT
+-- import qualified Graphics.UI.GLUT as GLUT
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
 import Graphics.UI.Gtk (AttrOp((:=)))
@@ -38,15 +40,15 @@ import qualified Drool.Types as DT
 
 -- import Data.Maybe (fromMaybe)
 
-
+display :: IORef DT.ContextSettings -> IO ()
 display contextSettings = do
   loadIdentity
 
   settings <- readIORef contextSettings
   let angle  = DT.angle settings
-  let hScale = (DT.scaling settings) / (100.0::GLfloat) * 1.5
+  let hScale = (DT.scaling settings) / (100.0::GLfloat)
   let vscale = 2.0
-  let signalLineDist = 0.1::GLfloat
+  let signalLineDist = 0.04::GLfloat
 
   -- Rotate to change view perspective to isometric
   GL.rotate (30::GLfloat) $ Vector3 1.0 0.0 0.0
@@ -61,21 +63,24 @@ display contextSettings = do
   color (Color3 1 1 1 :: Color3 GLfloat)
 
   -- Load signal buffer from context
-  let signalBuf = (DT.signalBuf settings)
+  signalBuf <- readIORef (DT.signalBuf settings)
 
   -- Load first signal from buffer
-  firstSignal <- DT.getSignal signalBuf 0
+  -- firstSignal <- DT.getSignal signalBuf 0
+  let firstSignal = DT.getSignal signalBuf 0
 
-  signalBounds <- (getBounds $ DT.signalBufferArray signalBuf)
-  let numSignals = rangeSize signalBounds
+  -- signalBounds <- (getBounds $ DT.signalBufferArray signalBuf)
+  -- let numSignals = rangeSize signalBounds
+  let numSignals = length $ DT.signalList signalBuf
 
-  samples <- getElems $ DT.signalArray firstSignal
-  let numSamples = length samples
+  sampleList <- getElems $ DT.signalArray firstSignal
+  let numSamples = length sampleList
 
   GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
 
   -- List of all signals in buffer [ Signal_0, ... , Signal_n ]
-  signalList <- getElems $ DT.signalBufferArray signalBuf
+  -- signalList <- getElems $ DT.signalBufferArray signalBuf
+  let signalList = signalBuf
 
   -- values -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
   let toVertexList = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (0::GLfloat))
@@ -94,7 +99,7 @@ display contextSettings = do
     samples <- getElems $ DT.signalArray signal
     renderSamples samples
     return() )
-    signalList
+    (DT.signalList signalList)
 
 
 reconfigure :: Int -> Int -> IO (Int, Int)
@@ -116,6 +121,7 @@ reshape allocation = do
   matrixMode $= Modelview 0
   return ()
 
+
 initComponent gtkBuilder contextSettings = do
 
   window <- Gtk.windowNew
@@ -127,7 +133,7 @@ initComponent gtkBuilder contextSettings = do
 
   glConfig <- GtkGL.glConfigNew [GtkGL.GLModeRGBA, GtkGL.GLModeMultiSample,
                                  GtkGL.GLModeDouble, GtkGL.GLModeDepth, GtkGL.GLModeAlpha]
-  GtkGL.initGL
+  _ <- GtkGL.initGL
 
   canvas <- GtkGL.glDrawingAreaNew glConfig
 
@@ -135,12 +141,12 @@ initComponent gtkBuilder contextSettings = do
   -- (We can't initialise these things earlier since the GL resources that
   -- we are using wouldn't heve been setup yet)
 
-  Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
-    reconfigure canvasWidth canvasHeight
+  _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
+    _ <- reconfigure canvasWidth canvasHeight
     return ()
 
   -- OnShow handler for GL canvas:
-  Gtk.onExpose canvas $ \_ -> do
+  _ <- Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
       GL.clear [GL.DepthBuffer, GL.ColorBuffer]
       display contextSettings
@@ -148,7 +154,7 @@ initComponent gtkBuilder contextSettings = do
     return True
 
   -- Resize handler:
-  Gtk.onSizeAllocate canvas (reshape)
+  _ <- Gtk.onSizeAllocate canvas (reshape)
 
   -- Add canvas (OpenGL drawing area) to GUI:
   Gtk.widgetSetSizeRequest canvas canvasWidth canvasHeight
@@ -159,13 +165,15 @@ initComponent gtkBuilder contextSettings = do
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
-    Gtk.priorityDefaultIdle 3
+    Gtk.priorityDefaultIdle 20
 
   -- Remove timer for redrawing canvas when closing window:
-  Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
+  _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
 
   Gtk.widgetShowAll window
 
+canvasWidth :: Int
 canvasWidth = 400
+canvasHeight :: Int
 canvasHeight = 400
 

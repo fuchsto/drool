@@ -8,10 +8,11 @@ data-dir: ""
  
 executable drool
     build-depends: GLUT -any, OpenGL -any, QuickCheck -any, array -any,
-                   base -any, glade -any, gtk -any, gtk2hs-cast-glade -any,
-                   gtkglext -any, random -any
+                   base -any, control-monad-queue -any, glade -any, gtk -any,
+                   gtk2hs-cast-glade -any, gtkglext -any, random -any
     main-is: Drool\Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Drool.UI.GLWindow Drool.Types Drool.UI.GLUTWindow
+    other-modules: Drool.Utils.SigGen Drool.Utils.MFifoQ Drool.Types
+                   Drool.UI.GLWindow Drool.UI.GLUTWindow
  

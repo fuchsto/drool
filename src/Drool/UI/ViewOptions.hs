@@ -12,6 +12,8 @@
 --
 -----------------------------------------------------------------------------
 
+{-# OPTIONS -O2 -Wall #-}
+
 module Drool.UI.ViewOptions (
   initComponent
 ) where
