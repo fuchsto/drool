@@ -55,22 +55,7 @@ main = do
                          DT.renderPerspective = DT.Isometric,
                          DT.signalBuf = signalBuffer } )
 
-  -- samples as list
-  -- let sampleList = [ sin (x/50) | x <- [0..512] ] :: [GLfloat]
-  let sampleList = [ realToFrac(SigGen.square 100 x) | x <- [0..200] ] :: [GLfloat]
-
-{-
-  -- Construct signal buffer with 10 signals (10 times the same signal)
-  signal <- (newListArray (0, length samples - 1) samples)::IO (IOArray Int GLfloat)
-  signals <- ((newArray(0,9) ((DT.CSignal signal)::DT.Signal))::IO (IOArray Int DT.Signal))
-  let buf = (DT.CSignalBuffer signals)::DT.SignalBuffer
--}
   settings <- readIORef contextSettings
---  contextSettings $=! settings { DT.signalBuf = buf }
-
-  -- let repeatSignal sig = sig : (repeatSignal sig)
-  -- let signals = (map (\s -> DT.CSignal s) (take 50 (repeatSignal signal)))
-  -- contextSettings $=! settings { DT.signalBuf = DT.CSignalList signals }
 
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew
@@ -97,27 +82,20 @@ main = do
 
   -- Playing around with signal generators:
 
-  -- let transform pLength t sample = (SigGen.saw pLength t) * sample
-  let transform pLength t sample = sample + fromIntegral(t)/100.0
+  let transform pLength t sample = (SigGen.sine pLength t) * sample
+  -- let transform pLength t sample = sample + fromIntegral(t)/100.0
   let siggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal SigGen.sine,
                                          SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                          SigGen.signalPeriodLength = 100,
-                                         SigGen.transPeriodLength = 10,
+                                         SigGen.transPeriodLength = 150,
                                          SigGen.numSamples = 200 }
   let generator = SigGen.nextSignal siggen
 
-  putStrLn $ "Sample 1: " ++ show (evalState generator 0)
-
-
-
-  -----------------------------------------
-
-  -- Redraw canvas every 3ms:
-  updateSamplesTimer <- Gtk.timeoutAddFull (do
+  let updateCallback count = (do
 
       cSettings <- readIORef contextSettings
 
-      let genSampleList = take 200 (map (\s -> (realToFrac s) :: GLfloat) (evalState generator 0))
+      let genSampleList = take 200 (map (\s -> (realToFrac s) :: GLfloat) (evalState generator count))
 
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
@@ -125,8 +103,14 @@ main = do
       modifyIORef signalBuffer (\list -> DT.CSignalList( (drop 1 (DT.signalList list)) ++ [ DT.CSignal newSignal ]) )
 
       contextSettings $=! cSettings { DT.angle = (DT.angle cSettings)+1 }
-      return True)
-    Gtk.priorityDefaultIdle 17
+
+      Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityDefaultIdle 17
+
+      -- do not run this callback again:
+      return False)
+
+  -- Redraw canvas every 3ms:
+  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 17
 
   -- Remove timer for redrawing canvas when closing window:
   Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSamplesTimer)

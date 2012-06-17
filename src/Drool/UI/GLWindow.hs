@@ -113,8 +113,8 @@ reconfigure w h = do
   return (w', h')
 
 reshape allocation = do
-  let width  = 400
-  let height = 400
+  let width  = canvasWidth
+  let height = canvasHeight
   viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
   matrixMode $= Modelview 0
   return ()
@@ -180,7 +180,7 @@ initComponent gtkBuilder contextSettings = do
   Gtk.widgetShowAll window
 
 canvasWidth :: Int
-canvasWidth = 400
+canvasWidth = 800
 canvasHeight :: Int
-canvasHeight = 400
+canvasHeight = 800
 
