@@ -65,16 +65,14 @@ display contextSettings = do
   -- Load signal buffer from context
   signalBuf <- readIORef (DT.signalBuf settings)
 
-  -- Load first signal from buffer
-  -- firstSignal <- DT.getSignal signalBuf 0
-  let firstSignal = DT.getSignal signalBuf 0
-
   -- signalBounds <- (getBounds $ DT.signalBufferArray signalBuf)
   -- let numSignals = rangeSize signalBounds
   let numSignals = length $ DT.signalList signalBuf
 
-  sampleList <- getElems $ DT.signalArray firstSignal
-  let numSamples = length sampleList
+  -- Load first signal from buffer to get its length
+  let firstSignal = DT.getSignal signalBuf 0
+  firstSignalBounds <- getBounds $ DT.signalArray firstSignal
+  let numSamples = rangeSize firstSignalBounds
 
   GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
 
@@ -135,6 +133,15 @@ initComponent gtkBuilder contextSettings = do
                                  GtkGL.GLModeDouble, GtkGL.GLModeDepth, GtkGL.GLModeAlpha]
   _ <- GtkGL.initGL
 
+  dither $= Enabled
+  shadeModel $= Smooth
+  hint PerspectiveCorrection $= Nicest
+  hint PolygonSmooth $= Nicest
+  hint LineSmooth $= Nicest
+
+  polygonSmooth $= Enabled
+  lineSmooth $= Enabled
+
   canvas <- GtkGL.glDrawingAreaNew glConfig
 
   -- Initialise some GL setting just before the canvas first gets shown
@@ -161,7 +168,7 @@ initComponent gtkBuilder contextSettings = do
 
   Gtk.set window [ Gtk.containerChild := canvas ]
 
-  -- Redraw canvas every 3ms:
+  -- Redraw canvas every 20ms:
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)

@@ -4,15 +4,16 @@ cabal-version: >=1.2
 build-type: Simple
 license: AllRightsReserved
 license-file: ""
+description:  
 data-dir: ""
  
 executable drool
     build-depends: GLUT -any, OpenGL -any, QuickCheck -any, array -any,
                    base -any, control-monad-queue -any, glade -any, gtk -any,
-                   gtk2hs-cast-glade -any, gtkglext -any, random -any
+                   gtk2hs-cast-glade -any, gtkglext -any, mtl -any, random -any
     main-is: Drool\Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Drool.Utils.SigGen Drool.Utils.MFifoQ Drool.Types
+    other-modules: Drool.Types Drool.Utils.SigGen Drool.Utils.MFifoQ
                    Drool.UI.GLWindow Drool.UI.GLUTWindow
  
