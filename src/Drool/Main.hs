@@ -37,10 +37,11 @@ main :: IO()
 main = do
   _ <- Gtk.initGUI
 
-  -- emptyBuffer <- DT.newSignalBuffer
+  let signalBufferSize = 50
   emptySignal <- DT.newSignal
-  let emptySignalList = (DT.newSignalList (50::Integer) emptySignal)
-  signalBuffer <- newIORef (DT.CSignalList emptySignalList)
+  -- Initialize signal buffer with signalBufferSize empty signals:
+  let emptySignalBuffer = (DT.newSignalList (signalBufferSize::Integer) emptySignal)
+  signalBuffer <- newIORef (DT.CSignalList emptySignalBuffer)
   contextSettings <- newIORef(
     DT.ContextSettings { DT.translation = undefined,
                          DT.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
