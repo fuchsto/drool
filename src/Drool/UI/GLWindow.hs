@@ -22,7 +22,7 @@ module Drool.UI.GLWindow (
 -- import Control.Monad (unless)
 -- import Data.List (stripPrefix)
 -- import System.Exit (exitFailure)
-import Data.IORef
+import Data.IORef(IORef, readIORef)
 import Data.Array.IO
 
 import Graphics.Rendering.OpenGL as GL
@@ -31,17 +31,20 @@ import Graphics.Rendering.OpenGL as GL
 -- import Graphics.UI.Gtk.Builder as GtkBuilder
 
 import qualified Graphics.UI.Gtk as Gtk
--- import qualified Graphics.UI.GLUT as GLUT
+import Graphics.UI.Gtk (AttrOp((:=)))
+
+-- import Graphics.UI.GLUT(ReshapeCallback,reshapeCallback)
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
-import Graphics.UI.Gtk (AttrOp((:=)))
 
 import qualified Drool.Types as DT
 
--- import Data.Maybe (fromMaybe)
+
 
 display :: IORef DT.ContextSettings -> IO ()
 display contextSettings = do
+  clear [ColorBuffer]
+  matrixMode $= Modelview 0
   loadIdentity
 
   settings <- readIORef contextSettings
@@ -50,23 +53,30 @@ display contextSettings = do
   let vscale = 2.0
   let signalLineDist = 0.04::GLfloat
 
-  -- Rotate to change view perspective to isometric
-  GL.rotate (30::GLfloat) $ Vector3 1.0 0.0 0.0
+  -- Rotate/translate to change view perspective to isometric
+  case DT.renderPerspective settings of
+    DT.Isometric -> do
+      GL.translate $ Vector3 0 0.1 (-1.7::GLfloat)
+      GL.rotate (45::GLfloat) $ Vector3 1.0 0.0 0.0
+      GL.rotate (45::GLfloat) $ Vector3 0.0 1.0 0.0
+      GL.rotate angle $ Vector3 0.0 1.0 0.0
+    DT.Top -> do
+      GL.translate $ Vector3 0 0 (-1.8::GLfloat)
+      GL.rotate (90::GLfloat) $ Vector3 1.0 0.0 0.0
+    DT.Front -> do
+      GL.translate $ Vector3 0 0 (-2.0::GLfloat)
+    DT.Side -> do
+      GL.translate $ Vector3 0 0 (-2.0::GLfloat)
+      GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
 
-  GL.rotate angle $ Vector3 0.0 1.0 0.0
 
-  GL.translate $ Vector3 (-0.5 * vscale) 0 (0::GLfloat)
+  GL.translate $ Vector3 (-0.5 * vscale) 0 0
 
   GL.scale 1 hScale (1::GLfloat)
-
-  -- Signal line color
-  color (Color3 1 1 1 :: Color3 GLfloat)
 
   -- Load signal buffer from context
   signalBuf <- readIORef (DT.signalBuf settings)
 
-  -- signalBounds <- (getBounds $ DT.signalBufferArray signalBuf)
-  -- let numSignals = rangeSize signalBounds
   let numSignals = length $ DT.signalList signalBuf
 
   -- Load first signal from buffer to get its length
@@ -78,18 +88,18 @@ display contextSettings = do
 
   -- List of all signals in buffer [ Signal_0, ... , Signal_n ]
   -- signalList <- getElems $ DT.signalBufferArray signalBuf
-  let signalList = signalBuf
+  -- let signalList = signalBuf
 
   -- values -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
   let toVertexList = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (0::GLfloat))
 
   -- Expects a list of samples [GLfloat] and renders them as line:
-  let renderSamples sampleList = do color (Color3 1 1 1 :: Color3 GLfloat)
+  let renderSamples sampleList = do color (Color4 1 1 1 0.5 :: Color4 GLfloat)
                                     renderPrimitive LineStrip $ mapM_ GL.vertex (toVertexList [0..numSamples] sampleList)
                                     -- render base line
-                                    color (Color3 0.5 0.5 1 :: Color3 GLfloat)
-                                    renderPrimitive LineStrip $ mapM_ vertex [
-                                      Vertex3 0.0 0 0.0, Vertex3 (1.0*vscale) 0 (0.0::GLfloat) ]
+                                    -- color (Color3 0.5 0.5 1 :: Color3 GLfloat)
+                                    -- renderPrimitive LineStrip $ mapM_ vertex [
+                                    --   Vertex3 0.0 0 0.0, Vertex3 (1.0*vscale) 0 (0.0::GLfloat) ]
                                     GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
 
   -- Render every signal in the buffer
@@ -97,7 +107,9 @@ display contextSettings = do
     samples <- getElems $ DT.signalArray signal
     renderSamples samples
     return() )
-    (DT.signalList signalList)
+    (DT.signalList signalBuf)
+
+  GL.flush
 
 
 reconfigure :: Int -> Int -> IO (Int, Int)
@@ -120,7 +132,7 @@ reshape allocation = do
   return ()
 
 
-initComponent gtkBuilder contextSettings = do
+initComponent _ contextSettings = do
 
   window <- Gtk.windowNew
 
@@ -135,9 +147,12 @@ initComponent gtkBuilder contextSettings = do
 
   dither $= Enabled
   shadeModel $= Smooth
+  blend $= Enabled
   hint PerspectiveCorrection $= Nicest
   hint PolygonSmooth $= Nicest
   hint LineSmooth $= Nicest
+
+  -- blendFunc $= GL.SourceAlpha GL.OneMinusSourceAlpha
 
   polygonSmooth $= Enabled
   lineSmooth $= Enabled
@@ -146,10 +161,17 @@ initComponent gtkBuilder contextSettings = do
 
   -- Initialise some GL setting just before the canvas first gets shown
   -- (We can't initialise these things earlier since the GL resources that
-  -- we are using wouldn't heve been setup yet)
+  -- we are using wouldn't have been setup yet)
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
-    _ <- reconfigure canvasWidth canvasHeight
+    -- _ <- reconfigure canvasWidth canvasHeight
+    putStrLn "onRealize canvas"
+    matrixMode $= Projection
+    loadIdentity
+    viewport $= (Position 0 0, Size (fromIntegral 800) (fromIntegral 800))
+    perspective 90 (fromIntegral 800 / fromIntegral 800) 0.1 100
+    matrixMode $= Modelview 0
+    loadIdentity
     return ()
 
   -- OnShow handler for GL canvas:

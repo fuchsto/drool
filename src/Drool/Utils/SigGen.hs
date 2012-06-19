@@ -20,8 +20,7 @@ module Drool.Utils.SigGen (
   AmpTransformation(..),
   SignalGenerator(..),
 
-  genSignal,
-  nextSignal
+  genSignal
 ) where
 
 import Control.Monad.State
@@ -30,8 +29,6 @@ import Control.Monad.State
 type SValue = Float
 type TValue = Int
 
--- A signal generator state is a state over a TValue producing a SampleValue.
-type SignalGeneratorState = State TValue [SValue]
 
 -- Generates a dirac impulse of amplitude 1 in every period.
 dirac :: Int -> TValue -> SValue
@@ -43,7 +40,7 @@ square periodlength t = if phase < wl'/2.0 then fromIntegral 1 else fromIntegral
   where phase = fromIntegral(t `mod` periodlength)
         wl'   = fromIntegral(periodlength)
 
--- Generates a square signal of amplitude (-1..1) and given period length.
+-- Generates a sine signal of amplitude (-1..1) and given period length.
 sine :: Int -> TValue -> SValue
 sine periodlength t = sin (t'*2*pi/pl')
   where t'  = fromIntegral t
@@ -76,13 +73,6 @@ genSignal siggen t = [ ampFun tpLength t (sigFun spLength x) | x <- [0..nSamples
         tpLength = transPeriodLength siggen
         ampFun   = ampTransformationFun $ ampTransformation siggen
         nSamples = numSamples siggen
-
--- Usage: nextSignal mySignalGenerator 0
-nextSignal :: SignalGenerator -> SignalGeneratorState
-nextSignal siggen = do
-  time <- get
-  put (time+1)
-  return $ genSignal siggen time
 
 
 

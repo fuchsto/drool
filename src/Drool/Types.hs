@@ -53,7 +53,7 @@ newtype SignalList = CSignalList { signalList :: [Signal] }
 -- Type for rotation vector
 type RotationVector = (GLfloat, GLfloat, GLfloat)
 
-data RenderPerspective = Top | Left | Front | Isometric
+data RenderPerspective = Top | Side | Front | Isometric
 
 -- Shared settings for communication between main controller, view options
 -- and rendering:

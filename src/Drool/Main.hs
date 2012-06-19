@@ -22,8 +22,6 @@ module Main where
 import Data.IORef
 import Data.Array.IO
 
-import Control.Monad.State(evalState)
-
 import Graphics.Rendering.OpenGL
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
@@ -34,8 +32,6 @@ import qualified Drool.UI.GLWindow as GLWindow
 
 import qualified Drool.Utils.SigGen as SigGen
 
--- import qualified Drool.Utils.MFifoQ as MFifoQ
--- import Control.Monad.Queue.Allison
 
 main :: IO()
 main = do
@@ -55,8 +51,6 @@ main = do
                          DT.renderPerspective = DT.Isometric,
                          DT.signalBuf = signalBuffer } )
 
-  settings <- readIORef contextSettings
-
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew
   GtkBuilder.builderAddFromFile builder "droolui-test.glade"
@@ -66,19 +60,19 @@ main = do
 
 
   openVisualizerButton <- GtkBuilder.builderGetObject builder Gtk.castToButton "buttonVisualizer"
-  Gtk.onClicked openVisualizerButton $ do
+  _ <- Gtk.onClicked openVisualizerButton $ do
     GLWindow.initComponent builder contextSettings
 
   -- Application exit callback (quits main loop):
-  Gtk.onDestroy mainWindow Gtk.mainQuit
+  _ <- Gtk.onDestroy mainWindow Gtk.mainQuit
 
   -- Define button callbacks:
   menuItem_FileClose <- GtkBuilder.builderGetObject builder Gtk.castToMenuItem "menuitemFileQuit"
-  Gtk.on menuItem_FileClose Gtk.menuItemActivate $ do
+  _ <- Gtk.on menuItem_FileClose Gtk.menuItemActivate $ do
     putStrLn "Exiting"
     Gtk.widgetDestroy mainWindow
 
-  ViewOptions.initComponent builder contextSettings
+  _ <- ViewOptions.initComponent builder contextSettings
 
   -- Playing around with signal generators:
 
@@ -89,13 +83,12 @@ main = do
                                          SigGen.signalPeriodLength = 100,
                                          SigGen.transPeriodLength = 150,
                                          SigGen.numSamples = 200 }
-  let generator = SigGen.nextSignal siggen
 
   let updateCallback count = (do
 
       cSettings <- readIORef contextSettings
 
-      let genSampleList = take 200 (map (\s -> (realToFrac s) :: GLfloat) (evalState generator count))
+      let genSampleList = take 200 (map (\s -> (realToFrac s) :: GLfloat) (SigGen.genSignal siggen count))
 
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
@@ -104,19 +97,20 @@ main = do
 
       contextSettings $=! cSettings { DT.angle = (DT.angle cSettings)+1 }
 
-      Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityDefaultIdle 17
+      -- Start a new timeout with incremented count:
+      _ <- Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityDefaultIdle 20
 
       -- do not run this callback again:
       return False)
 
   -- Redraw canvas every 3ms:
-  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 17
+  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 20
 
   -- Remove timer for redrawing canvas when closing window:
-  Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSamplesTimer)
+  _ <- Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSamplesTimer)
 
   -- Display window:
-  Gtk.widgetShowAll mainWindow
+  _ <- Gtk.widgetShowAll mainWindow
 
   -- Enter GUI main loop:
   Gtk.mainGUI
