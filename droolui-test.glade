@@ -527,9 +527,9 @@
                     <child>
                       <object class="GtkComboBox" id="comboboxGenerator">
                         <property name="visible">True</property>
-                        <property name="model">liststoreSignalGenerator</property>
+                        <property name="active">0</property>
                         <property name="has_entry">True</property>
-                        <property name="entry_text_column">2</property>
+                        <property name="entry_text_column">1</property>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -577,8 +577,9 @@
                     <child>
                       <object class="GtkComboBox" id="comboboxEnvelope">
                         <property name="visible">True</property>
-                        <property name="model">liststoreEnvelope</property>
+                        <property name="active">0</property>
                         <property name="has_entry">True</property>
+                        <property name="entry_text_column">1</property>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -645,6 +646,9 @@
                       <placeholder/>
                     </child>
                   </object>
+                  <packing>
+                    <property name="menu_label">Test signals</property>
+                  </packing>
                 </child>
                 <child type="tab">
                   <object class="GtkLabel" id="labelTestSignals">
@@ -656,7 +660,32 @@
                   </packing>
                 </child>
                 <child>
-                  <placeholder/>
+                  <object class="GtkTable" id="table1">
+                    <property name="visible">True</property>
+                    <property name="n_rows">3</property>
+                    <property name="n_columns">2</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="position">1</property>
+                  </packing>
                 </child>
                 <child type="tab">
                   <object class="GtkLabel" id="labelMicrophone">
@@ -669,7 +698,32 @@
                   </packing>
                 </child>
                 <child>
-                  <placeholder/>
+                  <object class="GtkTable" id="table2">
+                    <property name="visible">True</property>
+                    <property name="n_rows">3</property>
+                    <property name="n_columns">2</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="position">2</property>
+                  </packing>
                 </child>
                 <child type="tab">
                   <object class="GtkLabel" id="labelAudioFile">

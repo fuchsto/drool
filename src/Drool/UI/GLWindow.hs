@@ -41,10 +41,12 @@ display contextSettings = do
   loadIdentity
 
   settings <- readIORef contextSettings
-  let angle  = DT.angle settings
-  let hScale = (DT.scaling settings) / (100.0::GLfloat)
-  let vscale = 2.0
-  let signalLineDist = 0.04::GLfloat
+  let angle          = DT.angle settings
+      hScale         = (DT.scaling settings) / (100.0::GLfloat)
+      gridOpacity    = (DT.gridOpacity settings) / (100.0::GLfloat)
+      surfOpacity    = (DT.surfaceOpacity settings) / (100.0::GLfloat)
+      vscale         = 2.0
+      signalLineDist = 0.04::GLfloat
 
   -- Rotate/translate to change view perspective to isometric
   case DT.renderPerspective settings of
@@ -79,24 +81,56 @@ display contextSettings = do
 
   GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
 
-  -- values -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
-  let toVertexList = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (0::GLfloat))
+  -- [ value_0, ..., value_n ] -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
+  let toVertexList zVal = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (zVal::GLfloat))
 
   -- Expects a list of samples [GLfloat] and renders them as line:
-  let renderSamples sampleList = do color (Color4 1 1 1 0.5 :: Color4 GLfloat)
-                                    renderPrimitive LineStrip $ mapM_ GL.vertex (toVertexList [0..numSamples] sampleList)
-                                    -- render base line
-                                    -- color (Color3 0.5 0.5 1 :: Color3 GLfloat)
-                                    -- renderPrimitive LineStrip $ mapM_ vertex [
-                                    --   Vertex3 0.0 0 0.0, Vertex3 (1.0*vscale) 0 (0.0::GLfloat) ]
-                                    GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
+  let renderSampleLines sampleList = do renderPrimitive LineStrip (
+                                          mapM_ GL.vertex (toVertexList 0 [0..numSamples] sampleList) )
+                                        GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
 
-  -- Render every signal in the buffer
-  mapM_ (\signal -> do
-    samples <- getElems $ DT.signalArray signal
-    renderSamples samples
-    return() )
-    (DT.signalList signalBuf)
+  let tuplesToVertexList idx = zipWith (\i (v1,v2) ->
+        let zVal = (fromIntegral idx) * signalLineDist in
+          [ Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v1 (zVal::GLfloat),
+            Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v2 (zVal+signalLineDist::GLfloat) ] )
+  let renderSampleSurfaceStrip sampleTupleList idx = do color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
+                                                        renderPrimitive TriangleStrip (
+                                                          mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
+                                                        color (Color4 1 1 1 gridOpacity :: Color4 GLfloat)
+                                                        renderPrimitive LineStrip (
+                                                          mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
+
+  -- Render grid lines:
+{-
+  color (Color4 1 1 1 gridOpacity :: Color4 GLfloat)
+  preservingMatrix $ do
+    -- Render every signal in the buffer as line
+    mapM_ (\signal -> do
+      samples <- getElems $ DT.signalArray signal
+      renderSampleLines samples
+      return() )
+      (DT.signalList signalBuf)
+-}
+
+  let flattenTupleList (x:xs) = case x of
+                                  (f,s) -> f : s : flattenTupleList(xs)
+                                  _ -> []
+
+
+  -- Render surface:
+  color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
+  let renderSignalSurfaceStrip signals count = (
+        case signals of
+            (sig:nextSig:xs) -> (
+              do samples <- getElems $ DT.signalArray sig
+                 nextSamples <- getElems $ DT.signalArray nextSig
+                 renderSampleSurfaceStrip (zip samples nextSamples) count
+                 -- recurse
+                 renderSignalSurfaceStrip(drop 1 signals) (count+1)
+                 return () )
+            (sig:[]) -> return () )
+
+  renderSignalSurfaceStrip (DT.signalList signalBuf) 0
 
   GL.flush
 
@@ -121,18 +155,6 @@ initComponent _ contextSettings = do
                                  GtkGL.GLModeDouble, GtkGL.GLModeDepth, GtkGL.GLModeAlpha]
   _ <- GtkGL.initGL
 
-  dither $= Enabled
-  shadeModel $= Smooth
-  blend $= Enabled
-  hint PerspectiveCorrection $= Nicest
-  hint PolygonSmooth $= Nicest
-  hint LineSmooth $= Nicest
-
-  blendFunc $= (SrcAlpha, One)
-
-  polygonSmooth $= Enabled
-  lineSmooth $= Enabled
-
   canvas <- GtkGL.glDrawingAreaNew glConfig
 
   -- Initialise some GL setting just before the canvas first gets shown
@@ -140,6 +162,16 @@ initComponent _ contextSettings = do
   -- we are using wouldn't have been setup yet)
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
+    dither $= Enabled
+    shadeModel $= Smooth
+    blend $= Enabled
+    polygonSmooth $= Enabled
+    lineSmooth $= Enabled
+    blendFunc $= (SrcAlpha, One)
+    hint PerspectiveCorrection $= Nicest
+    hint PolygonSmooth $= Nicest
+    hint LineSmooth $= Nicest
+
     matrixMode $= Projection
     loadIdentity
     viewport $= (Position 0 0, Size (fromIntegral 800) (fromIntegral 800))

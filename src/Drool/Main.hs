@@ -82,7 +82,7 @@ main = do
   let siggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal SigGen.sine,
                                          SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                          SigGen.signalPeriodLength = 100,
-                                         SigGen.transPeriodLength = 150,
+                                         SigGen.transPeriodLength = 70,
                                          SigGen.numSamples = 200 }
 
   let updateCallback count = (do
