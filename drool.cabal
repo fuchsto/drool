@@ -4,7 +4,6 @@ cabal-version: >=1.2
 build-type: Simple
 license: AllRightsReserved
 license-file: ""
-description:  
 data-dir: ""
  
 executable drool
@@ -14,6 +13,7 @@ executable drool
     main-is: Drool\Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Drool.Types Drool.Utils.SigGen Drool.Utils.MFifoQ
-                   Drool.UI.GLWindow Drool.UI.GLUTWindow
+    other-modules: Drool.ApplicationContext Drool.UI.SignalSource
+                   Drool.Types Drool.Utils.SigGen Drool.Utils.MFifoQ Drool.UI.GLWindow
+                   Drool.UI.GLUTWindow
  

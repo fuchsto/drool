@@ -16,7 +16,6 @@
 
 module Drool.Types (
    RotationVector,
-   ContextSettings(..),
    Signal(..),
    SignalBuffer(..),
    SignalList(..),
@@ -27,12 +26,14 @@ module Drool.Types (
    newSignalList,
    getSignal,
    getBufferSample,
-   getSignalSample
+   getSignalSample,
+
+   gtkColorToGLColor
 ) where
 
 import Data.Array.IO
 import Graphics.Rendering.OpenGL
-import Data.IORef
+import qualified Graphics.UI.Gtk as Gtk
 
 -- import Drool.Utils.MFifoQ
 
@@ -54,17 +55,6 @@ newtype SignalList = CSignalList { signalList :: [Signal] }
 type RotationVector = (GLfloat, GLfloat, GLfloat)
 
 data RenderPerspective = Top | Side | Front | Isometric
-
--- Shared settings for communication between main controller, view options
--- and rendering:
-data ContextSettings = ContextSettings { translation :: Vector3(GLfloat,GLfloat,GLfloat),
-                                         rotation :: RotationVector,
-                                         angle :: GLfloat,
-                                         scaling :: GLfloat,
-                                         gridOpacity :: GLfloat,
-                                         surfaceOpacity :: GLfloat,
-                                         renderPerspective :: RenderPerspective,
-                                         signalBuf :: (IORef SignalList) }
 
 rvector_x :: (a,a,a) -> a
 rvector_x (x,_,_) = x
@@ -104,4 +94,10 @@ getBufferSample signals time_idx sample_idx = do
 getSignalSample signal sample_idx = do
   sample <- readArray (signalArray signal) sample_idx
   return sample
+
+gtkColorToGLColor :: Gtk.Color -> Color3 GLfloat
+gtkColorToGLColor (Gtk.Color r g b) = Color3 r' g' b'
+  where r' = ((fromIntegral r) / 65535.0) :: GLfloat
+        g' = ((fromIntegral g) / 65535.0) :: GLfloat
+        b' = ((fromIntegral b) / 65535.0) :: GLfloat
 

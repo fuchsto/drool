@@ -197,7 +197,7 @@
             <child>
               <object class="GtkTable" id="tableViewOptions">
                 <property name="visible">True</property>
-                <property name="n_rows">5</property>
+                <property name="n_rows">11</property>
                 <property name="n_columns">2</property>
                 <child>
                   <object class="GtkHBox" id="hboxPerspectiveButtons">
@@ -350,7 +350,6 @@
                     <property name="can_focus">True</property>
                     <property name="adjustment">adjGridOpacity</property>
                     <property name="fill_level">100</property>
-                    <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
                   </object>
@@ -385,7 +384,6 @@
                     <property name="can_focus">True</property>
                     <property name="adjustment">adjSurfaceOpacity</property>
                     <property name="fill_level">100</property>
-                    <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
                   </object>
@@ -435,7 +433,6 @@
                     <property name="can_focus">True</property>
                     <property name="adjustment">adjHorizontalScaling</property>
                     <property name="fill_level">100</property>
-                    <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
                   </object>
@@ -457,7 +454,7 @@
                     <property name="right_attach">2</property>
                     <property name="top_attach">1</property>
                     <property name="bottom_attach">2</property>
-                    <property name="y_padding">6</property>
+                    <property name="y_padding">5</property>
                   </packing>
                 </child>
                 <child>
@@ -467,7 +464,220 @@
                   <packing>
                     <property name="top_attach">1</property>
                     <property name="bottom_attach">2</property>
-                    <property name="y_padding">6</property>
+                    <property name="y_padding">5</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkHSeparator" id="hseparator3">
+                    <property name="visible">True</property>
+                  </object>
+                  <packing>
+                    <property name="top_attach">5</property>
+                    <property name="bottom_attach">6</property>
+                    <property name="y_padding">5</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkHSeparator" id="hseparator4">
+                    <property name="visible">True</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="right_attach">2</property>
+                    <property name="top_attach">5</property>
+                    <property name="bottom_attach">6</property>
+                    <property name="y_padding">5</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="labelSurfaceColor">
+                    <property name="visible">True</property>
+                    <property name="xalign">1</property>
+                    <property name="xpad">3</property>
+                    <property name="label" translatable="yes">Surface color</property>
+                    <property name="justify">right</property>
+                  </object>
+                  <packing>
+                    <property name="top_attach">6</property>
+                    <property name="bottom_attach">7</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="labelLightColor">
+                    <property name="visible">True</property>
+                    <property name="xalign">1</property>
+                    <property name="xpad">3</property>
+                    <property name="label" translatable="yes">Light color</property>
+                    <property name="justify">right</property>
+                  </object>
+                  <packing>
+                    <property name="top_attach">7</property>
+                    <property name="bottom_attach">8</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkColorButton" id="colorbuttonSurface">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="color">#3e7ebb46ffe2</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="right_attach">2</property>
+                    <property name="top_attach">6</property>
+                    <property name="bottom_attach">7</property>
+                    <property name="x_options"></property>
+                    <property name="y_options"></property>
+                    <property name="x_padding">5</property>
+                    <property name="y_padding">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkColorButton" id="colorbuttonLight">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="color">#efa2135e8925</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="right_attach">2</property>
+                    <property name="top_attach">7</property>
+                    <property name="bottom_attach">8</property>
+                    <property name="x_options"></property>
+                    <property name="y_options"></property>
+                    <property name="x_padding">5</property>
+                    <property name="y_padding">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="labelAutoRotate">
+                    <property name="visible">True</property>
+                    <property name="xalign">1</property>
+                    <property name="label" translatable="yes">Auto rotate</property>
+                  </object>
+                  <packing>
+                    <property name="top_attach">10</property>
+                    <property name="bottom_attach">11</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkHBox" id="hbox3">
+                    <property name="visible">True</property>
+                    <child>
+                      <object class="GtkLabel" id="labelAutoRotateVertical">
+                        <property name="visible">True</property>
+                        <property name="xalign">1</property>
+                        <property name="xpad">8</property>
+                        <property name="label" translatable="yes">vertical increment</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="spinbuttonAutoRotateVertical">
+                        <property name="width_request">45</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="invisible_char">&#x25CF;</property>
+                        <property name="adjustment">adjAutoRotateVertical</property>
+                        <property name="digits">2</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="padding">4</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="labelAutoRotateHorizontal">
+                        <property name="visible">True</property>
+                        <property name="xalign">1</property>
+                        <property name="xpad">8</property>
+                        <property name="label" translatable="yes">horizonal increment</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkSpinButton" id="spinbuttonAutoRotateHorizontal">
+                        <property name="width_request">45</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="invisible_char">&#x25CF;</property>
+                        <property name="adjustment">adjAutoRotateHorizontal</property>
+                        <property name="digits">2</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="padding">4</property>
+                        <property name="position">3</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="right_attach">2</property>
+                    <property name="top_attach">10</property>
+                    <property name="bottom_attach">11</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkHSeparator" id="hseparator5">
+                    <property name="visible">True</property>
+                  </object>
+                  <packing>
+                    <property name="top_attach">9</property>
+                    <property name="bottom_attach">10</property>
+                    <property name="y_padding">5</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkHSeparator" id="hseparator6">
+                    <property name="visible">True</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="right_attach">2</property>
+                    <property name="top_attach">9</property>
+                    <property name="bottom_attach">10</property>
+                    <property name="y_padding">5</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="labelGridColor">
+                    <property name="visible">True</property>
+                    <property name="xalign">1</property>
+                    <property name="xpad">3</property>
+                    <property name="label" translatable="yes">Grid color</property>
+                  </object>
+                  <packing>
+                    <property name="top_attach">8</property>
+                    <property name="bottom_attach">9</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkColorButton" id="colorbuttonGrid">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="color">#ffffffffffff</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="right_attach">2</property>
+                    <property name="top_attach">8</property>
+                    <property name="bottom_attach">9</property>
+                    <property name="x_options"></property>
                   </packing>
                 </child>
               </object>
@@ -476,9 +686,6 @@
                 <property name="fill">False</property>
                 <property name="position">1</property>
               </packing>
-            </child>
-            <child>
-              <placeholder/>
             </child>
           </object>
           <packing>
@@ -527,9 +734,16 @@
                     <child>
                       <object class="GtkComboBox" id="comboboxGenerator">
                         <property name="visible">True</property>
+                        <property name="model">liststoreSignalGenerator</property>
                         <property name="active">0</property>
-                        <property name="has_entry">True</property>
-                        <property name="entry_text_column">1</property>
+                        <child>
+                          <object class="GtkCellRendererCombo" id="comboboxGeneratorCell">
+                            <property name="model">liststoreSignalGenerator</property>
+                          </object>
+                          <attributes>
+                            <attribute name="text">1</attribute>
+                          </attributes>
+                        </child>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -577,9 +791,16 @@
                     <child>
                       <object class="GtkComboBox" id="comboboxEnvelope">
                         <property name="visible">True</property>
+                        <property name="model">liststoreEnvelope</property>
                         <property name="active">0</property>
-                        <property name="has_entry">True</property>
-                        <property name="entry_text_column">1</property>
+                        <child>
+                          <object class="GtkCellRendererCombo" id="comboboxEnvelopeCell">
+                            <property name="model">liststoreEnvelope</property>
+                          </object>
+                          <attributes>
+                            <attribute name="text">1</attribute>
+                          </attributes>
+                        </child>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -621,7 +842,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="buttonSetSignalGenerator">
+                      <object class="GtkButton" id="buttonActivateSignalGenerator">
                         <property name="label" translatable="yes">Activate</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
@@ -703,10 +924,19 @@
                     <property name="n_rows">3</property>
                     <property name="n_columns">2</property>
                     <child>
-                      <placeholder/>
+                      <object class="GtkLabel" id="labelAudioFileSelect">
+                        <property name="visible">True</property>
+                        <property name="label" translatable="yes">Input file</property>
+                      </object>
                     </child>
                     <child>
-                      <placeholder/>
+                      <object class="GtkFileChooserButton" id="filechooserbuttonAudioFile">
+                        <property name="visible">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="right_attach">2</property>
+                      </packing>
                     </child>
                     <child>
                       <placeholder/>
@@ -761,15 +991,18 @@
     </child>
   </object>
   <object class="GtkAdjustment" id="adjGridOpacity">
+    <property name="value">20</property>
     <property name="lower">1</property>
     <property name="upper">100</property>
     <property name="step_increment">1</property>
   </object>
   <object class="GtkAdjustment" id="adjSurfaceOpacity">
+    <property name="value">10</property>
     <property name="upper">100</property>
     <property name="step_increment">1</property>
   </object>
   <object class="GtkAdjustment" id="adjHorizontalScaling">
+    <property name="value">40</property>
     <property name="lower">1</property>
     <property name="upper">100</property>
     <property name="step_increment">1</property>
@@ -795,6 +1028,8 @@
     <property name="icon-size">4</property>
   </object>
   <object class="GtkAdjustment" id="adjSignalPeriods">
+    <property name="value">80</property>
+    <property name="lower">1</property>
     <property name="upper">1000</property>
     <property name="step_increment">1</property>
   </object>
@@ -834,20 +1069,34 @@
     <data>
       <row>
         <col id="0">0</col>
-        <col id="1" translatable="yes">Saw tooth</col>
-      </row>
-      <row>
-        <col id="0">1</col>
         <col id="1" translatable="yes">Sine</col>
       </row>
       <row>
-        <col id="0">2</col>
+        <col id="0">1</col>
         <col id="1" translatable="yes">Square</col>
+      </row>
+      <row>
+        <col id="0">2</col>
+        <col id="1" translatable="yes">Saw tooth</col>
       </row>
     </data>
   </object>
   <object class="GtkAdjustment" id="adjEnvelopePeriods">
+    <property name="value">30</property>
+    <property name="lower">2</property>
     <property name="upper">1000</property>
     <property name="step_increment">1</property>
+  </object>
+  <object class="GtkAdjustment" id="adjAutoRotateVertical">
+    <property name="value">0.10000000000000001</property>
+    <property name="upper">10</property>
+    <property name="step_increment">0.10000000000000001</property>
+    <property name="page_increment">1</property>
+  </object>
+  <object class="GtkAdjustment" id="adjAutoRotateHorizontal">
+    <property name="value">1</property>
+    <property name="upper">10</property>
+    <property name="step_increment">0.10000000000000001</property>
+    <property name="page_increment">1</property>
   </object>
 </interface>

@@ -20,15 +20,16 @@ module Drool.Utils.SigGen (
   AmpTransformation(..),
   SignalGenerator(..),
 
-  genSignal
+  genSignal,
+
+  signalFunFromIndex,
+  envelopeFunFromIndex
 ) where
 
 import Control.Monad.State
 
-
 type SValue = Float
 type TValue = Int
-
 
 -- Generates a dirac impulse of amplitude 1 in every period.
 dirac :: Int -> TValue -> SValue
@@ -76,3 +77,16 @@ genSignal siggen t = [ ampFun tpLength t (sigFun spLength x) | x <- [0..nSamples
 
 
 
+signalFunFromIndex :: Int -> (Int -> TValue -> SValue)
+signalFunFromIndex sigGenIdx = case sigGenIdx of
+                                 0 -> sine
+                                 1 -> square
+                                 2 -> saw
+                                 3 -> dirac
+                                 _ -> error "Unknown signal index"
+envelopeFunFromIndex :: Int -> (Int -> TValue -> SValue -> SValue)
+envelopeFunFromIndex sigGenIdx = case sigGenIdx of
+                                   0 -> (\pLength t sample -> (sine pLength t) * sample)
+                                   1 -> (\pLength t sample -> (square pLength t) * sample)
+                                   2 -> (\pLength t sample -> (saw pLength t) * sample)
+                                   _ -> error "Unknown envelope index"

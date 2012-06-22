@@ -31,25 +31,28 @@ import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
 
 import qualified Drool.Types as DT
+import qualified Drool.ApplicationContext as AC
 
 
-
-display :: IORef DT.ContextSettings -> IO ()
+display :: IORef AC.ContextSettings -> IO ()
 display contextSettings = do
   clear [ColorBuffer]
   matrixMode $= Modelview 0
   loadIdentity
 
   settings <- readIORef contextSettings
-  let angle          = DT.angle settings
-      hScale         = (DT.scaling settings) / (100.0::GLfloat)
-      gridOpacity    = (DT.gridOpacity settings) / (100.0::GLfloat)
-      surfOpacity    = (DT.surfaceOpacity settings) / (100.0::GLfloat)
+  let angle          = AC.angle settings
+      hScale         = (AC.scaling settings) / (100.0::GLfloat)
+      gridOpacity    = (AC.gridOpacity settings) / (100.0::GLfloat)
+      surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
       vscale         = 2.0
       signalLineDist = 0.04::GLfloat
+      gridColor      = color3AddAlpha (AC.gridColor settings) gridOpacity
+      surfaceColor   = color3AddAlpha (AC.surfaceColor settings) surfOpacity
+      lightColor     = color3AddAlpha (AC.lightColor settings)
 
   -- Rotate/translate to change view perspective to isometric
-  case DT.renderPerspective settings of
+  case AC.renderPerspective settings of
     DT.Isometric -> do
       GL.translate $ Vector3 0 0.1 (-1.7::GLfloat)
       GL.rotate (45::GLfloat) $ Vector3 1.0 0.0 0.0
@@ -64,13 +67,14 @@ display contextSettings = do
       GL.translate $ Vector3 0 0 (-2.0::GLfloat)
       GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
 
+  GL.rotate (angle/10.0::GLfloat) $ Vector3 1.0 0.0 0.0
 
   GL.translate $ Vector3 (-0.5 * vscale) 0 0
 
   GL.scale 1 hScale (1::GLfloat)
 
   -- Load signal buffer from context
-  signalBuf <- readIORef (DT.signalBuf settings)
+  signalBuf <- readIORef (AC.signalBuf settings)
 
   let numSignals = length $ DT.signalList signalBuf
 
@@ -93,10 +97,10 @@ display contextSettings = do
         let zVal = (fromIntegral idx) * signalLineDist in
           [ Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v1 (zVal::GLfloat),
             Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v2 (zVal+signalLineDist::GLfloat) ] )
-  let renderSampleSurfaceStrip sampleTupleList idx = do color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
+  let renderSampleSurfaceStrip sampleTupleList idx = do color surfaceColor
                                                         renderPrimitive TriangleStrip (
                                                           mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
-                                                        color (Color4 1 1 1 gridOpacity :: Color4 GLfloat)
+                                                        color gridColor
                                                         renderPrimitive LineStrip (
                                                           mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
 
@@ -167,7 +171,12 @@ initComponent _ contextSettings = do
     blend $= Enabled
     polygonSmooth $= Enabled
     lineSmooth $= Enabled
+    -- lighting $= Enabled
+    -- light (Light 0) $= Enabled
+    -- light (Light 1) $= Enabled
+    colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
     blendFunc $= (SrcAlpha, One)
+    -- depthFunc $= Just Less
     hint PerspectiveCorrection $= Nicest
     hint PolygonSmooth $= Nicest
     hint LineSmooth $= Nicest
@@ -177,7 +186,14 @@ initComponent _ contextSettings = do
     viewport $= (Position 0 0, Size (fromIntegral 800) (fromIntegral 800))
     perspective 90 (fromIntegral 800 / fromIntegral 800) 0.1 100
     matrixMode $= Modelview 0
+
     loadIdentity
+
+    GL.position (Light 0) $= (Vertex4 (-1.0) 3.0 (-2.0) 0.0)
+    GL.diffuse (Light 0) $= Color4 0.6 0.6 0.6 1.0
+    GL.position (Light 0) $= (Vertex4 (1.0) 3.0 (2.0) 0.0)
+    GL.diffuse (Light 1) $= Color4 0.4 0.4 1.0 1.0
+
     return ()
 
   -- OnShow handler for GL canvas:
@@ -206,6 +222,10 @@ initComponent _ contextSettings = do
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
 
   Gtk.widgetShowAll window
+
+
+color3AddAlpha :: Color3 GLfloat -> GLfloat -> Color4 GLfloat
+color3AddAlpha (Color3 r g b) a = Color4 r g b a
 
 canvasWidth :: Int
 canvasWidth = 800
