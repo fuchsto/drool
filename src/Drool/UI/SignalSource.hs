@@ -35,6 +35,8 @@ initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
 initComponent gtkBuilder contextSettings = do
   putStrLn "Initializing signal source component"
 
+  defaultSettings <- readIORef contextSettings
+
   -- Initialize tab "Test signal":
 
   cbox_testsignal_generator <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxGenerator"
@@ -43,8 +45,12 @@ initComponent gtkBuilder contextSettings = do
   spinbutton_signalPeriods <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToSpinButton "spinbuttonSignalPeriods"
   spinbutton_envelopePeriods <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToSpinButton "spinbuttonEnvelopePeriods"
 
-  Gtk.spinButtonSetValue spinbutton_signalPeriods 90
-  Gtk.spinButtonSetValue spinbutton_envelopePeriods 40
+  -- Apply default settings to UI components:
+  let defaultSigGen = AC.signalGenerator defaultSettings
+  Gtk.spinButtonSetValue spinbutton_signalPeriods (fromIntegral (SigGen.signalPeriodLength defaultSigGen))
+  Gtk.spinButtonSetValue spinbutton_envelopePeriods (fromIntegral (SigGen.envelopePeriodLength defaultSigGen))
+  Gtk.comboBoxSetActive cbox_testsignal_generator 3
+  Gtk.comboBoxSetActive cbox_testsignal_envelope 0
 
   button_activateSignalGenerator <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonActivateSignalGenerator"
   _ <- Gtk.onClicked button_activateSignalGenerator $ do
@@ -61,7 +67,7 @@ initComponent gtkBuilder contextSettings = do
     let siggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal (SigGen.signalFunFromIndex sigGenIdx),
                                            SigGen.ampTransformation = SigGen.CAmpTransformation (SigGen.envelopeFunFromIndex sigEnvIdx),
                                            SigGen.signalPeriodLength = sigPeriods,
-                                           SigGen.transPeriodLength = envPeriods,
+                                           SigGen.envelopePeriodLength = envPeriods,
                                            SigGen.numSamples = 200 }
     -- Activate signal generator in application context:
     cSettings <- readIORef contextSettings

@@ -49,7 +49,7 @@ display contextSettings = do
       signalLineDist = 0.04::GLfloat
       gridColor      = color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = color3AddAlpha (AC.surfaceColor settings) surfOpacity
-      lightColor     = color3AddAlpha (AC.lightColor settings)
+      lightColor     = color3AddAlpha (AC.lightColor settings) 1
 
   -- Rotate/translate to change view perspective to isometric
   case AC.renderPerspective settings of
@@ -66,6 +66,9 @@ display contextSettings = do
     DT.Side -> do
       GL.translate $ Vector3 0 0 (-2.0::GLfloat)
       GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
+
+  GL.diffuse (Light 0) $= lightColor
+  GL.diffuse (Light 1) $= lightColor
 
   GL.rotate (angle/10.0::GLfloat) $ Vector3 1.0 0.0 0.0
 
@@ -101,8 +104,10 @@ display contextSettings = do
                                                         renderPrimitive TriangleStrip (
                                                           mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
                                                         color gridColor
+                                                        translate $ Vector3 0 (0.05::GLfloat) 0
                                                         renderPrimitive LineStrip (
                                                           mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
+                                                        translate $ Vector3 0 (-0.05::GLfloat) 0
 
   -- Render grid lines:
 {-
@@ -171,11 +176,12 @@ initComponent _ contextSettings = do
     blend $= Enabled
     polygonSmooth $= Enabled
     lineSmooth $= Enabled
-    -- lighting $= Enabled
-    -- light (Light 0) $= Enabled
-    -- light (Light 1) $= Enabled
+    lighting $= Enabled
+    light (Light 0) $= Enabled
+    light (Light 1) $= Enabled
     colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
     blendFunc $= (SrcAlpha, One)
+    -- blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
     -- depthFunc $= Just Less
     hint PerspectiveCorrection $= Nicest
     hint PolygonSmooth $= Nicest

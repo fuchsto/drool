@@ -47,21 +47,22 @@ main = do
   signalBuffer <- newIORef (DT.CSignalList emptySignalBuffer)
   -- Initialize test signal generator:
   let transform pLength t sample = (SigGen.sine pLength t) * sample
-  let defaultSiggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal SigGen.sine,
+  let defaultSiggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal SigGen.dirac,
                                                 SigGen.ampTransformation = SigGen.CAmpTransformation transform,
-                                                SigGen.signalPeriodLength = 80,
-                                                SigGen.transPeriodLength = 30,
+                                                SigGen.signalPeriodLength = 3,
+                                                SigGen.envelopePeriodLength = 40,
                                                 SigGen.numSamples = 200 }
 
   contextSettings <- newIORef(
     AC.ContextSettings { AC.translation = undefined,
                          AC.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
                          AC.angle = (0.0::GLfloat),
-                         AC.scaling = 0.5,
-                         AC.gridOpacity = 0.8,
-                         AC.surfaceOpacity = 0.3,
-                         AC.surfaceColor = Color3 0.7 0.2 (0.7::GLfloat),
-                         AC.gridColor = Color3 1 1 (1::GLfloat),
+                         AC.scaling = 30,
+                         AC.gridOpacity = 15,
+                         AC.surfaceOpacity = 13,
+                         AC.surfaceColor = Color3 (62.0/255) (187.0/255) (1::GLfloat),
+                         AC.lightColor = Color3 (239.0/255) (19.0/255) (19.0/255.0::GLfloat) ,
+                         AC.gridColor = Color3 (142.0/255) 1 (58.0/255::GLfloat),
                          AC.renderPerspective = DT.Isometric,
                          AC.signalBuf = signalBuffer,
                          AC.signalGenerator = defaultSiggen } )

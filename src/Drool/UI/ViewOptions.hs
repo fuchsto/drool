@@ -34,6 +34,8 @@ initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
 initComponent gtkBuilder contextSettings = do
   putStrLn "Initializing Perspective component"
 
+  defaultSettings <- readIORef contextSettings
+
   button_view_perspectiveTop <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveTop"
   _ <- Gtk.onClicked button_view_perspectiveTop $ do
     settings <- readIORef contextSettings
@@ -55,32 +57,36 @@ initComponent gtkBuilder contextSettings = do
     contextSettings $=! settings { AC.renderPerspective = DT.Isometric }
 
   scale_view_horScalingAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjHorizontalScaling"
+  Gtk.adjustmentSetValue scale_view_horScalingAdj (realToFrac $ AC.scaling defaultSettings)
   _ <- Gtk.onValueChanged scale_view_horScalingAdj $ do
     val <- Gtk.adjustmentGetValue scale_view_horScalingAdj
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.scaling = (realToFrac(val)::GLfloat) }
 
   scale_view_gridOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjGridOpacity"
+  Gtk.adjustmentSetValue scale_view_gridOpacityAdj (realToFrac $ AC.gridOpacity defaultSettings)
   _ <- Gtk.onValueChanged scale_view_gridOpacityAdj $ do
     val <- Gtk.adjustmentGetValue scale_view_gridOpacityAdj
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.gridOpacity = (realToFrac(val)::GLfloat) }
 
   scale_view_surfaceOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSurfaceOpacity"
+  Gtk.adjustmentSetValue scale_view_surfaceOpacityAdj (realToFrac $ AC.surfaceOpacity defaultSettings)
   _ <- Gtk.onValueChanged scale_view_surfaceOpacityAdj $ do
     val <- Gtk.adjustmentGetValue scale_view_surfaceOpacityAdj
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.surfaceOpacity = (realToFrac(val)::GLfloat) }
 
   colorbuttonGrid <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonGrid"
+  Gtk.colorButtonSetColor colorbuttonGrid (DT.glColorToGtkColor $ AC.gridColor defaultSettings)
   _ <- Gtk.onColorSet colorbuttonGrid $ do
     gtkColor <- Gtk.colorButtonGetColor colorbuttonGrid
     let val = DT.gtkColorToGLColor(gtkColor)
-    putStrLn $ "Grid color: " ++ show val
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.gridColor = val }
 
   colorbuttonSurface <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonSurface"
+  Gtk.colorButtonSetColor colorbuttonSurface (DT.glColorToGtkColor $ AC.surfaceColor defaultSettings)
   _ <- Gtk.onColorSet colorbuttonSurface $ do
     gtkColor <- Gtk.colorButtonGetColor colorbuttonSurface
     let val = DT.gtkColorToGLColor(gtkColor)
@@ -88,6 +94,7 @@ initComponent gtkBuilder contextSettings = do
     contextSettings $=! settings { AC.surfaceColor = val }
 
   colorbuttonLight <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonLight"
+  Gtk.colorButtonSetColor colorbuttonLight (DT.glColorToGtkColor $ AC.lightColor defaultSettings)
   _ <- Gtk.onColorSet colorbuttonLight $ do
     gtkColor <- Gtk.colorButtonGetColor colorbuttonLight
     let val = DT.gtkColorToGLColor(gtkColor)

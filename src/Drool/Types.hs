@@ -28,7 +28,8 @@ module Drool.Types (
    getBufferSample,
    getSignalSample,
 
-   gtkColorToGLColor
+   gtkColorToGLColor,
+   glColorToGtkColor
 ) where
 
 import Data.Array.IO
@@ -100,4 +101,13 @@ gtkColorToGLColor (Gtk.Color r g b) = Color3 r' g' b'
   where r' = ((fromIntegral r) / 65535.0) :: GLfloat
         g' = ((fromIntegral g) / 65535.0) :: GLfloat
         b' = ((fromIntegral b) / 65535.0) :: GLfloat
+
+glColorToGtkColor :: Color3 GLfloat -> Gtk.Color
+glColorToGtkColor (Color3 r g b) = Gtk.Color r' g' b'
+  where r' = round(r * 65535.0)
+        g' = round(g * 65535.0)
+        b' = round(b * 65535.0)
+
+
+
 
