@@ -28,7 +28,9 @@ import Drool.Utils.SigGen as SigGen
 
 -- Shared settings for communication between main controller, view options
 -- and rendering:
-data ContextSettings = ContextSettings { translation :: Vector3(GLfloat,GLfloat,GLfloat),
+data ContextSettings = ContextSettings { samplingFrequency :: Int,
+                                         renderingFrequency :: Int,
+                                         translation :: Vector3(GLfloat,GLfloat,GLfloat),
                                          rotation :: RotationVector,
                                          angle :: GLfloat,
                                          gridColor :: Color3 GLfloat,

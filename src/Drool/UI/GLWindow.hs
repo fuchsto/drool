@@ -29,7 +29,7 @@ import Graphics.UI.Gtk (AttrOp((:=)))
 
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
-
+import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
@@ -218,11 +218,13 @@ initComponent _ contextSettings = do
 
   Gtk.set window [ Gtk.containerChild := canvas ]
 
-  -- Redraw canvas every 20ms:
+  settings <- readIORef contextSettings
+  let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency settings)
+  -- Redraw canvas according to rendering frequency:
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
-    Gtk.priorityDefaultIdle 20
+    Gtk.priorityDefaultIdle timeoutMs
 
   -- Remove timer for redrawing canvas when closing window:
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)

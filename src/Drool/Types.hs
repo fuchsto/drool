@@ -26,17 +26,12 @@ module Drool.Types (
    newSignalList,
    getSignal,
    getBufferSample,
-   getSignalSample,
-
-   gtkColorToGLColor,
-   glColorToGtkColor
+   getSignalSample
 ) where
 
 import Data.Array.IO
 import Graphics.Rendering.OpenGL
-import qualified Graphics.UI.Gtk as Gtk
 
--- import Drool.Utils.MFifoQ
 
 -- A signal is an array of samples (sample type is GLfloat):
 newtype Signal = CSignal { signalArray :: IOArray Int GLfloat }
@@ -74,6 +69,7 @@ newSignalBuffer size = do
   blankSignal <- newSignal
   fmap CSignalBuffer $ newArray(0,size) (blankSignal) :: IO SignalBuffer
 
+newSignalList :: Int -> Signal -> [Signal]
 newSignalList size el = if size > 0 then (el::Signal) : (newSignalList (size-1) el) else []
 
 -- getSignal signalBuf time_idx = readArray (signalBufferArray signalBuf) time_idx
@@ -87,6 +83,7 @@ getBufferSample signalBuf time_idx sample_idx = do
   return sample
 -}
 
+getBufferSample :: SignalList -> Int -> Int -> IO GLfloat
 getBufferSample signals time_idx sample_idx = do
   let signal = getSignal signals time_idx
   sample <- readArray (signalArray signal) sample_idx
@@ -95,19 +92,6 @@ getBufferSample signals time_idx sample_idx = do
 getSignalSample signal sample_idx = do
   sample <- readArray (signalArray signal) sample_idx
   return sample
-
-gtkColorToGLColor :: Gtk.Color -> Color3 GLfloat
-gtkColorToGLColor (Gtk.Color r g b) = Color3 r' g' b'
-  where r' = ((fromIntegral r) / 65535.0) :: GLfloat
-        g' = ((fromIntegral g) / 65535.0) :: GLfloat
-        b' = ((fromIntegral b) / 65535.0) :: GLfloat
-
-glColorToGtkColor :: Color3 GLfloat -> Gtk.Color
-glColorToGtkColor (Color3 r g b) = Gtk.Color r' g' b'
-  where r' = round(r * 65535.0)
-        g' = round(g * 65535.0)
-        b' = round(b * 65535.0)
-
 
 
 

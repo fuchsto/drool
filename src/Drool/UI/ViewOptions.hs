@@ -25,6 +25,7 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import Graphics.Rendering.OpenGL
 
+import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
@@ -32,7 +33,7 @@ import qualified Drool.ApplicationContext as AC
 -- Expects a GtkBuilder instance.
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
 initComponent gtkBuilder contextSettings = do
-  putStrLn "Initializing Perspective component"
+  putStrLn "Initializing ViewOptions component"
 
   defaultSettings <- readIORef contextSettings
 
@@ -78,26 +79,26 @@ initComponent gtkBuilder contextSettings = do
     contextSettings $=! settings { AC.surfaceOpacity = (realToFrac(val)::GLfloat) }
 
   colorbuttonGrid <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonGrid"
-  Gtk.colorButtonSetColor colorbuttonGrid (DT.glColorToGtkColor $ AC.gridColor defaultSettings)
+  Gtk.colorButtonSetColor colorbuttonGrid (Conv.glColorToGtkColor $ AC.gridColor defaultSettings)
   _ <- Gtk.onColorSet colorbuttonGrid $ do
     gtkColor <- Gtk.colorButtonGetColor colorbuttonGrid
-    let val = DT.gtkColorToGLColor(gtkColor)
+    let val = Conv.gtkColorToGLColor(gtkColor)
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.gridColor = val }
 
   colorbuttonSurface <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonSurface"
-  Gtk.colorButtonSetColor colorbuttonSurface (DT.glColorToGtkColor $ AC.surfaceColor defaultSettings)
+  Gtk.colorButtonSetColor colorbuttonSurface (Conv.glColorToGtkColor $ AC.surfaceColor defaultSettings)
   _ <- Gtk.onColorSet colorbuttonSurface $ do
     gtkColor <- Gtk.colorButtonGetColor colorbuttonSurface
-    let val = DT.gtkColorToGLColor(gtkColor)
+    let val = Conv.gtkColorToGLColor(gtkColor)
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.surfaceColor = val }
 
   colorbuttonLight <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonLight"
-  Gtk.colorButtonSetColor colorbuttonLight (DT.glColorToGtkColor $ AC.lightColor defaultSettings)
+  Gtk.colorButtonSetColor colorbuttonLight (Conv.glColorToGtkColor $ AC.lightColor defaultSettings)
   _ <- Gtk.onColorSet colorbuttonLight $ do
     gtkColor <- Gtk.colorButtonGetColor colorbuttonLight
-    let val = DT.gtkColorToGLColor(gtkColor)
+    let val = Conv.gtkColorToGLColor(gtkColor)
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.lightColor = val }
 

@@ -28,9 +28,11 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import qualified Drool.Types as DT
 import qualified Drool.Utils.SigGen as SigGen
+import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.ApplicationContext as AC
 
 import qualified Drool.UI.ViewOptions as ViewOptions
+import qualified Drool.UI.SamplingOptions as SamplingOptions
 import qualified Drool.UI.SignalSource as SignalSource
 import qualified Drool.UI.GLWindow as GLWindow
 
@@ -43,7 +45,7 @@ main = do
   let signalBufferSize = 50
   emptySignal <- DT.newSignal
   -- Initialize signal buffer with signalBufferSize empty signals:
-  let emptySignalBuffer = (DT.newSignalList (signalBufferSize::Integer) emptySignal)
+  let emptySignalBuffer = (DT.newSignalList (signalBufferSize::Int) emptySignal)
   signalBuffer <- newIORef (DT.CSignalList emptySignalBuffer)
   -- Initialize test signal generator:
   let transform pLength t sample = (SigGen.sine pLength t) * sample
@@ -51,10 +53,12 @@ main = do
                                                 SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                                 SigGen.signalPeriodLength = 3,
                                                 SigGen.envelopePeriodLength = 40,
-                                                SigGen.numSamples = 200 }
+                                                SigGen.numSamples = 50 }
 
   contextSettings <- newIORef(
-    AC.ContextSettings { AC.translation = undefined,
+    AC.ContextSettings { AC.samplingFrequency = 20,
+                         AC.renderingFrequency = 50,
+                         AC.translation = undefined,
                          AC.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
                          AC.angle = (0.0::GLfloat),
                          AC.scaling = 30,
@@ -88,10 +92,9 @@ main = do
     putStrLn "Exiting"
     Gtk.widgetDestroy mainWindow
 
+  _ <- SamplingOptions.initComponent builder contextSettings
   _ <- ViewOptions.initComponent builder contextSettings
-
   _ <- SignalSource.initComponent builder contextSettings
-
 
   let updateCallback count = (do
 
@@ -99,7 +102,8 @@ main = do
 
       let siggen = AC.signalGenerator cSettings
 
-      let genSampleList = take 200 (map (\s -> (realToFrac s) :: GLfloat) (SigGen.genSignal siggen count))
+      -- let genSampleList = take (SigGen.numSamples siggen) (map (\s -> (realToFrac s) :: GLfloat) (SigGen.genSignal siggen count))
+      let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
 
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
@@ -109,15 +113,16 @@ main = do
       contextSettings $=! cSettings { AC.angle = (AC.angle cSettings)+1 }
 
       -- Start a new timeout with incremented count:
-      _ <- Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityDefaultIdle 20
+      let timeoutMs = (Conv.freqToMs $ AC.samplingFrequency cSettings)
+      _ <- Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityDefaultIdle timeoutMs
 
       -- do not run this callback again:
       return False)
 
-  -- Redraw canvas every 3ms:
-  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 20
+  -- Initialize sample timer with t=0 and start immediately:
+  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 1
 
-  -- Remove timer for redrawing canvas when closing window:
+  -- Remove sample timer when closing application:
   _ <- Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSamplesTimer)
 
   -- Display window:

@@ -68,7 +68,7 @@ initComponent gtkBuilder contextSettings = do
                                            SigGen.ampTransformation = SigGen.CAmpTransformation (SigGen.envelopeFunFromIndex sigEnvIdx),
                                            SigGen.signalPeriodLength = sigPeriods,
                                            SigGen.envelopePeriodLength = envPeriods,
-                                           SigGen.numSamples = 200 }
+                                           SigGen.numSamples = 100 }
     -- Activate signal generator in application context:
     cSettings <- readIORef contextSettings
     contextSettings $=! cSettings { AC.signalGenerator = siggen }
