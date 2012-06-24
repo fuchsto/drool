@@ -54,6 +54,8 @@ initComponent gtkBuilder contextSettings = do
 
   button_activateSignalGenerator <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonActivateSignalGenerator"
   _ <- Gtk.onClicked button_activateSignalGenerator $ do
+    cSettings <- readIORef contextSettings
+
     sigGenIdx <- Gtk.comboBoxGetActive cbox_testsignal_generator
     sigEnvIdx <- Gtk.comboBoxGetActive cbox_testsignal_envelope
 
@@ -63,14 +65,13 @@ initComponent gtkBuilder contextSettings = do
     putStrLn $ "Signal generator: " ++ (show sigGenIdx) ++ " envelope: " ++ (show sigEnvIdx)
     putStrLn $ "Signal periods: " ++ (show sigPeriods) ++ " envelope periods: " ++ (show envPeriods)
 
-    -- Construct signal generator from settings:
-    let siggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal (SigGen.signalFunFromIndex sigGenIdx),
-                                           SigGen.ampTransformation = SigGen.CAmpTransformation (SigGen.envelopeFunFromIndex sigEnvIdx),
-                                           SigGen.signalPeriodLength = sigPeriods,
-                                           SigGen.envelopePeriodLength = envPeriods,
-                                           SigGen.numSamples = 100 }
+    let currentSigGen = AC.signalGenerator cSettings
+    -- Update signal generator from settings:
+    let siggen = currentSigGen { SigGen.baseSignal = SigGen.CBaseSignal (SigGen.signalFunFromIndex sigGenIdx),
+                                 SigGen.ampTransformation = SigGen.CAmpTransformation (SigGen.envelopeFunFromIndex sigEnvIdx),
+                                 SigGen.signalPeriodLength = sigPeriods,
+                                 SigGen.envelopePeriodLength = envPeriods }
     -- Activate signal generator in application context:
-    cSettings <- readIORef contextSettings
     contextSettings $=! cSettings { AC.signalGenerator = siggen }
 
   return True

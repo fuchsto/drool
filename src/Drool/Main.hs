@@ -53,11 +53,12 @@ main = do
                                                 SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                                 SigGen.signalPeriodLength = 3,
                                                 SigGen.envelopePeriodLength = 40,
-                                                SigGen.numSamples = 50 }
+                                                SigGen.numSamples = 10 }
 
   contextSettings <- newIORef(
     AC.ContextSettings { AC.samplingFrequency = 20,
                          AC.renderingFrequency = 50,
+                         AC.signalBufferSize = signalBufferSize,
                          AC.translation = undefined,
                          AC.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
                          AC.angle = (0.0::GLfloat),
@@ -102,13 +103,17 @@ main = do
 
       let siggen = AC.signalGenerator cSettings
 
-      -- let genSampleList = take (SigGen.numSamples siggen) (map (\s -> (realToFrac s) :: GLfloat) (SigGen.genSignal siggen count))
       let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
 
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
-      -- pop first signal in buffer, append sample list as new signal to buffer:
-      modifyIORef signalBuffer (\list -> DT.CSignalList( (drop 1 (DT.signalList list)) ++ [ DT.CSignal newSignal ]) )
+      -- pop first signal in buffer if buffer is full:
+      let bufferMaxSize = AC.signalBufferSize cSettings
+      let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
+      -- Push new signal to buffer:
+      modifyIORef signalBuffer (\list -> DT.CSignalList(
+                                           ((readjustBufferSize (DT.signalList list) bufferMaxSize)
+                                         ++ [ DT.CSignal newSignal ]) ))
 
       contextSettings $=! cSettings { AC.angle = (AC.angle cSettings)+1 }
 
