@@ -36,11 +36,15 @@ import qualified Drool.UI.SamplingOptions as SamplingOptions
 import qualified Drool.UI.SignalSource as SignalSource
 import qualified Drool.UI.GLWindow as GLWindow
 
-
+import qualified Sound.Pulse.Simple as Pulse
+import qualified Control.Monad as M
+import qualified Control.Concurrent as C
+import qualified Control.Concurrent.Chan as CC
 
 main :: IO()
 main = do
-  _ <- Gtk.initGUI
+--  _ <- Gtk.initGUI
+  _ <- Gtk.unsafeInitGUIForThreadedRTS
 
   let signalBufferSize = 50
   emptySignal <- DT.newSignal
@@ -56,7 +60,7 @@ main = do
                                                 SigGen.numSamples = 10 }
 
   contextSettings <- newIORef(
-    AC.ContextSettings { AC.samplingFrequency = 20,
+    AC.ContextSettings { AC.samplingFrequency = 120,
                          AC.renderingFrequency = 50,
                          AC.signalBufferSize = signalBufferSize,
                          AC.translation = undefined,
@@ -97,14 +101,24 @@ main = do
   _ <- ViewOptions.initComponent builder contextSettings
   _ <- SignalSource.initComponent builder contextSettings
 
+  soundSource <- Pulse.simpleNew Nothing "example" Pulse.Record Nothing "example application" 
+                   (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) 10000 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) (Just 200) (Just 200) (Just 1) (Just 0)))
+
+  sampleChan <- CC.newChan 
+  sampleThread <- C.forkOS . M.forever $ do samples <- Pulse.simpleRead soundSource $ 200 :: IO[Float]
+                                            CC.writeChan sampleChan samples
+  
+  
   let updateCallback count = (do
 
       cSettings <- readIORef contextSettings
 
       let siggen = AC.signalGenerator cSettings
 
-      let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
-
+      -- let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
+      samples <- CC.readChan sampleChan
+      let genSampleList = (map (\x -> realToFrac x) samples)
+      
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
       -- pop first signal in buffer if buffer is full:

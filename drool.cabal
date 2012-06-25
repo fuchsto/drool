@@ -1,16 +1,20 @@
 name: drool
-version: 0.0.1
+version: 0.1.0
 cabal-version: >=1.2
 build-type: Simple
 license: AllRightsReserved
-license-file: ""
+license-file: LICENSE
+author: Tobias Fuchs
+maintainer: twh.fuchs@gmail.com
 data-dir: ""
  
 executable drool
-    build-depends: GLUT -any, OpenGL -any, QuickCheck -any, array -any,
-                   base -any, control-monad-queue -any, glade -any, gtk -any,
-                   gtk2hs-cast-glade -any, gtkglext -any, mtl -any, random -any
-    main-is: Drool\Main.hs
+    ghc-options: -threaded
+    build-depends: GLUT -any, OpenGL -any, array -any,
+                   base -any, glade -any, gtk -any,
+                   gtk2hs-cast-glade -any, gtkglext -any, mtl -any, 
+                   pulse-simple -any, fft -any
+    main-is: Drool/Main.hs
     buildable: True
     hs-source-dirs: src
     other-modules: Drool.UI.SamplingOptions Drool.Utils.Conversions
