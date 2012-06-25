@@ -16,11 +16,16 @@ module Drool.Utils.Conversions (
     gtkColorToGLColor,
     glColorToGtkColor,
     freqToMs,
-    msToFreq
+    msToFreq, 
+    floatToComplexDouble, 
+    floatsToComplexDoubles, 
+    complexDoubleToFloat, 
+    complexDoublesToFloats
 ) where
 
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.Rendering.OpenGL
+import Data.Complex
 
 
 gtkColorToGLColor :: Gtk.Color -> Color3 GLfloat
@@ -41,3 +46,18 @@ freqToMs f = round(1000.0 / fromIntegral f)
 
 msToFreq :: Int -> Int
 msToFreq ms = round(1000.0 / fromIntegral ms)
+
+floatToComplexDouble :: Float -> Complex Double
+floatToComplexDouble f = (realToFrac f :+ 0.0) :: Complex Double
+
+floatsToComplexDoubles :: [Float] -> [Complex Double]
+floatsToComplexDoubles fs = (map (\x -> floatToComplexDouble x) fs)
+
+complexDoubleToFloat :: Complex Double -> Float
+complexDoubleToFloat cd = realToFrac(realPart cd) :: Float
+
+complexDoublesToFloats :: [Complex Double] -> [Float]
+complexDoublesToFloats cds = map (\x -> (complexDoubleToFloat x) / 100.0) cds
+
+
+

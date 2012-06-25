@@ -29,6 +29,7 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 import qualified Drool.Types as DT
 import qualified Drool.Utils.SigGen as SigGen
 import qualified Drool.Utils.Conversions as Conv
+import qualified Drool.Utils.FFT as FFT
 import qualified Drool.ApplicationContext as AC
 
 import qualified Drool.UI.ViewOptions as ViewOptions
@@ -102,11 +103,13 @@ main = do
   _ <- SignalSource.initComponent builder contextSettings
 
   soundSource <- Pulse.simpleNew Nothing "example" Pulse.Record Nothing "example application" 
-                   (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) 10000 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) (Just 200) (Just 200) (Just 1) (Just 0)))
+                   (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (44100) 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) (Just 1024) (Just 1024) (Just 1) (Just 0)))
 
   sampleChan <- CC.newChan 
-  sampleThread <- C.forkOS . M.forever $ do samples <- Pulse.simpleRead soundSource $ 200 :: IO[Float]
-                                            CC.writeChan sampleChan samples
+  sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ 1024 :: IO[Float]
+                                            let fftSamples = (FFT.fftFloats soundSamples)
+                                            CC.writeChan sampleChan (take 212 (fftSamples))
+                                            -- CC.writeChan sampleChan soundSamples
   
   
   let updateCallback count = (do
@@ -116,8 +119,12 @@ main = do
       let siggen = AC.signalGenerator cSettings
 
       -- let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
-      samples <- CC.readChan sampleChan
-      let genSampleList = (map (\x -> realToFrac x) samples)
+      sigsamples <- CC.readChan sampleChan
+
+      let scale s = abs ((log (s+13.0)) - 2.6)
+      let genSampleList = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
+
+      -- mapM_ (\x -> putStrLn $ show x) genSampleList
       
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)

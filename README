@@ -1,0 +1,33 @@
+
+Drool has the following platform dependencies. 
+On Debian / Ubuntu platforms, install them via apt-get install <package-name>: 
+
+- libgtk-dev
+- libglib2.0-dev
+- libglade2-dev
+- fftw3-dev on POSIX systems
+- fft-pure on WIN32 systems
+- libpulse-dev
+
+Drool depends on the following hackage modules. 
+Install them via cabal install <package-name>: 
+
+- mtl
+- array
+- GLUT
+- OpenGL
+- glade
+- gtk
+- gtkglext
+- gtk2hs-cast-glade
+- pulse-simple
+- fft
+
+You might need to patch the drool.cabal configuration file a bit. 
+Drool has been successfully built with ghc-7.2 on Windows (without PulseAudio 
+and FFT) and ghc-7.4 on Ubuntu. It should work with any version of ghc6, though. 
+
+!!! Note that the Haskell Gtk bindings (gtk2hs) lead to segmentation faults when 
+!!! built with ghc-7.2 on Linux - it's not my fault, the gtk2hs maintainers are 
+!!! working on it. 
+
