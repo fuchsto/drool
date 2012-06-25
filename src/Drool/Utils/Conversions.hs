@@ -20,13 +20,17 @@ module Drool.Utils.Conversions (
     floatToComplexDouble, 
     floatsToComplexDoubles, 
     complexDoubleToFloat, 
-    complexDoublesToFloats
+    complexDoublesToFloats, 
+    listToCArray, 
+    listFromCArray
 ) where
 
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.Rendering.OpenGL
 import Data.Complex
-
+import Data.Array.CArray ( createCArray, elems )
+import Foreign.Marshal.Array ( pokeArray, peekArray )
+import GHC.Float
 
 gtkColorToGLColor :: Gtk.Color -> Color3 GLfloat
 gtkColorToGLColor (Gtk.Color r g b) = Color3 r' g' b'
@@ -48,16 +52,19 @@ msToFreq :: Int -> Int
 msToFreq ms = round(1000.0 / fromIntegral ms)
 
 floatToComplexDouble :: Float -> Complex Double
-floatToComplexDouble f = (realToFrac f :+ 0.0) :: Complex Double
+floatToComplexDouble f = (float2Double f :+ 0.0) :: Complex Double
 
 floatsToComplexDoubles :: [Float] -> [Complex Double]
 floatsToComplexDoubles fs = (map (\x -> floatToComplexDouble x) fs)
 
+-- Returns magnitude of complex double as float, with magnitude = (re^2 + im^2)^0.5
 complexDoubleToFloat :: Complex Double -> Float
-complexDoubleToFloat cd = realToFrac(realPart cd) :: Float
+complexDoubleToFloat cd = realToFrac(sqrt (realPart cd * realPart cd + imagPart cd * imagPart cd)) :: Float
 
 complexDoublesToFloats :: [Complex Double] -> [Float]
 complexDoublesToFloats cds = map (\x -> (complexDoubleToFloat x) / 100.0) cds
 
+listToCArray lst = createCArray (0,(length lst)-1) ( \ptr -> do { pokeArray ptr lst } )
 
+listFromCArray carr = elems carr
 

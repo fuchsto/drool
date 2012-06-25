@@ -63,14 +63,16 @@ display contextSettings = do
       GL.rotate (90::GLfloat) $ Vector3 1.0 0.0 0.0
     DT.Front -> do
       GL.translate $ Vector3 0 0 (-2.0::GLfloat)
+      GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
     DT.Side -> do
       GL.translate $ Vector3 0 0 (-2.0::GLfloat)
+      GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
       GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
 
   GL.diffuse (Light 0) $= lightColor
   GL.diffuse (Light 1) $= lightColor
 
-  GL.rotate (angle/10.0::GLfloat) $ Vector3 1.0 0.0 0.0
+  -- GL.rotate (angle/10.0::GLfloat) $ Vector3 1.0 0.0 0.0
 
   GL.translate $ Vector3 (-0.5 * vscale) 0 0
 
@@ -97,17 +99,18 @@ display contextSettings = do
                                         GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
 
   let tuplesToVertexList idx = zipWith (\i (v1,v2) ->
-        let zVal = (fromIntegral idx) * signalLineDist in
-          [ Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v1 (zVal::GLfloat),
-            Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v2 (zVal+signalLineDist::GLfloat) ] )
+        let zVal = (fromIntegral idx) * signalLineDist 
+            xVal = (fromIntegral i)/(fromIntegral numSamples) in
+          [ Vertex3 (xVal*vscale) (v1*xVal) (zVal::GLfloat),
+            Vertex3 (xVal*vscale) (v2*xVal) (zVal+signalLineDist::GLfloat) ] )
   let renderSampleSurfaceStrip sampleTupleList idx = do color surfaceColor
                                                         renderPrimitive TriangleStrip (
                                                           mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
                                                         color gridColor
-                                                        translate $ Vector3 0 (0.05::GLfloat) 0
+                                                        -- translate $ Vector3 0 (0.05::GLfloat) 0
                                                         renderPrimitive LineStrip (
                                                           mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
-                                                        translate $ Vector3 0 (-0.05::GLfloat) 0
+                                                        -- translate $ Vector3 0 (-0.05::GLfloat) 0
 
   -- Render grid lines:
 {-

@@ -58,11 +58,11 @@ main = do
                                                 SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                                 SigGen.signalPeriodLength = 3,
                                                 SigGen.envelopePeriodLength = 40,
-                                                SigGen.numSamples = 10 }
+                                                SigGen.numSamples = 80 }
 
   contextSettings <- newIORef(
     AC.ContextSettings { AC.samplingFrequency = 120,
-                         AC.renderingFrequency = 50,
+                         AC.renderingFrequency = 30,
                          AC.signalBufferSize = signalBufferSize,
                          AC.translation = undefined,
                          AC.rotation = (0.0::GLfloat, 0.0::GLfloat, 0.0::GLfloat),
@@ -102,14 +102,20 @@ main = do
   _ <- ViewOptions.initComponent builder contextSettings
   _ <- SignalSource.initComponent builder contextSettings
 
-  soundSource <- Pulse.simpleNew Nothing "example" Pulse.Record Nothing "example application" 
-                   (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (44100) 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) (Just 1024) (Just 1024) (Just 1) (Just 0)))
+  let sampleRate = 176400 -- samples per second
+  let fftRes     = 4096 * 2 -- how many samples to use for FFT
+  soundSource <- Pulse.simpleNew Nothing "Drool" Pulse.Record Nothing "Drool audio visualizer" 
+                   (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) Nothing Nothing Nothing (Just 0)))
 
   sampleChan <- CC.newChan 
-  sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ 1024 :: IO[Float]
-                                            let fftSamples = (FFT.fftFloats soundSamples)
-                                            CC.writeChan sampleChan (take 212 (fftSamples))
-                                            -- CC.writeChan sampleChan soundSamples
+  sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ fftRes :: IO[Float]
+                                            -- let fftSamples = (FFT.fftFloats soundSamples)
+                                            fftSamples <- FFT.fftwFloats soundSamples
+                                            cSettings <- readIORef contextSettings
+                                            let siggen = AC.signalGenerator cSettings
+                                            let numChanSamples = SigGen.numSamples siggen
+                                            CC.writeChan sampleChan (take numChanSamples (fftSamples))
+                                            -- CC.writeChan sampleChan (take numChanSamples soundSamples)
   
   
   let updateCallback count = (do
@@ -121,7 +127,8 @@ main = do
       -- let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
       sigsamples <- CC.readChan sampleChan
 
-      let scale s = abs ((log (s+13.0)) - 2.6)
+      -- let scale s = abs ((log (s+13.0)) - 2.6)
+      let scale s = abs s
       let genSampleList = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
 
       -- mapM_ (\x -> putStrLn $ show x) genSampleList
@@ -140,7 +147,7 @@ main = do
 
       -- Start a new timeout with incremented count:
       let timeoutMs = (Conv.freqToMs $ AC.samplingFrequency cSettings)
-      _ <- Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityDefaultIdle timeoutMs
+      _ <- Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityHighIdle timeoutMs
 
       -- do not run this callback again:
       return False)
