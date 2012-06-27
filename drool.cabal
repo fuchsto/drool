@@ -9,7 +9,7 @@ maintainer: twh.fuchs@gmail.com
 data-dir: ""
  
 executable drool
-    ghc-options: -threaded
+    ghc-options: -O2 -rtsopts -threaded 
     build-depends: GLUT -any, OpenGL -any, array -any, carray -any,
                    base -any, glade -any, gtk -any,
                    gtk2hs-cast-glade -any, gtkglext -any, mtl -any, 
@@ -20,5 +20,4 @@ executable drool
     other-modules: Drool.UI.SamplingOptions Drool.Utils.Conversions
                    Drool.ApplicationContext Drool.UI.SignalSource Drool.Types
                    Drool.Utils.SigGen Drool.Utils.MFifoQ Drool.UI.GLWindow
-                   Drool.UI.GLUTWindow
  

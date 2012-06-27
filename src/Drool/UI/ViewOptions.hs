@@ -57,10 +57,10 @@ initComponent gtkBuilder contextSettings = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.renderPerspective = DT.Isometric }
 
-  scale_view_horScalingAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjHorizontalScaling"
-  Gtk.adjustmentSetValue scale_view_horScalingAdj (realToFrac $ AC.scaling defaultSettings)
-  _ <- Gtk.onValueChanged scale_view_horScalingAdj $ do
-    val <- Gtk.adjustmentGetValue scale_view_horScalingAdj
+  scale_view_linScalingAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjLinearScaling"
+  Gtk.adjustmentSetValue scale_view_linScalingAdj (realToFrac $ AC.scaling defaultSettings)
+  _ <- Gtk.onValueChanged scale_view_linScalingAdj $ do
+    val <- Gtk.adjustmentGetValue scale_view_linScalingAdj
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.scaling = (realToFrac(val)::GLfloat) }
 
@@ -101,6 +101,62 @@ initComponent gtkBuilder contextSettings = do
     let val = Conv.gtkColorToGLColor(gtkColor)
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.lightColor = val }
+
+  adjFixedRotationX <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationX"
+  Gtk.adjustmentSetValue adjFixedRotationX (realToFrac $ DT.rotX (AC.fixedRotation defaultSettings))
+  _ <- Gtk.onValueChanged adjFixedRotationX $ do
+    val <- Gtk.adjustmentGetValue adjFixedRotationX
+    settings <- readIORef contextSettings
+    let cRotation = AC.fixedRotation settings
+    contextSettings $=! settings { AC.fixedRotation = cRotation { DT.rotX = (realToFrac(val)::GLfloat) } }
+
+  adjFixedRotationY <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationY"
+  Gtk.adjustmentSetValue adjFixedRotationY (realToFrac $ DT.rotY (AC.fixedRotation defaultSettings))
+  _ <- Gtk.onValueChanged adjFixedRotationY $ do 
+    val <- Gtk.adjustmentGetValue adjFixedRotationY
+    settings <- readIORef contextSettings
+    let cRotation = AC.fixedRotation settings
+    contextSettings $=! settings { AC.fixedRotation = cRotation { DT.rotY = (realToFrac(val)::GLfloat) } }
+
+  adjFixedRotationZ <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationZ"
+  Gtk.adjustmentSetValue adjFixedRotationZ (realToFrac $ DT.rotZ (AC.fixedRotation defaultSettings))
+  _ <- Gtk.onValueChanged adjFixedRotationZ $ do 
+    val <- Gtk.adjustmentGetValue adjFixedRotationZ
+    settings <- readIORef contextSettings
+    let cRotation = AC.fixedRotation settings
+    contextSettings $=! settings { AC.fixedRotation = cRotation { DT.rotZ = (realToFrac(val)::GLfloat) } }
+
+  adjIncRotationX <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIncRotationX"
+  Gtk.adjustmentSetValue adjIncRotationX (realToFrac $ DT.rotX (AC.incRotation defaultSettings))
+  _ <- Gtk.onValueChanged adjIncRotationX $ do
+    val <- Gtk.adjustmentGetValue adjIncRotationX
+    settings <- readIORef contextSettings
+    let cRotation = AC.incRotation settings
+    contextSettings $=! settings { AC.incRotation = cRotation { DT.rotX = (realToFrac(val)::GLfloat) } }
+
+  adjIncRotationY <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIncRotationY"
+  Gtk.adjustmentSetValue adjIncRotationY (realToFrac $ DT.rotY (AC.incRotation defaultSettings))
+  _ <- Gtk.onValueChanged adjIncRotationY $ do 
+    val <- Gtk.adjustmentGetValue adjIncRotationY
+    settings <- readIORef contextSettings
+    let cRotation = AC.incRotation settings
+    contextSettings $=! settings { AC.incRotation = cRotation { DT.rotY = (realToFrac(val)::GLfloat) } }
+
+  adjIncRotationZ <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIncRotationZ"
+  Gtk.adjustmentSetValue adjIncRotationZ (realToFrac $ DT.rotZ (AC.incRotation defaultSettings))
+  _ <- Gtk.onValueChanged adjIncRotationZ $ do 
+    val <- Gtk.adjustmentGetValue adjIncRotationZ
+    settings <- readIORef contextSettings
+    let cRotation = AC.incRotation settings
+    contextSettings $=! settings { AC.incRotation = cRotation { DT.rotZ = (realToFrac(val)::GLfloat) } }
+
+  -- Todo: Move to UI.FeatureExtraction: 
+  adjBeatMaxBandSamples <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBeatMaxBandSamples"
+  Gtk.adjustmentSetValue adjBeatMaxBandSamples (fromIntegral $ AC.maxBeatBandSamples defaultSettings)
+  _ <- Gtk.onValueChanged adjBeatMaxBandSamples  $ do 
+    val <- Gtk.adjustmentGetValue adjBeatMaxBandSamples
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.maxBeatBandSamples = round val }
 
   return True
 

@@ -18,6 +18,7 @@ module Drool.UI.GLWindow (
     initComponent
 ) where
 
+import Control.Monad ( foldM ) 
 
 import Data.IORef(IORef, readIORef)
 import Data.Array.IO
@@ -41,23 +42,25 @@ display contextSettings = do
   loadIdentity
 
   settings <- readIORef contextSettings
-  let angle          = AC.angle settings
-      hScale         = (AC.scaling settings) / (100.0::GLfloat)
+  let hScale         = (AC.scaling settings) / (100.0::GLfloat)
       gridOpacity    = (AC.gridOpacity settings) / (100.0::GLfloat)
       surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
+      fixedRotation  = (AC.fixedRotation settings) 
+      incRotation    = (AC.incRotation settings) 
+      accIncRotation = (AC.incRotationAccum settings) 
+      maxBeatSamples = (AC.maxBeatBandSamples settings) 
       vscale         = 2.0
       signalLineDist = 0.04::GLfloat
       gridColor      = color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = color3AddAlpha (AC.lightColor settings) 1
-
-  -- Rotate/translate to change view perspective to isometric
+  
+  -- Rotate/translate to change view perspective: 
   case AC.renderPerspective settings of
     DT.Isometric -> do
       GL.translate $ Vector3 0 0.1 (-1.7::GLfloat)
       GL.rotate (45::GLfloat) $ Vector3 1.0 0.0 0.0
       GL.rotate (45::GLfloat) $ Vector3 0.0 1.0 0.0
-      GL.rotate angle $ Vector3 0.0 1.0 0.0
     DT.Top -> do
       GL.translate $ Vector3 0 0 (-1.8::GLfloat)
       GL.rotate (90::GLfloat) $ Vector3 1.0 0.0 0.0
@@ -69,15 +72,22 @@ display contextSettings = do
       GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
       GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
 
+
   GL.diffuse (Light 0) $= lightColor
   GL.diffuse (Light 1) $= lightColor
 
-  -- GL.rotate (angle/10.0::GLfloat) $ Vector3 1.0 0.0 0.0
+  
+  GL.rotate (DT.rotX fixedRotation) $ Vector3 1.0 0.0 0.0
+  GL.rotate (DT.rotX accIncRotation) $ Vector3 1.0 0.0 0.0
+  GL.rotate (DT.rotY fixedRotation) $ Vector3 0.0 1.0 0.0
+  GL.rotate (DT.rotY accIncRotation) $ Vector3 0.0 1.0 0.0
+  GL.rotate (DT.rotZ fixedRotation) $ Vector3 0.0 0.0 1.0
+  GL.rotate (DT.rotZ accIncRotation) $ Vector3 0.0 0.0 1.0
 
   GL.translate $ Vector3 (-0.5 * vscale) 0 0
 
   GL.scale 1 hScale (1::GLfloat)
-
+  
   -- Load signal buffer from context
   signalBuf <- readIORef (AC.signalBuf settings)
 
@@ -100,17 +110,23 @@ display contextSettings = do
 
   let tuplesToVertexList idx = zipWith (\i (v1,v2) ->
         let zVal = (fromIntegral idx) * signalLineDist 
-            xVal = (fromIntegral i)/(fromIntegral numSamples) in
-          [ Vertex3 (xVal*vscale) (v1*xVal) (zVal::GLfloat),
-            Vertex3 (xVal*vscale) (v2*xVal) (zVal+signalLineDist::GLfloat) ] )
-  let renderSampleSurfaceStrip sampleTupleList idx = do color surfaceColor
-                                                        renderPrimitive TriangleStrip (
-                                                          mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
-                                                        color gridColor
-                                                        -- translate $ Vector3 0 (0.05::GLfloat) 0
-                                                        renderPrimitive LineStrip (
-                                                          mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
-                                                        -- translate $ Vector3 0 (-0.05::GLfloat) 0
+            xVal = (fromIntegral i)/(fromIntegral numSamples) 
+            damp = xVal + (1/xVal * 0.005) in
+          [ Vertex3 (xVal*vscale) (v1*damp) (zVal::GLfloat),
+            Vertex3 (xVal*vscale) (v2*damp) (zVal+signalLineDist::GLfloat) ] )
+  let renderSampleSurfaceStrip sampleTupleList idx lC bC lbC = do color surfaceColor
+                                                                  renderPrimitive TriangleStrip (
+                                                                    mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
+                                                                  -- color gridColor
+                                                                  let beatDamping      = fromIntegral maxBeatSamples
+                                                                  let loudnessDamping  = fromIntegral numSamples
+                                                                  let localBeatDamping = fromIntegral maxBeatSamples
+                                                                  let beatGridOpacity  = gridOpacity * ((bC / beatDamping) + (lC / loudnessDamping) + (lbC / localBeatDamping))
+                                                                  color $ color3AddAlpha (AC.gridColor settings) beatGridOpacity -- + bC / 100.0)
+                                                                  -- translate $ Vector3 0 (0.05::GLfloat) 0
+                                                                  renderPrimitive LineStrip (
+                                                                    mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
+                                                                  -- translate $ Vector3 0 (-0.05::GLfloat) 0
 
   -- Render grid lines:
 {-
@@ -129,20 +145,32 @@ display contextSettings = do
                                   _ -> []
 
 
+  -- Analyze overall loudness: 
+  let noisePerSample = 0.2
+  let loudness sampleList = (sum sampleList) - (fromIntegral (length sampleList) * noisePerSample)
+  let beatLoudness sampleList = (sum $ take maxBeatSamples sampleList) - (fromIntegral maxBeatSamples * noisePerSample)
+
   -- Render surface:
   color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
-  let renderSignalSurfaceStrip signals count = (
+  let renderSignalSurfaceStrip signals count loudnessCoeff beatCoeff localBeatCoeff = (
         case signals of
-            (sig:nextSig:xs) -> (
-              do samples <- getElems $ DT.signalArray sig
-                 nextSamples <- getElems $ DT.signalArray nextSig
-                 renderSampleSurfaceStrip (zip samples nextSamples) count
-                 -- recurse
-                 renderSignalSurfaceStrip(drop 1 signals) (count+1)
-                 return () )
-            (sig:[]) -> return () )
+          (sig:nextSig:xs) -> (
+            do samples <- getElems $ DT.signalArray sig
+               nextSamples <- getElems $ DT.signalArray nextSig
+               let localBeatCoeff = realToFrac $ (sum $ take maxBeatSamples samples :: GLfloat) - (fromIntegral maxBeatSamples * noisePerSample)
+               -- putStrLn $ "Beat loudness: " ++ show beatCoeff
+               -- putStrLn $ "Local beat loudness: " ++ show localBeatCoeff
+               -- putStrLn $ "Loudness: " ++ show loudnessCoeff
+               renderSampleSurfaceStrip (zip samples nextSamples) count loudnessCoeff beatCoeff localBeatCoeff
+               -- recurse
+               renderSignalSurfaceStrip(drop 1 signals) (count+1) loudnessCoeff beatCoeff localBeatCoeff
+               return () )
+          (sig:[]) -> return () )
 
-  renderSignalSurfaceStrip (DT.signalList signalBuf) 0
+  let signalList = DT.signalList signalBuf
+  let recentSignal = signalList !! (length signalList - 1)
+  recentSignalSamples <- getElems $ DT.signalArray recentSignal
+  renderSignalSurfaceStrip (signalList) 0 (loudness recentSignalSamples) (beatLoudness recentSignalSamples) 0
 
   GL.flush
 
@@ -182,6 +210,7 @@ initComponent _ contextSettings = do
     lighting $= Enabled
     light (Light 0) $= Enabled
     light (Light 1) $= Enabled
+    cullFace $= Just FrontAndBack
     colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
     blendFunc $= (SrcAlpha, One)
     -- blendFunc $= (SrcAlpha, OneMinusSrcAlpha)

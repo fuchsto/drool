@@ -15,7 +15,7 @@
 {-# OPTIONS -O2 -Wall #-}
 
 module Drool.Types (
-   RotationVector,
+   RotationVector(..),
    Signal(..),
    SignalBuffer(..),
    SignalList(..),
@@ -48,7 +48,7 @@ newtype SignalList = CSignalList { signalList :: [Signal] }
 -- Type for translation vector
 -- newtype TVector = TVector (Vector3 GLfloat GLfloat GLfloat)
 -- Type for rotation vector
-type RotationVector = (GLfloat, GLfloat, GLfloat)
+data RotationVector = CRotationVector { rotX :: GLfloat, rotY :: GLfloat, rotZ :: GLfloat }
 
 data RenderPerspective = Top | Side | Front | Isometric
 
