@@ -14,7 +14,7 @@
 
 {-# OPTIONS -O2 -Wall #-}
 
-module Drool.UI.SamplingOptions (
+module Drool.UI.SignalBufferOptions (
   initComponent
 ) where
 
@@ -34,18 +34,18 @@ import qualified Drool.ApplicationContext as AC (ContextSettings(..))
 -- Expects a GtkBuilder instance.
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
 initComponent gtkBuilder contextSettings = do
-  putStrLn "Initializing Samplingoptions component"
+  putStrLn "Initializing SignalBufferOptions component"
 
   defaultSettings <- readIORef contextSettings
 
   let defaultSigGen = AC.signalGenerator defaultSettings
 
-  adjSamplingFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSamplingFreq"
-  Gtk.adjustmentSetValue adjSamplingFreq (fromIntegral $ AC.samplingFrequency defaultSettings)
-  _ <- Gtk.onValueChanged adjSamplingFreq $ do
-    val <- Gtk.adjustmentGetValue adjSamplingFreq
+  adjSignalPushFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSignalPushFreq"
+  Gtk.adjustmentSetValue adjSignalPushFreq (fromIntegral $ AC.signalPushFrequency defaultSettings)
+  _ <- Gtk.onValueChanged adjSignalPushFreq $ do
+    val <- Gtk.adjustmentGetValue adjSignalPushFreq
     settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.samplingFrequency = round val }
+    contextSettings $=! settings { AC.signalPushFrequency = round val }
 
   adjRenderingFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjRenderingFreq"
   Gtk.adjustmentSetValue adjRenderingFreq (fromIntegral $ AC.renderingFrequency defaultSettings)
@@ -69,7 +69,5 @@ initComponent gtkBuilder contextSettings = do
     let currentSigGen = AC.signalGenerator settings
     let siggen = currentSigGen { SigGen.numSamples = round val }
     contextSettings $=! settings { AC.signalGenerator = siggen }
-
-
 
   return True

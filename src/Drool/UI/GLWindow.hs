@@ -31,6 +31,7 @@ import Graphics.UI.Gtk (AttrOp((:=)))
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
 import qualified Drool.Utils.Conversions as Conv
+import qualified Drool.Utils.RenderHelpers as RH
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
@@ -84,10 +85,6 @@ display contextSettings = do
   GL.rotate (DT.rotZ fixedRotation) $ Vector3 0.0 0.0 1.0
   GL.rotate (DT.rotZ accIncRotation) $ Vector3 0.0 0.0 1.0
 
-  GL.translate $ Vector3 (-0.5 * vscale) 0 0
-
-  GL.scale 1 hScale (1::GLfloat)
-  
   -- Load signal buffer from context
   signalBuf <- readIORef (AC.signalBuf settings)
 
@@ -97,6 +94,13 @@ display contextSettings = do
   let firstSignal = DT.getSignal signalBuf 0
   firstSignalBounds <- getBounds $ DT.signalArray firstSignal
   let numSamples = rangeSize firstSignalBounds
+
+  GL.translate $ Vector3 (-0.5 * vscale) 0 0
+  let vLogScale i = log (fromIntegral i * 10.0)
+  -- GL.translate $ Vector3 (-0.5 * (sum [ vLogScale x | x <- [0..numSamples] ]) :: GLfloat ) 0 0
+
+  GL.scale 1 hScale (1::GLfloat)
+  
 
   GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
 
@@ -111,9 +115,10 @@ display contextSettings = do
   let tuplesToVertexList idx = zipWith (\i (v1,v2) ->
         let zVal = (fromIntegral idx) * signalLineDist 
             xVal = (fromIntegral i)/(fromIntegral numSamples) 
-            damp = xVal + (1/xVal * 0.005) in
-          [ Vertex3 (xVal*vscale) (v1*damp) (zVal::GLfloat),
-            Vertex3 (xVal*vscale) (v2*damp) (zVal+signalLineDist::GLfloat) ] )
+         -- damp = xVal + (1/xVal * 0.002) in
+            damp = log(1000.0 * xVal) / 7.0 in
+          [ Vertex3 (xVal*(vLogScale i)) (v1*damp) (zVal::GLfloat),
+            Vertex3 (xVal*(vLogScale i)) (v2*damp) (zVal+signalLineDist::GLfloat) ] )
   let renderSampleSurfaceStrip sampleTupleList idx lC bC lbC = do color surfaceColor
                                                                   renderPrimitive TriangleStrip (
                                                                     mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sampleTupleList)) )
@@ -121,7 +126,8 @@ display contextSettings = do
                                                                   let beatDamping      = fromIntegral maxBeatSamples
                                                                   let loudnessDamping  = fromIntegral numSamples
                                                                   let localBeatDamping = fromIntegral maxBeatSamples
-                                                                  let beatGridOpacity  = gridOpacity * ((bC / beatDamping) + (lC / loudnessDamping) + (lbC / localBeatDamping))
+                                                                  -- let beatGridOpacity  = gridOpacity * ((bC / beatDamping) + (lC / loudnessDamping) + (lbC / localBeatDamping))
+                                                                  let beatGridOpacity  = gridOpacity 
                                                                   color $ color3AddAlpha (AC.gridColor settings) beatGridOpacity -- + bC / 100.0)
                                                                   -- translate $ Vector3 0 (0.05::GLfloat) 0
                                                                   renderPrimitive LineStrip (
@@ -140,28 +146,24 @@ display contextSettings = do
       (DT.signalList signalBuf)
 -}
 
-  let flattenTupleList (x:xs) = case x of
-                                  (f,s) -> f : s : flattenTupleList(xs)
-                                  _ -> []
-
-
   -- Analyze overall loudness: 
   let noisePerSample = 0.2
   let loudness sampleList = (sum sampleList) - (fromIntegral (length sampleList) * noisePerSample)
   let beatLoudness sampleList = (sum $ take maxBeatSamples sampleList) - (fromIntegral maxBeatSamples * noisePerSample)
 
-  -- Render surface:
+  -- Render surface as single strips (for z : for x):
   color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
   let renderSignalSurfaceStrip signals count loudnessCoeff beatCoeff localBeatCoeff = (
         case signals of
           (sig:nextSig:xs) -> (
             do samples <- getElems $ DT.signalArray sig
                nextSamples <- getElems $ DT.signalArray nextSig
+               settings <- readIORef contextSettings
+               let rangeAmps = AC.rangeAmps settings
+               let scaledSamples = RH.bandRangeAmpSamples samples rangeAmps
+               let scaledNextSamples = RH.bandRangeAmpSamples nextSamples rangeAmps
                let localBeatCoeff = realToFrac $ (sum $ take maxBeatSamples samples :: GLfloat) - (fromIntegral maxBeatSamples * noisePerSample)
-               -- putStrLn $ "Beat loudness: " ++ show beatCoeff
-               -- putStrLn $ "Local beat loudness: " ++ show localBeatCoeff
-               -- putStrLn $ "Loudness: " ++ show loudnessCoeff
-               renderSampleSurfaceStrip (zip samples nextSamples) count loudnessCoeff beatCoeff localBeatCoeff
+               renderSampleSurfaceStrip (zip scaledSamples scaledNextSamples) count loudnessCoeff beatCoeff localBeatCoeff
                -- recurse
                renderSignalSurfaceStrip(drop 1 signals) (count+1) loudnessCoeff beatCoeff localBeatCoeff
                return () )
@@ -178,6 +180,7 @@ reshape allocation = do
   let rectangleWidthHeight (Gtk.Rectangle _ _ w' h') = (w',h')
   let (w,h) = rectangleWidthHeight allocation
   viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
+  perspective (fromIntegral viewPerspective) (fromIntegral w / fromIntegral h) 0.1 100
   matrixMode $= Modelview 0
   return ()
 
@@ -202,18 +205,25 @@ initComponent _ contextSettings = do
   -- we are using wouldn't have been setup yet)
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
+    -- {{{ 
     dither $= Enabled
+    normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
     shadeModel $= Smooth
+    materialSpecular Front $= Color4 1 1 1 1
+    materialShininess Front $= 30
     blend $= Enabled
     polygonSmooth $= Enabled
     lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
     light (Light 1) $= Enabled
-    cullFace $= Just FrontAndBack
-    colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
+    cullFace $= Just Front
+    autoNormal $= Enabled
+    colorMaterial $= Just (Front, AmbientAndDiffuse)
     blendFunc $= (SrcAlpha, One)
     -- blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+    -- blendFunc $= (SrcAlphaSaturate, One)
+    -- blendFunc $= (OneMinusSrcColor, One)
     -- depthFunc $= Just Less
     hint PerspectiveCorrection $= Nicest
     hint PolygonSmooth $= Nicest
@@ -221,8 +231,8 @@ initComponent _ contextSettings = do
 
     matrixMode $= Projection
     loadIdentity
-    viewport $= (Position 0 0, Size (fromIntegral 800) (fromIntegral 800))
-    perspective 90 (fromIntegral 800 / fromIntegral 800) 0.1 100
+    viewport $= (Position 0 0, Size (fromIntegral canvasInitWidth) (fromIntegral canvasInitHeight))
+    perspective (fromIntegral viewPerspective) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 100
     matrixMode $= Modelview 0
 
     loadIdentity
@@ -233,6 +243,7 @@ initComponent _ contextSettings = do
     GL.diffuse (Light 1) $= Color4 0.4 0.4 1.0 1.0
 
     return ()
+    -- }}}
 
   -- OnShow handler for GL canvas:
   _ <- Gtk.onExpose canvas $ \_ -> do
@@ -246,7 +257,7 @@ initComponent _ contextSettings = do
   _ <- Gtk.onSizeAllocate canvas (reshape)
 
   -- Add canvas (OpenGL drawing area) to GUI:
-  Gtk.widgetSetSizeRequest canvas canvasWidth canvasHeight
+  Gtk.widgetSetSizeRequest canvas canvasInitWidth canvasInitHeight
 
   Gtk.set window [ Gtk.containerChild := canvas ]
 
@@ -267,8 +278,10 @@ initComponent _ contextSettings = do
 color3AddAlpha :: Color3 GLfloat -> GLfloat -> Color4 GLfloat
 color3AddAlpha (Color3 r g b) a = Color4 r g b a
 
-canvasWidth :: Int
-canvasWidth = 800
-canvasHeight :: Int
-canvasHeight = 800
+canvasInitWidth :: Int
+canvasInitWidth = 800
+canvasInitHeight :: Int
+canvasInitHeight = 800
 
+viewPerspective :: Int
+viewPerspective = 90

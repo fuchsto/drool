@@ -14,7 +14,7 @@
 
 {-# OPTIONS -O2 -Wall #-}
 
-module Drool.UI.SignalSource (
+module Drool.UI.SignalSourceOptions (
   initComponent
 ) where
 
@@ -33,7 +33,7 @@ import qualified Drool.Utils.SigGen as SigGen
 -- Expects a GtkBuilder instance.
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
 initComponent gtkBuilder contextSettings = do
-  putStrLn "Initializing signal source component"
+  putStrLn "Initializing SignalSourceOptions component"
 
   defaultSettings <- readIORef contextSettings
 

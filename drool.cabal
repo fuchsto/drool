@@ -17,7 +17,8 @@ executable drool
     main-is: Drool/Main.hs
     buildable: True
     hs-source-dirs: src
-    other-modules: Drool.UI.SamplingOptions Drool.Utils.Conversions
-                   Drool.ApplicationContext Drool.UI.SignalSource Drool.Types
-                   Drool.Utils.SigGen Drool.Utils.MFifoQ Drool.UI.GLWindow
+    other-modules: Drool.UI.SignalBufferOptions Drool.Utils.Conversions
+                   Drool.ApplicationContext Drool.UI.SignalSourceOptions Drool.Types
+                   Drool.UI.TransformationOptions Drool.UI.FeatureExtractionOptions
+                   Drool.Utils.SigGen Drool.UI.GLWindow Drool.Utils.RenderHelpers
  

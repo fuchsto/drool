@@ -22,7 +22,7 @@ module Main where
 import Data.IORef
 import Data.Array.IO
 
-import Graphics.Rendering.OpenGL
+import Graphics.Rendering.OpenGL ( ( $=!), GLfloat, Color3(..) )
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
@@ -33,8 +33,10 @@ import qualified Drool.Utils.FFT as FFT
 import qualified Drool.ApplicationContext as AC
 
 import qualified Drool.UI.ViewOptions as ViewOptions
-import qualified Drool.UI.SamplingOptions as SamplingOptions
-import qualified Drool.UI.SignalSource as SignalSource
+import qualified Drool.UI.FeatureExtractionOptions as FeatureExtractionOptions
+import qualified Drool.UI.TransformationOptions as TransformationOptions
+import qualified Drool.UI.SignalBufferOptions as SignalBufferOptions
+import qualified Drool.UI.SignalSourceOptions as SignalSourceOptions
 import qualified Drool.UI.GLWindow as GLWindow
 
 import qualified Sound.Pulse.Simple as Pulse
@@ -61,14 +63,15 @@ main = do
                                                 SigGen.numSamples = 200 }
 
   contextSettings <- newIORef(
-    AC.ContextSettings { AC.samplingFrequency = 120,
+    AC.ContextSettings { AC.samplingThreadId = undefined, 
+                         AC.signalPushFrequency = 120,
                          AC.renderingFrequency = 30,
                          AC.signalBufferSize = signalBufferSize,
-                         AC.translation = undefined,
                          AC.fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                         AC.incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.02::GLfloat, DT.rotZ = 0.0::GLfloat },
+                         AC.incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.scaling = 30,
+                         AC.rangeAmps = [ 1.0, 1.0, 1.0, 1.0, 1.0 ], 
                          AC.gridOpacity = 15,
                          AC.surfaceOpacity = 13,
                          AC.surfaceColor = Color3 (62.0/255) (187.0/255) (1::GLfloat),
@@ -100,9 +103,11 @@ main = do
     putStrLn "Exiting"
     Gtk.widgetDestroy mainWindow
 
-  _ <- SamplingOptions.initComponent builder contextSettings
+  _ <- SignalBufferOptions.initComponent builder contextSettings
   _ <- ViewOptions.initComponent builder contextSettings
-  _ <- SignalSource.initComponent builder contextSettings
+  _ <- SignalSourceOptions.initComponent builder contextSettings
+  _ <- TransformationOptions.initComponent builder contextSettings
+  _ <- FeatureExtractionOptions.initComponent builder contextSettings
 
   let sampleRate = 191000 -- samples per second
   let fftRes     = 10240  -- 4096 * 2 -- how many samples to use for FFT
@@ -114,7 +119,7 @@ main = do
   sampleChan <- CC.newChan 
   sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ fftRes :: IO[Float]
                                             -- TODO: Enable if playback flag is set
-                                            -- Pulse.simpleWrite soundTarget soundSamples
+                                            Pulse.simpleWrite soundTarget soundSamples
                                             let fftSamples = (FFT.fftFloats soundSamples)
                                             fftSamples <- FFT.fftwFloats soundSamples
                                             cSettings <- readIORef contextSettings
@@ -123,6 +128,8 @@ main = do
                                             CC.writeChan sampleChan (take numChanSamples (fftSamples))
                                             -- CC.writeChan sampleChan (take numChanSamples soundSamples)
                                             -- Pulse.simpleDrain soundTarget
+  -- settings <- readIORef contextSettings
+  -- contextSettings $=! settings { AC.samplingThreadId = sampleThread }
  
   let updateCallback count = (do
 
@@ -157,7 +164,7 @@ main = do
       contextSettings $=! cSettings { AC.incRotationAccum = nextIncRotation }
       
       -- Start a new timeout with incremented count:
-      let timeoutMs = (Conv.freqToMs $ AC.samplingFrequency cSettings)
+      let timeoutMs = (Conv.freqToMs $ AC.signalPushFrequency cSettings)
       _ <- Gtk.timeoutAddFull (updateCallback (count+1)) Gtk.priorityHighIdle timeoutMs
 
       -- do not run this callback again:

@@ -2,10 +2,10 @@
 --
 -- Module      :  ViewOptions
 -- Copyright   :
--- License     :  GPL v3
+-- License     :  MIT
 --
 -- Maintainer  :  Tobias Fuchs
--- Stability   :  unstable
+-- Stability   :  experimental
 -- Portability :  Win32, POSIX
 --
 -- |
@@ -30,7 +30,7 @@ import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
 -- Initializes GUI component for view options.
--- Expects a GtkBuilder instance.
+-- Expects a GtkBuilder instance and default context settings. 
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
 initComponent gtkBuilder contextSettings = do
   putStrLn "Initializing ViewOptions component"
@@ -150,14 +150,56 @@ initComponent gtkBuilder contextSettings = do
     let cRotation = AC.incRotation settings
     contextSettings $=! settings { AC.incRotation = cRotation { DT.rotZ = (realToFrac(val)::GLfloat) } }
 
-  -- Todo: Move to UI.FeatureExtraction: 
-  adjBeatMaxBandSamples <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBeatMaxBandSamples"
-  Gtk.adjustmentSetValue adjBeatMaxBandSamples (fromIntegral $ AC.maxBeatBandSamples defaultSettings)
-  _ <- Gtk.onValueChanged adjBeatMaxBandSamples  $ do 
-    val <- Gtk.adjustmentGetValue adjBeatMaxBandSamples
+  adjBandRange1Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange1Amp"
+  Gtk.adjustmentSetValue adjBandRange1Amp (realToFrac $ (AC.rangeAmps defaultSettings) !! 0)
+  _ <- Gtk.onValueChanged adjBandRange1Amp $ do 
     settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.maxBeatBandSamples = round val }
+    dVal <- Gtk.adjustmentGetValue adjBandRange1Amp
+    let fVal  = realToFrac dVal
+    let cAmps = AC.rangeAmps settings
+    let mAmps = fVal : (drop 1 cAmps)
+    contextSettings $=! settings { AC.rangeAmps = mAmps }
 
+  adjBandRange2Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange2Amp"
+  Gtk.adjustmentSetValue adjBandRange2Amp (realToFrac $ (AC.rangeAmps defaultSettings) !! 1)
+  _ <- Gtk.onValueChanged adjBandRange2Amp $ do 
+    settings <- readIORef contextSettings
+    dVal <- Gtk.adjustmentGetValue adjBandRange2Amp
+    let fVal  = realToFrac dVal
+    let cAmps = AC.rangeAmps settings
+    let mAmps = take 1 cAmps ++ (fVal : (drop 2 cAmps))
+    contextSettings $=! settings { AC.rangeAmps = mAmps }
+
+  adjBandRange3Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange3Amp"
+  Gtk.adjustmentSetValue adjBandRange3Amp (realToFrac $ (AC.rangeAmps defaultSettings) !! 2)
+  _ <- Gtk.onValueChanged adjBandRange3Amp $ do 
+    settings <- readIORef contextSettings
+    dVal <- Gtk.adjustmentGetValue adjBandRange3Amp
+    let fVal  = realToFrac dVal
+    let cAmps = AC.rangeAmps settings
+    let mAmps = take 2 cAmps ++ (fVal : (drop 3 cAmps))
+    contextSettings $=! settings { AC.rangeAmps = mAmps }
+  
+  adjBandRange4Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange4Amp"
+  Gtk.adjustmentSetValue adjBandRange4Amp (realToFrac $ (AC.rangeAmps defaultSettings) !! 3)
+  _ <- Gtk.onValueChanged adjBandRange4Amp $ do 
+    settings <- readIORef contextSettings
+    dVal <- Gtk.adjustmentGetValue adjBandRange4Amp
+    let fVal  = realToFrac dVal
+    let cAmps = AC.rangeAmps settings
+    let mAmps = take 3 cAmps ++ (fVal : (drop 4 cAmps))
+    contextSettings $=! settings { AC.rangeAmps = mAmps }
+
+  adjBandRange5Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange5Amp"
+  Gtk.adjustmentSetValue adjBandRange5Amp (realToFrac $ (AC.rangeAmps defaultSettings) !! 4)
+  _ <- Gtk.onValueChanged adjBandRange5Amp $ do 
+    settings <- readIORef contextSettings
+    dVal <- Gtk.adjustmentGetValue adjBandRange5Amp
+    let fVal  = realToFrac dVal
+    let cAmps = AC.rangeAmps settings
+    let mAmps = take 4 cAmps ++ [fVal]
+    contextSettings $=! settings { AC.rangeAmps = mAmps }
+  
   return True
 
 
