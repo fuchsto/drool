@@ -25,12 +25,14 @@ module Drool.Types (
    newSignalBuffer,
    newSignalList,
    getSignal,
+   getRecentSignal, 
    getBufferSample,
    getSignalSample
 ) where
 
 import Data.Array.IO
 import Graphics.Rendering.OpenGL
+import Drool.Utils.SigGen ( SValue )
 
 
 -- A signal is an array of samples (sample type is GLfloat):
@@ -76,6 +78,10 @@ newSignalList size el = if size > 0 then (el::Signal) : (newSignalList (size-1) 
 getSignal :: SignalList -> Int -> Signal
 getSignal signals time_idx = (signalList signals) !! time_idx
 
+getRecentSignal :: SignalList -> Signal
+getRecentSignal signals= sigList !! (length sigList - 1)
+  where sigList = signalList signals
+
 {-
 getBufferSample signalBuf time_idx sample_idx = do
   signal <- getSignal signalBuf time_idx
@@ -89,6 +95,7 @@ getBufferSample signals time_idx sample_idx = do
   sample <- readArray (signalArray signal) sample_idx
   return sample
 
+getSignalSample :: Signal -> Int -> IO SValue
 getSignalSample signal sample_idx = do
   sample <- readArray (signalArray signal) sample_idx
   return sample

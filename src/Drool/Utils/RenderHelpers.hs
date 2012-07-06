@@ -1,13 +1,20 @@
 
 
 module Drool.Utils.RenderHelpers (
+    RenderSettings(..), 
     applyBandRangeAmp, 
     bandRangeAmpSamples, 
 
     vertexWithNormal, 
-    verticesAndNormalsFromSignalList, 
-    getVertexAndNormal
+    normalsFromSamples, 
+    normalsFromVertices, 
+    verticesFromSamples, 
+    updateVerticesZCoord
 ) where
+
+import Debug.Trace
+
+import Data.IORef ( IORef(..) ) 
 
 import Data.Array.IO ( readArray )
 import Data.Array.MArray ( getBounds )
@@ -21,6 +28,22 @@ import Graphics.Rendering.OpenGL (
     VertexComponent,
     NormalComponent, 
     vertex, normal, GLfloat )
+
+data RenderSettings = RenderSettings { -- maps x index to x position: 
+                                       xPosFun :: (Int -> GLfloat),
+                                       -- maps signal index to z position: 
+                                       zPosFun :: (Int -> GLfloat), 
+                                       -- scales sample (vertex y position) according to x and z index: 
+                                       scaleFun :: (SValue -> Int -> Int -> GLfloat), 
+                                       -- Containing one normal vector for every sample vertex: 
+                                       normalsBuf :: IORef [[ Normal3 GLfloat ]], 
+                                       -- Containing all vertices, used for normals computation 
+                                       -- and rendering: 
+                                       vertexBuf :: IORef [[ Vertex3 GLfloat ]], 
+                                       -- Current number of signals in signal buffer: 
+                                       numSignals :: Int, 
+                                       -- Number of samples in most recent signal: 
+                                       numSamples :: Int } 
 
 
 -- Expects a sample, t, number of samples in total, list of band range amplifiers, and returns amplified sample for t. 
@@ -53,6 +76,19 @@ v3y (Vector3 _ y _) = y
 v3z :: Vector3 a -> a
 v3z (Vector3 _ _ z) = z
 
+-- Resolve x component of a 3-dimensional Vertex
+vx3x :: Vertex3 a -> a
+vx3x (Vertex3 x _ _) = x
+-- Resolve y component of a 3-dimensional Vertex
+vx3y :: Vertex3 a -> a
+vx3y (Vertex3 _ y _) = y
+-- Resolve z component of a 3-dimensional Vertex
+vx3z :: Vertex3 a -> a
+vx3z (Vertex3 _ _ z) = z
+
+vertexToVector :: (Num a) => Vertex3 a -> Vector3 a 
+vertexToVector v = Vector3 (vx3x v) (vx3y v) (vx3z v)
+
 -- Cross product of two vectors
 v3cross :: (Num a) => Vector3 a -> Vector3 a -> Vector3 a
 v3cross (Vector3 a1 a2 a3) (Vector3 b1 b2 b3) = Vector3 c1 c2 c3
@@ -61,12 +97,12 @@ v3cross (Vector3 a1 a2 a3) (Vector3 b1 b2 b3) = Vector3 c1 c2 c3
         c3 = a1 * b2 - a2 * b1
 
 v3add :: (Num a) => Vector3 a -> Vector3 a -> Vector3 a
-v3add a b = Vector3 z y z
+v3add a b = Vector3 x y z
   where x = v3x a + v3x b
         y = v3y a + v3y b
         z = v3z a + v3z b
 v3sub :: (Num a) => Vector3 a -> Vector3 a -> Vector3 a
-v3sub a b = Vector3 z y z
+v3sub a b = Vector3 x y z
   where x = v3x a - v3x b
         y = v3y a - v3y b
         z = v3z a - v3z b
@@ -86,48 +122,83 @@ v3mul a b = Vector3 x y z
         z = v3z a * v3z b
 
 -- Useful for mapping over a list containing tuples of (vertex, vertexNormal): 
-vertexWithNormal :: (VertexComponent v, NormalComponent n) => (Vertex3 v, Normal3 n) -> IO ()
+vertexWithNormal :: (Vertex3 GLfloat, Normal3 GLfloat) -> IO ()
 vertexWithNormal (v,n) = do normal n
+                            putStrLn $ show n
                             vertex v 
+                            putStrLn $ show v
+                            return ()
 
--- Expects a sample matrix (SignalList) and returns a matrix of same dimensions 
--- containing tuples of (vertex,normalVector). 
-verticesAndNormalsFromSignalList :: SignalList -> GLfloat -> GLfloat -> [[ (Vertex3 GLfloat, Normal3 GLfloat) ]]
-verticesAndNormalsFromSignalList signalList vscale signalLineDist = [ [ (Vertex3 1.0 1.0 (0.0::GLfloat), Normal3 1.0 0.0 (0.0 :: GLfloat)) ] ]
---  verticesAndNormalsFromSignalList signalList vscale signalLineDist = do $ 
---    let signal = signalList !! z
---    samples <- getElems $ DT.signalArray signal
+-- Expects three sample lists (first and last possibly empty) and returns list of normal vectors 
+-- for every sample in the second sample list. 
+normalsFromSamples' :: [[ SValue ]] -> Int -> GLfloat -> GLfloat -> Int -> [ Normal3 GLfloat ]
+normalsFromSamples' sigs@(sigPrev:sig:sigNext:[]) numSamples xdist zdist xIdx = if xIdx < numSamples then normal : normalsFromSamples' sigs numSamples xdist zdist (xIdx+1) else []
+  where boundx  = \a -> max 0 (min a (numSamples-1)) :: Int 
+        sampleC = sig !! xIdx
+        sampleR = sig !! (boundx (xIdx+1))
+        sampleL = sig !! (boundx (xIdx-1))
+        sampleT = if length sigPrev > 0 then sigPrev !! xIdx else sampleC
+        sampleB = if length sigNext > 0 then sigNext !! xIdx else sampleC
+        point   = Vector3 (xdist * fromIntegral xIdx) sampleC 0
+        pointR  = Vector3 (xdist * fromIntegral (xIdx+1)) sampleR 0
+        pointT  = Vector3 (xdist * fromIntegral xIdx) sampleT (2.0 * zdist)
+        pointL  = Vector3 (xdist * fromIntegral (xIdx-1)) sampleL 0
+        pointB  = Vector3 (xdist * fromIntegral xIdx) sampleB (-zdist)
+        vR = v3sub pointR point   --   n4  T  n1
+        vT = v3sub pointT point   --       |
+        vL = v3sub pointL point   --    L--C--R
+        vB = v3sub pointB point   --       |
+        n1 = v3cross vT vR        --   n3  B  n2
+        n2 = v3cross vR vB
+        n3 = v3cross vB vL
+        n4 = v3cross vL vT
+        -- no normalization here as GL.normalize is enabled
+        n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) 
+        normal = Normal3 (v3x n) (v3y n) (v3z n)
 
--- ?? Random access op on IOArray? How? This would prevent having to transform signalList to [[SValue]]
+normalsFromSamples :: [[ SValue ]] -> Int -> GLfloat -> GLfloat -> [ Normal3 GLfloat ]
+normalsFromSamples sigs numSamples xdist zdist = normalsFromSamples' sigs numSamples xdist zdist 0
 
-getVertexAndNormal :: SignalList -> Int -> Int -> IO (Vertex3 SValue, Normal3 SValue)
-getVertexAndNormal samples x z = do let numSignals = length (signalList samples)
-                                    boundsSamples <- getBounds $ signalArray $ (signalList samples) !! 0 
-                                    let numSamples = rangeSize boundsSamples
-                                    let boundx = \a -> max 0 (min a numSamples) :: Int 
-                                    let boundz = \a -> max 0 (min a numSignals) :: Int 
-                                    sample  <- sampleAt z x
-                                    sampleR <- sampleAt z (boundx (x+1))
-                                    sampleT <- sampleAt (boundz (z+1)) x
-                                    sampleL <- sampleAt z (boundx (x-1))
-                                    sampleB <- sampleAt (boundz (z-1)) x
-                                    let point   = Vector3 (fromIntegral x) sample (fromIntegral z)
-                                    let pointR  = Vector3 (fromIntegral x) sampleR (fromIntegral z)
-                                    let pointT  = Vector3 (fromIntegral x) sampleT (fromIntegral z)
-                                    let pointL  = Vector3 (fromIntegral x) sampleL (fromIntegral z)
-                                    let pointB  = Vector3 (fromIntegral x) sampleB (fromIntegral z)
-                                    let v1 = v3sub pointR point 
-                                    let v4 = v3sub pointT point 
-                                    let v3 = v3sub pointL point 
-                                    let v2 = v3sub pointB point 
-                                    let n1 = v3cross v4 v1
-                                    let n2 = v3cross v1 v2
-                                    let n3 = v3cross v2 v3
-                                    let n4 = v3cross v3 v4
-                                    let n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) -- no normalization here as GL.normalize is enabled
-                                    let vertex = Vertex3 (v3x point) (v3y point) (v3z point)
-                                    let normal = Normal3 (v3x n) (v3y n) (v3z n)
-                                    return ( vertex, normal ) 
-    where 
-      sampleAt z' x' = readArray (signalArray ((signalList samples) !! z')) x'
+normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> Int -> [ Normal3 GLfloat ]
+normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) numSamples xIdx = if xIdx < numSamples then normal : normalsFromVertices' sigs numSamples (xIdx+1) else []
+  where boundx  = \a -> max 0 (min a (numSamples-1)) :: Int 
+        vertexC = trace ("xIdx" ++ show xIdx) $ sig !! xIdx
+        vertexR = trace ("xIdx+1" ++ show (xIdx-1)) $ sig !! (boundx (xIdx+1))
+        vertexL = trace ("xIdx-1" ++ show (xIdx+1)) $ sig !! (boundx (xIdx-1))
+        vertexT = if length sigPrev > 0 then sigPrev !! xIdx else vertexC
+        vertexB = if length sigNext > 0 then sigNext !! xIdx else vertexC
+        point   = vertexToVector vertexC
+        pointR  = vertexToVector vertexR
+        pointL  = vertexToVector vertexL
+        pointT  = vertexToVector vertexT
+        pointB  = vertexToVector vertexB
+        vR = v3sub pointR point   --   n4  T  n1
+        vT = v3sub pointT point   --       |
+        vL = v3sub pointL point   --    L--C--R
+        vB = v3sub pointB point   --       |
+        n1 = v3cross vT vR        --   n3  B  n2
+        n2 = v3cross vR vB
+        n3 = v3cross vB vL
+        n4 = v3cross vL vT
+        -- no normalization here as GL.normalize is enabled
+        n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) 
+        normal = Normal3 (v3x n) (v3y n) (v3z n)
+
+normalsFromVertices :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
+normalsFromVertices sigs numSamples = normalsFromVertices' sigs numSamples 0
+
+verticesFromSamples :: [ SValue ] -> Int -> RenderSettings -> [ Vertex3 GLfloat ]
+verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx
+                                                                                y = (scaleFun renderSettings) s signalIdx xIdx
+                                                                                z = (zPosFun renderSettings) signalIdx in
+                                                                            Vertex3 x y z ) [0..] samples
+
+-- Expects a 2-dimensional list of vertices, considering the first dimension a z-Index, 
+-- and a function mapping z-Indices to z-coordinates. 
+-- Updates z-coordinate in every vertex to (zPosFun zIndex). 
+updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> GLfloat) -> [[ Vertex3 GLfloat ]]
+updateVerticesZCoord signalsVertices zPosFun = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
+  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFun z) ) vertexList
+
+
 

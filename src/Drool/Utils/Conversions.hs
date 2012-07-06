@@ -22,7 +22,9 @@ module Drool.Utils.Conversions (
     complexDoubleToFloat, 
     complexDoublesToFloats, 
     listToCArray, 
-    listFromCArray
+    listFromCArray, 
+    interleave, 
+    adjustBufferSize
 ) where
 
 import qualified Graphics.UI.Gtk as Gtk
@@ -67,4 +69,11 @@ complexDoublesToFloats cds = map (\x -> (complexDoubleToFloat x) / 100.0) cds
 listToCArray lst = createCArray (0,(length lst)-1) ( \ptr -> do { pokeArray ptr lst } )
 
 listFromCArray carr = elems carr
+
+interleave :: [a] -> [a] -> [a]
+interleave xsA xsB = foldl (\acc (a,b) -> acc ++ [a,b] ) [] (zip xsA xsB)
+
+adjustBufferSize :: [a] -> Int -> [a] 
+adjustBufferSize buf maxLen = drop ((length buf)-maxLen) buf -- drop does not alter list for values <= 0
+
 
