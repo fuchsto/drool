@@ -24,7 +24,8 @@ module Drool.Utils.Conversions (
     listToCArray, 
     listFromCArray, 
     interleave, 
-    adjustBufferSize
+    adjustBufferSize,
+    adjustBufferSizeBack
 ) where
 
 import qualified Graphics.UI.Gtk as Gtk
@@ -76,4 +77,6 @@ interleave xsA xsB = foldl (\acc (a,b) -> acc ++ [a,b] ) [] (zip xsA xsB)
 adjustBufferSize :: [a] -> Int -> [a] 
 adjustBufferSize buf maxLen = drop ((length buf)-maxLen) buf -- drop does not alter list for values <= 0
 
+adjustBufferSizeBack :: [a] -> Int -> [a] 
+adjustBufferSizeBack buf maxLen = take maxLen buf -- drop does not alter list for values <= 0
 

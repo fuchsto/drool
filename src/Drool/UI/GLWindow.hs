@@ -20,7 +20,7 @@ module Drool.UI.GLWindow (
 
 import Debug.Trace
 
-import Data.IORef(IORef, readIORef, newIORef, modifyIORef )
+import Data.IORef(IORef, readIORef, newIORef, modifyIORef, writeIORef )
 import Data.Array.IO
 
 import Graphics.Rendering.OpenGL as GL
@@ -97,10 +97,8 @@ display contextSettingsIORef renderSettingsIORef = do
   let numSignals = length signalList
   -- Load vertex buffer from rendering context
   let vertexBufIORef = RH.vertexBuf renderSettings
-  vertexBuf <- readIORef vertexBufIORef
   -- Load normals buffer from rendering context
   let normalsBufIORef = RH.normalsBuf renderSettings
-  normalsBuf <- readIORef normalsBufIORef
 
   ---------------------------------------------------------------------------------------------------
   -- Begin handling of new signal
@@ -121,10 +119,16 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Push vertices of recent signal to vertex buffer. 
   -- Also updates z values of all vertices in vertex buffer: 
   let zPosFun = (\zIdx -> (fromIntegral zIdx) * signalLineDist)
-  modifyIORef vertexBufIORef ( \buf -> RH.updateVerticesZCoord ((Conv.adjustBufferSize buf numSignals) ++ [ recentSignalVertices ]) zPosFun )
+  vBufCurr <- readIORef vertexBufIORef
+  -- let vertexBufferPushedSignal = Conv.adjustBufferSize (vBufCurr ++ [recentSignalVertices]) numSignals
+  let vertexBufferPushedSignal = recentSignalVertices : (Conv.adjustBufferSizeBack ( vBufCurr) (numSignals-1))
+  let verticesWithAdjCoords = RH.updateVerticesZCoord vertexBufferPushedSignal zPosFun 
+  modifyIORef vertexBufIORef ( \_ -> verticesWithAdjCoords )
   -- Now that all new vertices are ready, update the normals buffer: 
-  -- updatedNormalsBuf <- updateNormalsBuffer normalsBuf vertexBuf numSignals numSamples
-  -- modifyIORef normalsBufIORef ( \_ -> updatedNormalsBuf )
+  nBufCurr <- readIORef normalsBufIORef
+  updatedNormalsBuf <- updateNormalsBuffer nBufCurr verticesWithAdjCoords numSignals numSamples
+  -- modifyIORef normalsBufIORef ( \buf -> if length updatedNormalsBuf > 0 then updatedNormalsBuf else buf )
+  modifyIORef normalsBufIORef ( \_ -> updatedNormalsBuf )
   -- Update numSignals and numSamples: 
   modifyIORef renderSettingsIORef (\rs -> renderSettings { RH.numSignals = numSignals, RH.numSamples = numSamples } ) 
   
@@ -138,13 +142,11 @@ display contextSettingsIORef renderSettingsIORef = do
 
   GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
 
-  -- mapM_ ( \samples -> mapM_ RH.vertexWithNormal samples ) verticesAndNormals
-
+{-
   -- [ value_0, ..., value_n ] -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
   let toVertexList zVal = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (zVal::GLfloat))
 
   -- Expects a list of samples [GLfloat] and renders them as line:
-{-
   let renderSampleLines sampleList = do renderPrimitive LineStrip (
                                           mapM_ GL.vertex (toVertexList 0 [0..numSamples] sampleList) )
                                         GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
@@ -156,10 +158,12 @@ display contextSettingsIORef renderSettingsIORef = do
           [ Vertex3 (xVal) (v1*damp) (zVal::GLfloat),
             Vertex3 (xVal) (v2*damp) (zVal+signalLineDist::GLfloat) ] )
 -}
+  
   let renderSampleSurfaceStrip vertices normals idx lC bC lbC = do color surfaceColor
                                                                    renderPrimitive TriangleStrip (
                                                                      -- mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sTuples)) )
-                                                                     mapM_ vertex vertices )
+                                                                     -- mapM_ vertex vertices )
+                                                                     mapM_ RH.vertexWithNormal ( zip vertices normals ) )
                                                                    -- color gridColor
                                                                    let beatDamping      = fromIntegral maxBeatSamples
                                                                    let loudnessDamping  = fromIntegral numSamples
@@ -177,7 +181,7 @@ display contextSettingsIORef renderSettingsIORef = do
   color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
   let renderSignalSurfaceStrip vBuf nBuf count loudnessCoeff beatCoeff = (
         case vBuf of 
-          (curr:next:xs) -> (
+          (currVertices:nextVertices:xs) -> (
             -- Note that we only iterate over signal samples for feature extraction, 
             -- not for rendering. At this point, vertices are already computed and in 
             -- the vertex buffer. 
@@ -194,20 +198,20 @@ display contextSettingsIORef renderSettingsIORef = do
                let localBeatCoeff = 0.8
                -- Load vertices and normals: 
                
-               let currVertices = vBuf !! count
-               let nextVertices = if length vBuf > (count+1) then vBuf !! (count+1) else currVertices
-               -- let currNormals = nBuf !! count
-               -- let nextNormals = if length nBuf > 1 then nBuf !! (count+1) else currNormals
+               -- let currVertices = vBuf !! count
+               -- let nextVertices = if length vBuf > (count+1) then vBuf !! (count+1) else currVertices
+               let currNormals = nBuf !! (min count (length nBuf-1))
+               let nextNormals = if length nBuf > (count+1) then nBuf !! (count+1) else currNormals
                
                -- Put vertices and normals in correct (interleaved) order for 
                -- rendendering: 
-               -- let normals  = Conv.interleave currNormals nextNormals    -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
+               let normals  = Conv.interleave currNormals nextNormals    -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
                let vertices = Conv.interleave currVertices nextVertices  -- [ s_0_0, s_1_0,  s_0_1, s_1_1, ... ]
                -- Render a single surface strip (consisting of values from two signals): 
-               renderSampleSurfaceStrip vertices [] count loudnessCoeff beatCoeff localBeatCoeff
+               renderSampleSurfaceStrip vertices normals count loudnessCoeff beatCoeff localBeatCoeff
                
                -- recurse
-               let recurse = if (count+1) < (length vBuf) then renderSignalSurfaceStrip vBuf nBuf (count+1) loudnessCoeff beatCoeff else return ()
+               let recurse = if (count+1) < (length vBuf) then renderSignalSurfaceStrip (nextVertices:xs) nBuf (count+1) loudnessCoeff beatCoeff else return ()
                recurse
                return () )
           (sig:[]) -> return () 
@@ -219,6 +223,8 @@ display contextSettingsIORef renderSettingsIORef = do
   let loudness sampleList = (sum sampleList) - (fromIntegral (length sampleList) * noisePerSample)
   let beatLoudness sampleList = (sum $ take maxBeatSamples sampleList) - (fromIntegral maxBeatSamples * noisePerSample)
   
+  vertexBuf <- readIORef vertexBufIORef
+  normalsBuf <- readIORef normalsBufIORef
   renderSignalSurfaceStrip vertexBuf normalsBuf 0 (loudness recentSignalSamples) (beatLoudness recentSignalSamples) 
   GL.flush
 
@@ -234,39 +240,37 @@ reshape allocation = do
 -- Expects normals buffer, signal buffer and maximum number of signals in buffers. 
 -- Returns updated normals buffer. 
 updateNormalsBuffer :: [[ Normal3 GLfloat ]] -> [[ Vertex3 GLfloat ]] -> Int -> Int -> IO [[ Normal3 GLfloat ]] 
-updateNormalsBuffer nBuf vBuf@[x:xs] numSignals numSamples = do
+updateNormalsBuffer nBuf vBuf numSignals numSamples = do
   
-  putStrLn "-> updateNormalsBuffer"
-  putStrLn $ "-> updateNormalsBuffer vBuf: " ++ show vBuf
   -- Drop first and last element of nBuf. 
   -- Last element has incomplete normals and will be replaced by element 
   -- with correct normals. This happens in any case. 
   -- Drop first element if max buffer size is exceeded. 
-  
-  let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize + 1) buf else buf
-  let updatedNormalBuf = trace ("nBuf unadj: " ++ show nBuf) $ readjustBufferSize ( take (numSignals-1) nBuf ) (numSignals-2)
+  let adjNormalsBuf = take (numSignals-2) (Conv.adjustBufferSize nBuf (numSignals-1))
   
   -- Take 3 most recent signals from vertex buffer. 
   -- Last element in signal buffer is most recent signal: 
-  let sigCurrIdx  = if length vBuf > 0 then (length vBuf)-1 else 0 
-  let sigPrev1Idx = if length vBuf > 1 then (length vBuf)-2 else sigCurrIdx
-  let sigPrev2Idx = if length vBuf > 2 then (length vBuf)-3 else sigPrev1Idx
+  -- let sigCurrIdx  = if length vBuf > 0 then (length vBuf)-1 else 0 
+  -- let sigPrev1Idx = if length vBuf > 1 then (length vBuf)-2 else sigCurrIdx
+  -- let sigPrev2Idx = if length vBuf > 2 then (length vBuf)-3 else sigPrev1Idx
+  let sigCurrIdx  = 0
+  let sigPrev1Idx = if length vBuf > 1 then 1 else sigCurrIdx
+  let sigPrev2Idx = if length vBuf > 2 then 2 else sigPrev1Idx
   
-  let sigCurr  = trace ("sigCurrIdx: " ++ show sigCurrIdx) $ (vBuf !! sigCurrIdx) 
-  let sigPrev1 = trace ("sigPrev1Idx: " ++ show sigPrev1Idx ++ " currIdx: " ++ show sigCurrIdx) $ (vBuf !! sigPrev1Idx) 
-  let sigPrev2 = trace ("sigPrev2Idx: " ++ show sigPrev2Idx ++ " currIdx: " ++ show sigCurrIdx) $ (vBuf !! sigPrev2Idx) 
+  let sigCurr  = (vBuf !! sigCurrIdx) 
+  let sigPrev1 = (vBuf !! sigPrev1Idx) 
+  let sigPrev2 = (vBuf !! sigPrev2Idx) 
   
   -- Normal vector for current signal is incomplete: 
-  let verticesAndNormalsCurr = trace ("calling normalsFromVertices (curr), numSamples: " ++ show numSamples ++ " " ++ show (length sigPrev1)) $ RH.normalsFromVertices [sigPrev1,sigCurr,[]] numSamples 
+  let verticesAndNormalsCurr = RH.normalsFromVertices [sigPrev1,sigCurr,[]] numSamples 
   -- Normal vector for prev signal is complete: 
-  let verticesAndNormalsPrev = trace ("calling normalsFromVertices (prev), numSamples: " ++ show numSamples ++ " " ++ show (length sigPrev2)) $ RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] numSamples 
+  let verticesAndNormalsPrev = RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] numSamples 
 
+  -- let updatedNormalsBuf = (adjNormalsBuf ++ [ verticesAndNormalsPrev, verticesAndNormalsCurr ] )
+  let updatedNormalsBuf = verticesAndNormalsPrev : verticesAndNormalsCurr : adjNormalsBuf 
   -- One element dropped at the end, two elements added at the end: 
-  return (updatedNormalBuf ++ [ verticesAndNormalsPrev, verticesAndNormalsCurr ] )
-
-updateNormalsBuffer nBuf (x) numSignals numSamples = do
-  return []
-  
+  -- putStrLn $ "updated normals: " ++ show updatedNormalsBuf
+  return updatedNormalsBuf
 
 -- Component init interface for main UI. 
 initComponent _ contextSettings = do
@@ -284,14 +288,16 @@ initComponent _ contextSettings = do
 
   canvas <- GtkGL.glDrawingAreaNew glConfig
 
-  normalsBuf <- newIORef [] -- stores all vertex normals
-  vertexBuf <- newIORef []  -- stores most recent 3 samples
+  settings <- readIORef contextSettings
+  
+  vertexBufIORef  <- newIORef []
+  normalsBufIORef <- newIORef []
 
   renderSettings <- newIORef RH.RenderSettings { RH.xPosFun = (\x -> fromIntegral x / 50.0), 
                                                  RH.zPosFun = (\z -> fromIntegral z), 
                                                  RH.scaleFun = (\s _ _ -> s), 
-                                                 RH.normalsBuf = normalsBuf, 
-                                                 RH.vertexBuf = vertexBuf, 
+                                                 RH.vertexBuf = vertexBufIORef, 
+                                                 RH.normalsBuf = normalsBufIORef, 
                                                  RH.numSignals = 0, 
                                                  RH.numSamples = 0 } 
 
@@ -312,7 +318,7 @@ initComponent _ contextSettings = do
     lighting $= Enabled
     light (Light 0) $= Enabled
     light (Light 1) $= Enabled
-    cullFace $= Just Front
+    cullFace $= Just Back
     autoNormal $= Enabled
     colorMaterial $= Just (Front, AmbientAndDiffuse)
     blendFunc $= (SrcAlpha, One)
@@ -356,7 +362,6 @@ initComponent _ contextSettings = do
 
   Gtk.set window [ Gtk.containerChild := canvas ]
 
-  settings <- readIORef contextSettings
   let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency settings)
   -- Redraw canvas according to rendering frequency:
   updateCanvasTimer <- Gtk.timeoutAddFull (do

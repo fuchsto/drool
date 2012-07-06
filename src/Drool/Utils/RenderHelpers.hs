@@ -9,12 +9,12 @@ module Drool.Utils.RenderHelpers (
     normalsFromSamples, 
     normalsFromVertices, 
     verticesFromSamples, 
-    updateVerticesZCoord
+    updateVerticesZCoord, 
 ) where
 
 import Debug.Trace
 
-import Data.IORef ( IORef(..) ) 
+import Data.IORef ( IORef(..), newIORef ) 
 
 import Data.Array.IO ( readArray )
 import Data.Array.MArray ( getBounds )
@@ -124,9 +124,7 @@ v3mul a b = Vector3 x y z
 -- Useful for mapping over a list containing tuples of (vertex, vertexNormal): 
 vertexWithNormal :: (Vertex3 GLfloat, Normal3 GLfloat) -> IO ()
 vertexWithNormal (v,n) = do normal n
-                            putStrLn $ show n
                             vertex v 
-                            putStrLn $ show v
                             return ()
 
 -- Expects three sample lists (first and last possibly empty) and returns list of normal vectors 
@@ -162,11 +160,11 @@ normalsFromSamples sigs numSamples xdist zdist = normalsFromSamples' sigs numSam
 normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> Int -> [ Normal3 GLfloat ]
 normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) numSamples xIdx = if xIdx < numSamples then normal : normalsFromVertices' sigs numSamples (xIdx+1) else []
   where boundx  = \a -> max 0 (min a (numSamples-1)) :: Int 
-        vertexC = trace ("xIdx" ++ show xIdx) $ sig !! xIdx
-        vertexR = trace ("xIdx+1" ++ show (xIdx-1)) $ sig !! (boundx (xIdx+1))
-        vertexL = trace ("xIdx-1" ++ show (xIdx+1)) $ sig !! (boundx (xIdx-1))
-        vertexT = if length sigPrev > 0 then sigPrev !! xIdx else vertexC
-        vertexB = if length sigNext > 0 then sigNext !! xIdx else vertexC
+        vertexC = sig !! xIdx
+        vertexR = sig !! (boundx (xIdx+1))
+        vertexL = sig !! (boundx (xIdx-1))
+        vertexT = if length sigPrev > xIdx then sigPrev !! xIdx else vertexC
+        vertexB = if length sigNext > xIdx then sigNext !! xIdx else vertexC
         point   = vertexToVector vertexC
         pointR  = vertexToVector vertexR
         pointL  = vertexToVector vertexL
@@ -199,6 +197,5 @@ verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let 
 updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> GLfloat) -> [[ Vertex3 GLfloat ]]
 updateVerticesZCoord signalsVertices zPosFun = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
   where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFun z) ) vertexList
-
 
 

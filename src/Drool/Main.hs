@@ -60,12 +60,12 @@ main = do
                                                 SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                                 SigGen.signalPeriodLength = 3,
                                                 SigGen.envelopePeriodLength = 40,
-                                                SigGen.numSamples = 200 }
+                                                SigGen.numSamples = 150 }
 
   contextSettings <- newIORef(
     AC.ContextSettings { AC.samplingThreadId = undefined, 
                          AC.signalPushFrequency = 120,
-                         AC.renderingFrequency = 30,
+                         AC.renderingFrequency = 120,
                          AC.signalBufferSize = signalBufferSize,
                          AC.fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
@@ -151,9 +151,7 @@ main = do
       let bufferMaxSize = AC.signalBufferSize cSettings
       let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
       -- Push new signal to buffer:
-      modifyIORef signalBuffer (\list -> DT.CSignalList(
-                                           ((readjustBufferSize (DT.signalList list) bufferMaxSize)
-                                         ++ [ DT.CSignal newSignal ]) ))
+      modifyIORef signalBuffer (\list -> DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [ DT.CSignal newSignal ]) bufferMaxSize) )
 
       -- Increment values of incremental rotation: 
       let accIncRotation  = (AC.incRotationAccum cSettings) 
