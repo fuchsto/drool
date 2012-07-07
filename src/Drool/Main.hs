@@ -71,6 +71,8 @@ main = do
                          AC.incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.scaling = 30,
+                         AC.useNormals = True, 
+                         AC.normalsScale = 10.0, 
                          AC.rangeAmps = [ 1.0, 1.0, 1.0, 1.0, 1.0 ], 
                          AC.gridOpacity = 15,
                          AC.surfaceOpacity = 13,
@@ -79,6 +81,7 @@ main = do
                          AC.gridColor = Color3 (142.0/255) 1 (58.0/255::GLfloat),
                          AC.renderPerspective = DT.Isometric,
                          AC.maxBeatBandSamples = 20, 
+                         AC.signalSource = DT.Microphone, 
                          AC.signalBuf = signalBuffer,
                          AC.signalGenerator = defaultSiggen } )
 
@@ -137,14 +140,15 @@ main = do
 
       let siggen = AC.signalGenerator cSettings
 
-      -- let genSampleList = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
       sigsamples <- CC.readChan sampleChan
-
-      let scale s = s * 5.0 -- ((sqrt (s+13.0)) - 3.6) * 5.0
-      let genSampleList = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
-
-      -- mapM_ (\x -> putStrLn $ show x) genSampleList
       
+      let scale s = s * 2.0 -- ((sqrt (s+13.0)) - 3.6) * 5.0
+      
+      let genSampleListTestSignal = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
+      let genSampleListMicrophone = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
+
+      let genSampleList = if AC.signalSource cSettings == DT.Microphone then genSampleListMicrophone else genSampleListTestSignal
+
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
       -- pop first signal in buffer if buffer is full:

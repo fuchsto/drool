@@ -4,12 +4,17 @@ module Drool.Utils.RenderHelpers (
     RenderSettings(..), 
     applyBandRangeAmp, 
     bandRangeAmpSamples, 
+    scaleSamples, 
 
     vertexWithNormal, 
     normalsFromSamples, 
     normalsFromVertices, 
     verticesFromSamples, 
     updateVerticesZCoord, 
+    drawNormal, 
+
+    vertexToVector, 
+    vx4ToVx3
 ) where
 
 import Debug.Trace
@@ -24,10 +29,16 @@ import Drool.Utils.SigGen ( SValue, TValue )
 import Graphics.Rendering.OpenGL ( 
     Vector3 (..), 
     Vertex3 (..), 
+    Vertex4 (..), 
     Normal3 (..), 
+    Color4(..),
     VertexComponent,
     NormalComponent, 
-    vertex, normal, GLfloat )
+    renderPrimitive, 
+    PrimitiveMode(..),
+    vertex, normal, 
+    color, 
+    GLfloat )
 
 data RenderSettings = RenderSettings { -- maps x index to x position: 
                                        xPosFun :: (Int -> GLfloat),
@@ -35,6 +46,10 @@ data RenderSettings = RenderSettings { -- maps x index to x position:
                                        zPosFun :: (Int -> GLfloat), 
                                        -- scales sample (vertex y position) according to x and z index: 
                                        scaleFun :: (SValue -> Int -> Int -> GLfloat), 
+                                       -- Position of light 0
+                                       lightPos0 :: Vertex4 GLfloat, 
+                                       -- Position of light 1
+                                       lightPos1 :: Vertex4 GLfloat, 
                                        -- Containing one normal vector for every sample vertex: 
                                        normalsBuf :: IORef [[ Normal3 GLfloat ]], 
                                        -- Containing all vertices, used for normals computation 
@@ -66,6 +81,9 @@ bandRangeAmpSamplesRec (x:xs) amps numSamples t = ampSample : (bandRangeAmpSampl
   where ampSample = (applyBandRangeAmp x t numSamples amps)
 bandRangeAmpSamplesRec [] _ _ _ = []
 
+scaleSamples :: [SValue] -> SValue -> [SValue]
+scaleSamples samples a = map ( \s -> s * a ) samples
+
 -- Resolve x component of a 3-dimensional Vector
 v3x :: Vector3 a -> a
 v3x (Vector3 x _ _) = x
@@ -85,6 +103,19 @@ vx3y (Vertex3 _ y _) = y
 -- Resolve z component of a 3-dimensional Vertex
 vx3z :: Vertex3 a -> a
 vx3z (Vertex3 _ _ z) = z
+
+-- Resolve x component of a 3-dimensional Normal
+n3x :: Normal3 a -> a
+n3x (Normal3 x _ _) = x
+-- Resolve y component of a 3-dimensional Normal
+n3y :: Normal3 a -> a
+n3y (Normal3 _ y _) = y
+-- Resolve z component of a 3-dimensional Normal
+n3z :: Normal3 a -> a
+n3z (Normal3 _ _ z) = z
+
+vx4ToVx3 :: Vertex4 a -> Vertex3 a
+vx4ToVx3 (Vertex4 x y z w) = Vertex3 x y z
 
 vertexToVector :: (Num a) => Vertex3 a -> Vector3 a 
 vertexToVector v = Vector3 (vx3x v) (vx3y v) (vx3z v)
@@ -121,11 +152,33 @@ v3mul a b = Vector3 x y z
         y = v3y a * v3y b
         z = v3z a * v3z b
 
+n3normalize :: Normal3 GLfloat -> Normal3 GLfloat
+n3normalize n = Normal3 x y z 
+  where norm = sqrt $ ((n3x n)**2) + ((n3y n)**2) + ((n3z n)**2) :: GLfloat
+        x = (n3x n) / norm 
+        y = (n3y n) / norm
+        z = (n3z n) / norm
+
+n3Invert :: Normal3 GLfloat -> Normal3 GLfloat
+n3Invert n = Normal3 x y z
+  where x = -(n3x n)
+        y = -(n3y n)
+        z = -(n3z n)
+
 -- Useful for mapping over a list containing tuples of (vertex, vertexNormal): 
 vertexWithNormal :: (Vertex3 GLfloat, Normal3 GLfloat) -> IO ()
 vertexWithNormal (v,n) = do normal n
                             vertex v 
                             return ()
+
+drawNormal (v,n) = do let from = v
+                      let nx   = (n3x n) * 100.0
+                      let ny   = (n3y n) * 100.0
+                      let nz   = (n3z n) * 100.0
+                      let to   = Vertex3 (nx + vx3x v) (ny + vx3y v) (nz + vx3z v)
+                      color $ (Color4 1.0 1.0 1.0 1.0 :: Color4 GLfloat)
+                      renderPrimitive Lines ( do vertex from
+                                                 vertex to )
 
 -- Expects three sample lists (first and last possibly empty) and returns list of normal vectors 
 -- for every sample in the second sample list. 
@@ -180,7 +233,7 @@ normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) numSamples xIdx = if xIdx < n
         n4 = v3cross vL vT
         -- no normalization here as GL.normalize is enabled
         n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) 
-        normal = Normal3 (v3x n) (v3y n) (v3z n)
+        normal = n3Invert $ Normal3 (v3x n) (v3y n) (v3z n)
 
 normalsFromVertices :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
 normalsFromVertices sigs numSamples = normalsFromVertices' sigs numSamples 0
@@ -196,6 +249,7 @@ verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let 
 -- Updates z-coordinate in every vertex to (zPosFun zIndex). 
 updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> GLfloat) -> [[ Vertex3 GLfloat ]]
 updateVerticesZCoord signalsVertices zPosFun = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
-  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFun z) ) vertexList
+  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFun (numSignals-1-z)) ) vertexList
+        numSignals = length signalsVertices
 
 

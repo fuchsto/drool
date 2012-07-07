@@ -163,6 +163,26 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-dialog-warning</property>
   </object>
+  <object class="GtkImage" id="iconEnablePlayback10">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-dialog-warning</property>
+  </object>
+  <object class="GtkImage" id="iconEnablePlayback11">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-dialog-warning</property>
+  </object>
+  <object class="GtkImage" id="iconEnablePlayback12">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-dialog-warning</property>
+  </object>
+  <object class="GtkImage" id="iconEnablePlayback13">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-dialog-warning</property>
+  </object>
   <object class="GtkImage" id="iconEnablePlayback2">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -194,6 +214,11 @@
     <property name="stock">gtk-dialog-warning</property>
   </object>
   <object class="GtkImage" id="iconEnablePlayback8">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-dialog-warning</property>
+  </object>
+  <object class="GtkImage" id="iconEnablePlayback9">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-dialog-warning</property>
@@ -2744,10 +2769,11 @@
                         <property name="spacing">10</property>
                         <property name="label_fill">True</property>
                         <child>
-                          <object class="GtkHBox" id="hbox4">
+                          <object class="GtkTable" id="table2">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="border_width">10</property>
+                            <property name="n_rows">2</property>
+                            <property name="n_columns">2</property>
                             <child>
                               <object class="GtkLabel" id="labelPlayback">
                                 <property name="width_request">130</property>
@@ -2758,11 +2784,6 @@
                                 <property name="ypad">2</property>
                                 <property name="label" translatable="yes">Playback</property>
                               </object>
-                              <packing>
-                                <property name="expand">False</property>
-                                <property name="fill">False</property>
-                                <property name="position">0</property>
-                              </packing>
                             </child>
                             <child>
                               <object class="GtkVBox" id="vbox1">
@@ -2775,7 +2796,7 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconEnablePlayback8</property>
+                                    <property name="image">iconEnablePlayback10</property>
                                     <property name="draw_indicator">True</property>
                                   </object>
                                   <packing>
@@ -2785,7 +2806,7 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkLabel" id="label6">
+                                  <object class="GtkLabel" id="labelEnablePlaybackHint">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="xalign">0</property>
@@ -2802,10 +2823,96 @@ or the feedback will consume your soul.</property>
                                 </child>
                               </object>
                               <packing>
-                                <property name="expand">True</property>
-                                <property name="fill">True</property>
-                                <property name="padding">5</property>
-                                <property name="position">1</property>
+                                <property name="left_attach">1</property>
+                                <property name="right_attach">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="labelVertexNormals">
+                                <property name="width_request">130</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="yalign">0</property>
+                                <property name="xpad">3</property>
+                                <property name="ypad">2</property>
+                                <property name="label" translatable="yes">Vertex normals</property>
+                              </object>
+                              <packing>
+                                <property name="top_attach">1</property>
+                                <property name="bottom_attach">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkVBox" id="vbox2">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <child>
+                                  <object class="GtkCheckButton" id="checkbuttonUseNormals">
+                                    <property name="label" translatable="yes">Use normals</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="image">iconEnablePlayback11</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">True</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="labelUseNormalsHint">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="xalign">0</property>
+                                    <property name="xpad">24</property>
+                                    <property name="label" translatable="yes">Nicer surface rendering, just a tiny bit more CPU overhead. </property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">1</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkCheckButton" id="checkbuttonRenderNormals">
+                                    <property name="label" translatable="yes">Render normals</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="image">iconEnablePlayback12</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">True</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">2</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="labelRenderNormalsHint">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="xalign">0</property>
+                                    <property name="xpad">24</property>
+                                    <property name="label" translatable="yes">Recommended for debugging only. This isn't exactly cheap, 
+and it doesn't look that nice, either. </property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">3</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="right_attach">2</property>
+                                <property name="top_attach">1</property>
+                                <property name="bottom_attach">2</property>
                               </packing>
                             </child>
                           </object>

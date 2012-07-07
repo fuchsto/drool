@@ -49,6 +49,9 @@ data ContextSettings = ContextSettings { samplingThreadId :: CC.ThreadId, -- Thr
                                          rangeAmps :: [Float], 
                                          gridOpacity :: GLfloat,
                                          surfaceOpacity :: GLfloat,
+                                         -- Vector stuff: 
+                                         useNormals :: Bool, 
+                                         normalsScale :: Float, 
                                          -- Perspective: 
                                          renderPerspective :: RenderPerspective,
                                       -- Feature extraction: 
@@ -60,5 +63,6 @@ data ContextSettings = ContextSettings { samplingThreadId :: CC.ThreadId, -- Thr
                                          -- Enable playback:
                                          playbackEnabled :: Bool, 
                                       -- Signal source options: 
+                                         signalSource :: DT.SignalSource, 
                                          signalGenerator :: (SigGen.SignalGenerator) }
 

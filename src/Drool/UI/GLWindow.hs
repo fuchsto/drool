@@ -31,6 +31,7 @@ import Graphics.UI.Gtk (AttrOp((:=)))
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
 import qualified Drool.Utils.Conversions as Conv
+import qualified Drool.Utils.Objects as Obj
 import qualified Drool.Utils.RenderHelpers as RH
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
@@ -38,7 +39,8 @@ import qualified Drool.ApplicationContext as AC
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
-  clear [ColorBuffer]
+  clear [ColorBuffer, DepthBuffer]
+  
   matrixMode $= Modelview 0
   loadIdentity
 
@@ -51,8 +53,8 @@ display contextSettingsIORef renderSettingsIORef = do
       incRotation    = (AC.incRotation settings) 
       accIncRotation = (AC.incRotationAccum settings) 
       maxBeatSamples = (AC.maxBeatBandSamples settings) 
-      vscale         = 2.0::GLfloat
-      signalLineDist = 0.04::GLfloat
+      lightPos0      = (RH.lightPos0 renderSettings)
+      lightPos1      = (RH.lightPos1 renderSettings)
       gridColor      = color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = color3AddAlpha (AC.lightColor settings) 1
@@ -78,6 +80,8 @@ display contextSettingsIORef renderSettingsIORef = do
 
   GL.diffuse (Light 0) $= lightColor
   GL.diffuse (Light 1) $= lightColor
+  GL.specular (Light 0) $= mulColor4Value lightColor 1.5
+  GL.specular (Light 1) $= mulColor4Value lightColor 1.5
 
   
   GL.rotate (DT.rotX fixedRotation) $ Vector3 1.0 0.0 0.0
@@ -104,6 +108,9 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Begin handling of new signal
   ---------------------------------------------------------------------------------------------------
 
+  let xPosFun = RH.xPosFun renderSettings
+  let zPosFun = RH.zPosFun renderSettings
+
   -- Load most recent signal from buffer (last signal in list): 
   let recentSignal = DT.getRecentSignal signalBuf 
   -- Get length of most recent signal (= number of samples per signal): 
@@ -112,22 +119,19 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Transform samples in recent signal: 
   recentSignalSamples <- getElems $ DT.signalArray recentSignal
   let rangeAmps = AC.rangeAmps settings
-  let recentSignalSamplesTrans = RH.bandRangeAmpSamples recentSignalSamples rangeAmps
+  let recentSignalSamplesTrans = RH.bandRangeAmpSamples (RH.scaleSamples recentSignalSamples hScale) rangeAmps
   -- Convert transformed samples of recent signal to vertices. 
   -- Use 0 for all z values: 
   let recentSignalVertices = RH.verticesFromSamples recentSignalSamplesTrans 0 renderSettings
   -- Push vertices of recent signal to vertex buffer. 
   -- Also updates z values of all vertices in vertex buffer: 
-  let zPosFun = (\zIdx -> (fromIntegral zIdx) * signalLineDist)
   vBufCurr <- readIORef vertexBufIORef
-  -- let vertexBufferPushedSignal = Conv.adjustBufferSize (vBufCurr ++ [recentSignalVertices]) numSignals
   let vertexBufferPushedSignal = recentSignalVertices : (Conv.adjustBufferSizeBack ( vBufCurr) (numSignals-1))
   let verticesWithAdjCoords = RH.updateVerticesZCoord vertexBufferPushedSignal zPosFun 
   modifyIORef vertexBufIORef ( \_ -> verticesWithAdjCoords )
   -- Now that all new vertices are ready, update the normals buffer: 
   nBufCurr <- readIORef normalsBufIORef
   updatedNormalsBuf <- updateNormalsBuffer nBufCurr verticesWithAdjCoords numSignals numSamples
-  -- modifyIORef normalsBufIORef ( \buf -> if length updatedNormalsBuf > 0 then updatedNormalsBuf else buf )
   modifyIORef normalsBufIORef ( \_ -> updatedNormalsBuf )
   -- Update numSignals and numSamples: 
   modifyIORef renderSettingsIORef (\rs -> renderSettings { RH.numSignals = numSignals, RH.numSamples = numSamples } ) 
@@ -135,71 +139,67 @@ display contextSettingsIORef renderSettingsIORef = do
   ---------------------------------------------------------------------------------------------------
   -- End handling of new signal
   ---------------------------------------------------------------------------------------------------
-
-  GL.translate $ Vector3 (-0.5 * vscale) 0 0
-
-  GL.scale 1 hScale (1::GLfloat)
-
-  GL.translate $ Vector3 0 0 (-(fromIntegral numSignals) * signalLineDist / 2.0)
-
-{-
-  -- [ value_0, ..., value_n ] -> [ Vertex3 index_0 value_0 0, ..., Vertex3 index_n value_n 0 ]
-  let toVertexList zVal = zipWith (\i v -> Vertex3 ((fromIntegral i)/(fromIntegral numSamples)*vscale) v (zVal::GLfloat))
-
-  -- Expects a list of samples [GLfloat] and renders them as line:
-  let renderSampleLines sampleList = do renderPrimitive LineStrip (
-                                          mapM_ GL.vertex (toVertexList 0 [0..numSamples] sampleList) )
-                                        GL.translate $ Vector3 0 0 (signalLineDist::GLfloat)
-  let tuplesToVertexList idx = zipWith (\i (v1,v2) ->
-        let zVal = (fromIntegral idx) * signalLineDist 
-            xVal = (fromIntegral i)/(fromIntegral numSamples) 
-         -- damp = xVal + (1/xVal * 0.002) in
-            damp = log(1000.0 * xVal) / 7.0 in
-          [ Vertex3 (xVal) (v1*damp) (zVal::GLfloat),
-            Vertex3 (xVal) (v2*damp) (zVal+signalLineDist::GLfloat) ] )
--}
   
+  -- let surfaceWidth = (fromIntegral numSamples) * (xPosFun 1) :: GLfloat
+  -- let surfaceDepth = (fromIntegral numSignals) * (zPosFun 1) :: GLfloat
+  let surfaceWidth = xPosFun (numSamples-1)
+  let surfaceDepth = zPosFun (numSignals-1)
+
+  GL.position (Light 0) $= lightPos0
+  GL.position (Light 0) $= lightPos1
+
+  preservingMatrix $ do 
+     let cubePos = RH.vertexToVector $ RH.vx4ToVx3 lightPos0
+     translate cubePos
+     Obj.renderCube 0.1
+     Obj.renderCubeFrame 0.11
+  preservingMatrix $ do 
+     let cubePos = RH.vertexToVector $ RH.vx4ToVx3 lightPos1
+     translate cubePos
+     Obj.renderCube 0.1
+     Obj.renderCubeFrame 0.11
+
+  GL.translate $ Vector3 (-0.5 * surfaceWidth) 0 0
+  GL.translate $ Vector3 0 0 (-0.75 * surfaceDepth)
+  
+  materialSpecular FrontAndBack $= mulColor4Value surfaceColor 1.5
+  materialShininess FrontAndBack $= 30
+
   let renderSampleSurfaceStrip vertices normals idx lC bC lbC = do color surfaceColor
                                                                    renderPrimitive TriangleStrip (
-                                                                     -- mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sTuples)) )
-                                                                     -- mapM_ vertex vertices )
-                                                                     mapM_ RH.vertexWithNormal ( zip vertices normals ) )
-                                                                   -- color gridColor
+                                                                     if AC.useNormals settings then
+                                                                       mapM_ RH.vertexWithNormal ( zip vertices normals ) 
+                                                                     else 
+                                                                       mapM_ vertex vertices )
                                                                    let beatDamping      = fromIntegral maxBeatSamples
                                                                    let loudnessDamping  = fromIntegral numSamples
                                                                    let localBeatDamping = fromIntegral maxBeatSamples
                                                                    let beatGridOpacity  = gridOpacity * ((bC / beatDamping) + (lC / loudnessDamping) + (lbC / localBeatDamping))
                                                                    let beatGridOpacity' = gridOpacity 
+                                                                   -- mapM_ RH.drawNormal (zip vertices normals)
                                                                    color $ color3AddAlpha (AC.gridColor settings) beatGridOpacity' -- + bC / 100.0)
-                                                                   -- translate $ Vector3 0 (0.05::GLfloat) 0
+                                                                   translate $ Vector3 0 (0.02::GLfloat) 0
                                                                    renderPrimitive LineStrip ( 
-                                                                     -- mapM_ GL.vertex (concat(tuplesToVertexList idx [0..numSamples] sTuples)) )
-                                                                     mapM_ vertex vertices )
-                                                                   -- translate $ Vector3 0 (-0.05::GLfloat) 0
+                                                                     if AC.useNormals settings then
+                                                                       mapM_ RH.vertexWithNormal ( zip vertices normals ) 
+                                                                     else 
+                                                                       mapM_ vertex vertices )
+                                                                   translate $ Vector3 0 (-0.02::GLfloat) 0
 
+  let localBeatCoeff sigIdx = do let sig = (DT.signalList signalBuf) !! sigIdx
+                                 sigSamples <- getElems $ DT.signalArray sig
+                                 let noisePerSample = 0.2
+                                 let lbc = realToFrac $ (sum $ take maxBeatSamples sigSamples :: GLfloat) - (fromIntegral maxBeatSamples * noisePerSample) 
+                                 return lbc 
+  
   -- Render surface as single strips (for z : for x):
   color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
   let renderSignalSurfaceStrip vBuf nBuf count loudnessCoeff beatCoeff = (
         case vBuf of 
           (currVertices:nextVertices:xs) -> (
-            -- Note that we only iterate over signal samples for feature extraction, 
-            -- not for rendering. At this point, vertices are already computed and in 
-            -- the vertex buffer. 
-            -- Also, we are iterating from start to end of the signal list, but the most 
-            -- recent signal is at the end of the list. This doesn't matter for rendering, 
-            -- though. 
-            do -- settings' <- readIORef contextSettingsIORef
-               -- vBuf <- readIORef vBufIORef
-               -- nBuf <- readIORef nBufIORef
-               -- Local feature extraction (considering one signal at a time only): 
-               -- sigSamples <- getElems $ DT.signalArray sig
-               -- let noisePerSample = 0.2
-               -- let localBeatCoeff = realToFrac $ (sum $ take maxBeatSamples sigSamples :: GLfloat) - (fromIntegral maxBeatSamples * noisePerSample)
-               let localBeatCoeff = 0.8
-               -- Load vertices and normals: 
+            do -- Local feature extraction (considering one signal at a time only): 
+               lbc <- localBeatCoeff count
                
-               -- let currVertices = vBuf !! count
-               -- let nextVertices = if length vBuf > (count+1) then vBuf !! (count+1) else currVertices
                let currNormals = nBuf !! (min count (length nBuf-1))
                let nextNormals = if length nBuf > (count+1) then nBuf !! (count+1) else currNormals
                
@@ -208,7 +208,7 @@ display contextSettingsIORef renderSettingsIORef = do
                let normals  = Conv.interleave currNormals nextNormals    -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
                let vertices = Conv.interleave currVertices nextVertices  -- [ s_0_0, s_1_0,  s_0_1, s_1_1, ... ]
                -- Render a single surface strip (consisting of values from two signals): 
-               renderSampleSurfaceStrip vertices normals count loudnessCoeff beatCoeff localBeatCoeff
+               renderSampleSurfaceStrip vertices normals count loudnessCoeff beatCoeff lbc
                
                -- recurse
                let recurse = if (count+1) < (length vBuf) then renderSignalSurfaceStrip (nextVertices:xs) nBuf (count+1) loudnessCoeff beatCoeff else return ()
@@ -226,7 +226,7 @@ display contextSettingsIORef renderSettingsIORef = do
   vertexBuf <- readIORef vertexBufIORef
   normalsBuf <- readIORef normalsBufIORef
   renderSignalSurfaceStrip vertexBuf normalsBuf 0 (loudness recentSignalSamples) (beatLoudness recentSignalSamples) 
-  GL.flush
+--  GL.flush
 
 reshape :: Gtk.Rectangle -> IO ()
 reshape allocation = do
@@ -250,9 +250,6 @@ updateNormalsBuffer nBuf vBuf numSignals numSamples = do
   
   -- Take 3 most recent signals from vertex buffer. 
   -- Last element in signal buffer is most recent signal: 
-  -- let sigCurrIdx  = if length vBuf > 0 then (length vBuf)-1 else 0 
-  -- let sigPrev1Idx = if length vBuf > 1 then (length vBuf)-2 else sigCurrIdx
-  -- let sigPrev2Idx = if length vBuf > 2 then (length vBuf)-3 else sigPrev1Idx
   let sigCurrIdx  = 0
   let sigPrev1Idx = if length vBuf > 1 then 1 else sigCurrIdx
   let sigPrev2Idx = if length vBuf > 2 then 2 else sigPrev1Idx
@@ -266,10 +263,8 @@ updateNormalsBuffer nBuf vBuf numSignals numSamples = do
   -- Normal vector for prev signal is complete: 
   let verticesAndNormalsPrev = RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] numSamples 
 
-  -- let updatedNormalsBuf = (adjNormalsBuf ++ [ verticesAndNormalsPrev, verticesAndNormalsCurr ] )
   let updatedNormalsBuf = verticesAndNormalsPrev : verticesAndNormalsCurr : adjNormalsBuf 
   -- One element dropped at the end, two elements added at the end: 
-  -- putStrLn $ "updated normals: " ++ show updatedNormalsBuf
   return updatedNormalsBuf
 
 -- Component init interface for main UI. 
@@ -285,19 +280,21 @@ initComponent _ contextSettings = do
   glConfig <- GtkGL.glConfigNew [GtkGL.GLModeRGBA, GtkGL.GLModeMultiSample,
                                  GtkGL.GLModeDouble, GtkGL.GLModeDepth, GtkGL.GLModeAlpha]
   _ <- GtkGL.initGL
-
+  
   canvas <- GtkGL.glDrawingAreaNew glConfig
-
+  
   settings <- readIORef contextSettings
   
   vertexBufIORef  <- newIORef []
   normalsBufIORef <- newIORef []
 
-  renderSettings <- newIORef RH.RenderSettings { RH.xPosFun = (\x -> fromIntegral x / 50.0), 
-                                                 RH.zPosFun = (\z -> fromIntegral z), 
+  renderSettings <- newIORef RH.RenderSettings { RH.xPosFun = (\x -> fromIntegral x / 60.0), 
+                                                 RH.zPosFun = (\z -> fromIntegral z / 15.0), 
                                                  RH.scaleFun = (\s _ _ -> s), 
                                                  RH.vertexBuf = vertexBufIORef, 
                                                  RH.normalsBuf = normalsBufIORef, 
+                                                 RH.lightPos0 = (Vertex4 (-1.0) 3.0 (-2.0) 0.0), 
+                                                 RH.lightPos1 = (Vertex4 (1.0) 3.0 (2.0) 0.0), 
                                                  RH.numSignals = 0, 
                                                  RH.numSamples = 0 } 
 
@@ -307,21 +304,20 @@ initComponent _ contextSettings = do
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
     -- {{{ 
-    dither $= Enabled
+    -- dither $= Enabled
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
     shadeModel $= Smooth
-    materialSpecular Front $= Color4 1 1 1 1
-    materialShininess Front $= 30
     blend $= Enabled
     polygonSmooth $= Enabled
     lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
     light (Light 1) $= Enabled
-    cullFace $= Just Back
-    autoNormal $= Enabled
-    colorMaterial $= Just (Front, AmbientAndDiffuse)
-    blendFunc $= (SrcAlpha, One)
+    -- cullFace $= Just Front
+    frontFace $= CCW
+    -- autoNormal $= Enabled
+    colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
+    blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
     -- blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
     -- blendFunc $= (SrcAlphaSaturate, One)
     -- blendFunc $= (OneMinusSrcColor, One)
@@ -330,19 +326,21 @@ initComponent _ contextSettings = do
     hint PolygonSmooth $= Nicest
     hint LineSmooth $= Nicest
 
+{-  -- Comic mode
+    cullFace $= Just Front
+    colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
+    blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+    depthFunc $= Just Less
+-}
+
     matrixMode $= Projection
     loadIdentity
     viewport $= (Position 0 0, Size (fromIntegral canvasInitWidth) (fromIntegral canvasInitHeight))
-    perspective (fromIntegral viewPerspective) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 100
+    perspective (fromIntegral viewPerspective) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
+
     matrixMode $= Modelview 0
-
     loadIdentity
-
-    GL.position (Light 0) $= (Vertex4 (-1.0) 3.0 (-2.0) 0.0)
-    GL.diffuse (Light 0) $= Color4 0.6 0.6 0.6 1.0
-    GL.position (Light 0) $= (Vertex4 (1.0) 3.0 (2.0) 0.0)
-    GL.diffuse (Light 1) $= Color4 0.4 0.4 1.0 1.0
-
+  
     return ()
     -- }}}
 
@@ -382,6 +380,13 @@ canvasInitWidth :: Int
 canvasInitWidth = 800
 canvasInitHeight :: Int
 canvasInitHeight = 800
+
+mulColor4Value :: Color4 GLfloat -> GLfloat -> Color4 GLfloat
+mulColor4Value (Color4 r g b a) value = Color4 r' g' b' a'
+  where r' = r * value
+        g' = g * value
+        b' = b * value
+        a' = a * value
 
 viewPerspective :: Int
 viewPerspective = 90

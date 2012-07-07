@@ -19,6 +19,7 @@ module Drool.Types (
    Signal(..),
    SignalBuffer(..),
    SignalList(..),
+   SignalSource(..),
    RenderPerspective(..),
    rvector_x, rvector_y, rvector_z,
    newSignal,
@@ -46,6 +47,9 @@ newtype SignalBuffer = CSignalBuffer { signalBufferArray :: IOArray Int Signal }
 -- newtype SignalQueue = CSignalQueue { signalQueueArray :: MFifoQOf IO Signal }
 
 newtype SignalList = CSignalList { signalList :: [Signal] }
+
+data SignalSource = Microphone | TestSignal | File
+  deriving ( Eq )
 
 -- Type for translation vector
 -- newtype TVector = TVector (Vector3 GLfloat GLfloat GLfloat)

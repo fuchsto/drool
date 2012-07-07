@@ -27,6 +27,7 @@ import Graphics.Rendering.OpenGL
 
 import qualified Drool.ApplicationContext as AC
 import qualified Drool.Utils.SigGen as SigGen
+import qualified Drool.Types as DT
 
 
 -- Initializes GUI component for signal source.
@@ -72,7 +73,12 @@ initComponent gtkBuilder contextSettings = do
                                  SigGen.signalPeriodLength = sigPeriods,
                                  SigGen.envelopePeriodLength = envPeriods }
     -- Activate signal generator in application context:
-    contextSettings $=! cSettings { AC.signalGenerator = siggen }
+    contextSettings $=! cSettings { AC.signalGenerator = siggen, AC.signalSource = DT.TestSignal }
+
+  button_activateMicRecording <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonStartMicRecording"
+  _ <- Gtk.onClicked button_activateMicRecording $ do
+    cSettings <- readIORef contextSettings
+    contextSettings $=! cSettings { AC.signalSource = DT.Microphone }
 
   return True
 
