@@ -39,13 +39,17 @@ import qualified Drool.ApplicationContext as AC
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
+  renderSettings <- readIORef renderSettingsIORef
+  settings <- readIORef contextSettingsIORef
+
+  let blendModeSource = AC.blendModeSource settings
+  let blendModeFrameBuffer = AC.blendModeFrameBuffer settings
+  blendFunc $= (blendModeSource, blendModeFrameBuffer)
   clear [ColorBuffer, DepthBuffer]
   
   matrixMode $= Modelview 0
   loadIdentity
 
-  renderSettings <- readIORef renderSettingsIORef
-  settings <- readIORef contextSettingsIORef
   let hScale         = (AC.scaling settings) / (100.0::GLfloat)
       gridOpacity    = (AC.gridOpacity settings) / (100.0::GLfloat)
       surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
@@ -175,9 +179,8 @@ display contextSettingsIORef renderSettingsIORef = do
                                                                    let loudnessDamping  = fromIntegral numSamples
                                                                    let localBeatDamping = fromIntegral maxBeatSamples
                                                                    let beatGridOpacity  = gridOpacity * ((bC / beatDamping) + (lC / loudnessDamping) + (lbC / localBeatDamping))
-                                                                   let beatGridOpacity' = gridOpacity 
                                                                    -- mapM_ RH.drawNormal (zip vertices normals)
-                                                                   color $ color3AddAlpha (AC.gridColor settings) beatGridOpacity' -- + bC / 100.0)
+                                                                   color $ color3AddAlpha (AC.gridColor settings) beatGridOpacity -- + bC / 100.0)
                                                                    translate $ Vector3 0 (0.02::GLfloat) 0
                                                                    renderPrimitive LineStrip ( 
                                                                      if AC.useNormals settings then
@@ -186,7 +189,8 @@ display contextSettingsIORef renderSettingsIORef = do
                                                                        mapM_ vertex vertices )
                                                                    translate $ Vector3 0 (-0.02::GLfloat) 0
 
-  let localBeatCoeff sigIdx = do let sig = (DT.signalList signalBuf) !! sigIdx
+  let localBeatCoeff sigIdx = do let sigs = DT.signalList signalBuf
+                                 let sig = sigs !! ((length sigs) - sigIdx - 1)
                                  sigSamples <- getElems $ DT.signalArray sig
                                  let noisePerSample = 0.2
                                  let lbc = realToFrac $ (sum $ take maxBeatSamples sigSamples :: GLfloat) - (fromIntegral maxBeatSamples * noisePerSample) 
@@ -304,33 +308,44 @@ initComponent _ contextSettings = do
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
     -- {{{ 
+    cSettings <- readIORef contextSettings
     -- dither $= Enabled
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
     shadeModel $= Smooth
-    blend $= Enabled
+    depthFunc $= Just Less
     polygonSmooth $= Enabled
     lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
     light (Light 1) $= Enabled
-    -- cullFace $= Just Front
     frontFace $= CCW
-    -- autoNormal $= Enabled
-    colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
-    blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
-    -- blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+    blend $= Enabled
+
+    cullFace $= Just Front
+    colorMaterial $= Just (Front, AmbientAndDiffuse)
+
+    let blendModeSource = AC.blendModeSource cSettings
+    let blendModeFrameBuffer = AC.blendModeFrameBuffer cSettings
+    blendFunc $= (blendModeSource, blendModeFrameBuffer)
+    
+    -- blendFunc $= (SrcAlpha, OneMinusSrcAlpha) -- comic mode, fake cell shade
     -- blendFunc $= (SrcAlphaSaturate, One)
     -- blendFunc $= (OneMinusSrcColor, One)
-    -- depthFunc $= Just Less
+
     hint PerspectiveCorrection $= Nicest
     hint PolygonSmooth $= Nicest
     hint LineSmooth $= Nicest
+
+{-  -- Black grid, cool beat illuminance
+    cullFace $= Just Front
+    colorMaterial $= Just (Front, AmbientAndDiffuse)
+    blendFunc $= (SrcAlpha, DstAlpha)
+-}
 
 {-  -- Comic mode
     cullFace $= Just Front
     colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
-    depthFunc $= Just Less
 -}
 
     matrixMode $= Projection

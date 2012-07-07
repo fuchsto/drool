@@ -26,6 +26,8 @@ import qualified Control.Concurrent as CC ( ThreadId )
 import Drool.Types as DT
 import Drool.Utils.SigGen as SigGen
 
+import qualified Graphics.Rendering.OpenGL as GL ( BlendingFactor(..) ) 
+
 
 -- Shared settings for communication between main controller, view options
 -- and rendering:
@@ -49,6 +51,9 @@ data ContextSettings = ContextSettings { samplingThreadId :: CC.ThreadId, -- Thr
                                          rangeAmps :: [Float], 
                                          gridOpacity :: GLfloat,
                                          surfaceOpacity :: GLfloat,
+                                         -- Blending: 
+                                         blendModeSource :: GL.BlendingFactor, 
+                                         blendModeFrameBuffer :: GL.BlendingFactor,
                                          -- Vector stuff: 
                                          useNormals :: Bool, 
                                          normalsScale :: Float, 

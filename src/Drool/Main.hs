@@ -22,7 +22,7 @@ module Main where
 import Data.IORef
 import Data.Array.IO
 
-import Graphics.Rendering.OpenGL ( ( $=!), GLfloat, Color3(..) )
+import Graphics.Rendering.OpenGL ( ( $=!), GLfloat, Color3(..), BlendingFactor(..) )
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
@@ -71,6 +71,8 @@ main = do
                          AC.incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                          AC.scaling = 30,
+                         AC.blendModeSource = SrcAlpha, 
+                         AC.blendModeFrameBuffer = DstAlpha, 
                          AC.useNormals = True, 
                          AC.normalsScale = 10.0, 
                          AC.rangeAmps = [ 1.0, 1.0, 1.0, 1.0, 1.0 ], 

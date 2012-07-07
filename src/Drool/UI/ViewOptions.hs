@@ -199,7 +199,48 @@ initComponent gtkBuilder contextSettings = do
     let cAmps = AC.rangeAmps settings
     let mAmps = take 4 cAmps ++ [fVal]
     contextSettings $=! settings { AC.rangeAmps = mAmps }
+
+  comboboxBlendingSource <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxBlendingSource"
+  Gtk.comboBoxSetActive comboboxBlendingSource 4
+  _ <- Gtk.on comboboxBlendingSource Gtk.changed $ do 
+    settings <- readIORef contextSettings
+    modeIdx <- Gtk.comboBoxGetActive comboboxBlendingSource
+    let mode = blendModeSourceFromIndex modeIdx
+    contextSettings $=! settings { AC.blendModeSource = mode } 
+
+  comboboxBlendingFrameBuffer <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxBlendingFrameBuffer"
+  Gtk.comboBoxSetActive comboboxBlendingFrameBuffer 6
+  _ <- Gtk.on comboboxBlendingFrameBuffer Gtk.changed $ do 
+    settings <- readIORef contextSettings
+    modeIdx <- Gtk.comboBoxGetActive comboboxBlendingFrameBuffer
+    let mode = blendModeFrameBufferFromIndex modeIdx
+    contextSettings $=! settings { AC.blendModeFrameBuffer = mode } 
+    
   
   return True
 
+blendModeSourceFromIndex :: Int -> BlendingFactor
+blendModeSourceFromIndex i = case i of 
+                               0 -> Zero
+                               1 -> One
+                               2 -> DstColor
+                               3 -> OneMinusDstColor
+                               4 -> SrcAlpha
+                               5 -> OneMinusSrcAlpha
+                               6 -> DstAlpha
+                               7 -> OneMinusDstAlpha
+                               8 -> SrcAlphaSaturate
+                               _ -> error "Unknown source blending mode"
+
+blendModeFrameBufferFromIndex :: Int -> BlendingFactor
+blendModeFrameBufferFromIndex i = case i of 
+                               0 -> Zero
+                               1 -> One
+                               2 -> SrcColor
+                               3 -> OneMinusSrcColor
+                               4 -> SrcAlpha
+                               5 -> OneMinusSrcAlpha
+                               6 -> DstAlpha
+                               7 -> OneMinusDstAlpha
+                               _ -> error "Unknown frame buffer blending mode"
 

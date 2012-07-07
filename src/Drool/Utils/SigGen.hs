@@ -95,3 +95,5 @@ envelopeFunFromIndex sigGenIdx = case sigGenIdx of
                                    1 -> (\pLength t sample -> (square pLength t) * sample)
                                    2 -> (\pLength t sample -> (saw pLength t) * sample)
                                    _ -> error "Unknown envelope index"
+
+
