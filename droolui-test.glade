@@ -48,7 +48,7 @@
   <object class="GtkAdjustment" id="adjBufferSamples">
     <property name="lower">10</property>
     <property name="upper">300</property>
-    <property name="value">50</property>
+    <property name="value">130</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
@@ -92,16 +92,19 @@
     <property name="page_increment">10</property>
   </object>
   <object class="GtkAdjustment" id="adjIncRotationX">
+    <property name="lower">-10</property>
     <property name="upper">10</property>
     <property name="step_increment">0.10000000000000001</property>
     <property name="page_increment">1</property>
   </object>
   <object class="GtkAdjustment" id="adjIncRotationY">
+    <property name="lower">-10</property>
     <property name="upper">10</property>
     <property name="step_increment">0.10000000000000001</property>
     <property name="page_increment">1</property>
   </object>
   <object class="GtkAdjustment" id="adjIncRotationZ">
+    <property name="lower">-10</property>
     <property name="upper">10</property>
     <property name="step_increment">0.10000000000000001</property>
     <property name="page_increment">1</property>
@@ -152,76 +155,6 @@
     <property name="value">10</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback1">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback10">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback11">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback12">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback13">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback2">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback3">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback4">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback5">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback6">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback7">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback8">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
-  </object>
-  <object class="GtkImage" id="iconEnablePlayback9">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-dialog-warning</property>
   </object>
   <object class="GtkImage" id="iconFreezeVisualizer">
     <property name="visible">True</property>
@@ -308,47 +241,7 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-stop</property>
   </object>
-  <object class="GtkImage" id="iconPerspectiveFront1">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveFront2">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveFront3">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveFront4">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
   <object class="GtkImage" id="iconPerspectiveIsometric">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveIsometric1">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveIsometric2">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveIsometric3">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveIsometric4">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-stop</property>
@@ -358,50 +251,15 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-stop</property>
   </object>
-  <object class="GtkImage" id="iconPerspectiveSide1">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveSide2">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveSide3">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveSide4">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
   <object class="GtkImage" id="iconPerspectiveTop">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-stop</property>
   </object>
-  <object class="GtkImage" id="iconPerspectiveTop1">
+  <object class="GtkImage" id="imagePlay">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveTop2">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveTop3">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveTop4">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
+    <property name="stock">gtk-media-play</property>
   </object>
   <object class="GtkListStore" id="liststoreBlendingFrameBuffer">
     <columns>
@@ -541,10 +399,11 @@
   </object>
   <object class="GtkWindow" id="mainWindow">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">drool Controls</property>
     <child>
       <object class="GtkVBox" id="vboxMainWindow">
         <property name="width_request">600</property>
-        <property name="height_request">600</property>
+        <property name="height_request">800</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <child>
@@ -556,12 +415,14 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="use_action_appearance">False</property>
+                <property name="label" translatable="yes">_File</property>
+                <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="menuFile">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem1">
+                      <object class="GtkImageMenuItem" id="menuItemNewSettings">
                         <property name="label">gtk-new</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -571,7 +432,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem2">
+                      <object class="GtkImageMenuItem" id="menuitemLoadSettings">
                         <property name="label">gtk-open</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -581,7 +442,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem3">
+                      <object class="GtkImageMenuItem" id="menuitemSaveSettings">
                         <property name="label">gtk-save</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -591,7 +452,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem4">
+                      <object class="GtkImageMenuItem" id="menuitemSaveSettingsAs">
                         <property name="label">gtk-save-as</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -604,11 +465,67 @@
                       <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="use_action_appearance">False</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImageMenuItem" id="menuitemFileQuit">
+                      <object class="GtkImageMenuItem" id="menuitemQuit">
                         <property name="label">gtk-quit</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_action_appearance">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="menuitemEdit">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_action_appearance">False</property>
+                <property name="label" translatable="yes">_Edit</property>
+                <property name="use_underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="menuEdit">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkImageMenuItem" id="imagemenuitem6">
+                        <property name="label">gtk-cut</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_action_appearance">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="imagemenuitem7">
+                        <property name="label">gtk-copy</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_action_appearance">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="imagemenuitem8">
+                        <property name="label">gtk-paste</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_action_appearance">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="imagemenuitem9">
+                        <property name="label">gtk-delete</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_action_appearance">False</property>
@@ -623,7 +540,7 @@
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">False</property>
+            <property name="fill">True</property>
             <property name="position">0</property>
           </packing>
         </child>
@@ -655,7 +572,7 @@
                           <object class="GtkTable" id="tableViewOptions">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="n_rows">20</property>
+                            <property name="n_rows">21</property>
                             <property name="n_columns">2</property>
                             <property name="row_spacing">1</property>
                             <child>
@@ -670,7 +587,7 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">True</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconPerspectiveTop4</property>
+                                    <property name="image">iconPerspectiveTop</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -702,7 +619,7 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">True</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconPerspectiveFront4</property>
+                                    <property name="image">iconPerspectiveFront</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -734,7 +651,7 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">True</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconPerspectiveSide4</property>
+                                    <property name="image">iconPerspectiveSide</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -766,7 +683,7 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">True</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconPerspectiveIsometric4</property>
+                                    <property name="image">iconPerspectiveIsometric</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -806,8 +723,8 @@
                                 <property name="justify">right</property>
                               </object>
                               <packing>
-                                <property name="top_attach">2</property>
-                                <property name="bottom_attach">3</property>
+                                <property name="top_attach">3</property>
+                                <property name="bottom_attach">4</property>
                               </packing>
                             </child>
                             <child>
@@ -823,8 +740,8 @@
                               <packing>
                                 <property name="left_attach">1</property>
                                 <property name="right_attach">2</property>
-                                <property name="top_attach">2</property>
-                                <property name="bottom_attach">3</property>
+                                <property name="top_attach">3</property>
+                                <property name="bottom_attach">4</property>
                                 <property name="y_options">GTK_FILL</property>
                                 <property name="x_padding">4</property>
                               </packing>
@@ -839,8 +756,8 @@
                                 <property name="justify">right</property>
                               </object>
                               <packing>
-                                <property name="top_attach">3</property>
-                                <property name="bottom_attach">4</property>
+                                <property name="top_attach">4</property>
+                                <property name="bottom_attach">5</property>
                               </packing>
                             </child>
                             <child>
@@ -856,8 +773,8 @@
                               <packing>
                                 <property name="left_attach">1</property>
                                 <property name="right_attach">2</property>
-                                <property name="top_attach">3</property>
-                                <property name="bottom_attach">4</property>
+                                <property name="top_attach">4</property>
+                                <property name="bottom_attach">5</property>
                                 <property name="y_options">GTK_FILL</property>
                                 <property name="x_padding">4</property>
                               </packing>
@@ -876,39 +793,6 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="labelHScale">
-                                <property name="visible">True</property>
-                                <property name="can_focus">False</property>
-                                <property name="xalign">1</property>
-                                <property name="xpad">3</property>
-                                <property name="label" translatable="yes">Linear scaling</property>
-                                <property name="justify">right</property>
-                              </object>
-                              <packing>
-                                <property name="top_attach">4</property>
-                                <property name="bottom_attach">5</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkHScale" id="hscaleHorizontalScaling">
-                                <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="adjustment">adjLinearScaling</property>
-                                <property name="fill_level">100</property>
-                                <property name="round_digits">0</property>
-                                <property name="digits">0</property>
-                                <property name="value_pos">right</property>
-                              </object>
-                              <packing>
-                                <property name="left_attach">1</property>
-                                <property name="right_attach">2</property>
-                                <property name="top_attach">4</property>
-                                <property name="bottom_attach">5</property>
-                                <property name="y_options">GTK_FILL</property>
-                                <property name="x_padding">4</property>
-                              </packing>
-                            </child>
-                            <child>
                               <object class="GtkHSeparator" id="hseparator1">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
@@ -916,8 +800,8 @@
                               <packing>
                                 <property name="left_attach">1</property>
                                 <property name="right_attach">2</property>
-                                <property name="top_attach">1</property>
-                                <property name="bottom_attach">2</property>
+                                <property name="top_attach">2</property>
+                                <property name="bottom_attach">3</property>
                                 <property name="y_padding">5</property>
                               </packing>
                             </child>
@@ -927,8 +811,8 @@
                                 <property name="can_focus">False</property>
                               </object>
                               <packing>
-                                <property name="top_attach">1</property>
-                                <property name="bottom_attach">2</property>
+                                <property name="top_attach">2</property>
+                                <property name="bottom_attach">3</property>
                                 <property name="y_padding">5</property>
                               </packing>
                             </child>
@@ -1123,12 +1007,12 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkHScale" id="hscale3">
+                              <object class="GtkHScale" id="FixedRotationX">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="adjustment">adjFixedRotationX</property>
                                 <property name="round_digits">1</property>
-                                <property name="digits">0</property>
+                                <property name="digits">2</property>
                                 <property name="value_pos">right</property>
                               </object>
                               <packing>
@@ -1141,12 +1025,12 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkHScale" id="hscale2">
+                              <object class="GtkHScale" id="hscaleFixedRotationY">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="adjustment">adjFixedRotationY</property>
                                 <property name="round_digits">1</property>
-                                <property name="digits">0</property>
+                                <property name="digits">2</property>
                                 <property name="value_pos">right</property>
                               </object>
                               <packing>
@@ -1159,12 +1043,12 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkHScale" id="hscale1">
+                              <object class="GtkHScale" id="hscaleFixedRotationZ">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="adjustment">adjFixedRotationZ</property>
                                 <property name="round_digits">1</property>
-                                <property name="digits">0</property>
+                                <property name="digits">2</property>
                                 <property name="value_pos">right</property>
                               </object>
                               <packing>
@@ -1398,8 +1282,8 @@
                               </object>
                               <packing>
                                 <property name="right_attach">2</property>
-                                <property name="top_attach">17</property>
-                                <property name="bottom_attach">18</property>
+                                <property name="top_attach">19</property>
+                                <property name="bottom_attach">20</property>
                                 <property name="x_padding">15</property>
                               </packing>
                             </child>
@@ -1458,8 +1342,8 @@
                               </object>
                               <packing>
                                 <property name="right_attach">2</property>
-                                <property name="top_attach">19</property>
-                                <property name="bottom_attach">20</property>
+                                <property name="top_attach">20</property>
+                                <property name="bottom_attach">21</property>
                                 <property name="x_options">GTK_EXPAND</property>
                               </packing>
                             </child>
@@ -1494,7 +1378,7 @@
                                 <property name="xalign">1</property>
                                 <property name="yalign">0</property>
                                 <property name="xpad">3</property>
-                                <property name="label" translatable="yes">Scale Band Ranges</property>
+                                <property name="label" translatable="yes">Band Range Amp</property>
                               </object>
                               <packing>
                                 <property name="top_attach">6</property>
@@ -1506,7 +1390,7 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="n_rows">2</property>
-                                <property name="n_columns">5</property>
+                                <property name="n_columns">6</property>
                                 <child>
                                   <object class="GtkVScale" id="vscaleBandRange1Amp">
                                     <property name="height_request">130</property>
@@ -1517,6 +1401,10 @@
                                     <property name="round_digits">2</property>
                                     <property name="digits">2</property>
                                   </object>
+                                  <packing>
+                                    <property name="left_attach">1</property>
+                                    <property name="right_attach">2</property>
+                                  </packing>
                                 </child>
                                 <child>
                                   <object class="GtkVScale" id="vscaleBandRange2Amp">
@@ -1531,8 +1419,8 @@
                                     <property name="digits">2</property>
                                   </object>
                                   <packing>
-                                    <property name="left_attach">1</property>
-                                    <property name="right_attach">2</property>
+                                    <property name="left_attach">2</property>
+                                    <property name="right_attach">3</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1548,8 +1436,8 @@
                                     <property name="digits">2</property>
                                   </object>
                                   <packing>
-                                    <property name="left_attach">2</property>
-                                    <property name="right_attach">3</property>
+                                    <property name="left_attach">3</property>
+                                    <property name="right_attach">4</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1565,8 +1453,8 @@
                                     <property name="digits">2</property>
                                   </object>
                                   <packing>
-                                    <property name="left_attach">3</property>
-                                    <property name="right_attach">4</property>
+                                    <property name="left_attach">4</property>
+                                    <property name="right_attach">5</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1582,8 +1470,8 @@
                                     <property name="digits">2</property>
                                   </object>
                                   <packing>
-                                    <property name="left_attach">4</property>
-                                    <property name="right_attach">5</property>
+                                    <property name="left_attach">5</property>
+                                    <property name="right_attach">6</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1593,16 +1481,6 @@
                                     <property name="label" translatable="yes">Low</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">1</property>
-                                    <property name="bottom_attach">2</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="labelScalingBandRange2">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                  </object>
-                                  <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
                                     <property name="top_attach">1</property>
@@ -1610,7 +1488,7 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkLabel" id="labelScalingBandRange3">
+                                  <object class="GtkLabel" id="labelScalingBandRange2">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                   </object>
@@ -1622,7 +1500,7 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkLabel" id="labelScalingBandRange4">
+                                  <object class="GtkLabel" id="labelScalingBandRange3">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                   </object>
@@ -1634,10 +1512,9 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkLabel" id="labelScalingBandRange5">
+                                  <object class="GtkLabel" id="labelScalingBandRange4">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label" translatable="yes">High</property>
                                   </object>
                                   <packing>
                                     <property name="left_attach">4</property>
@@ -1645,6 +1522,41 @@
                                     <property name="top_attach">1</property>
                                     <property name="bottom_attach">2</property>
                                   </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="labelScalingBandRange5">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">High</property>
+                                  </object>
+                                  <packing>
+                                    <property name="left_attach">5</property>
+                                    <property name="right_attach">6</property>
+                                    <property name="top_attach">1</property>
+                                    <property name="bottom_attach">2</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="labelScalingBandRangeScall">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">Scale</property>
+                                  </object>
+                                  <packing>
+                                    <property name="top_attach">1</property>
+                                    <property name="bottom_attach">2</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkVScale" id="vscaleBandRangeScale">
+                                    <property name="height_request">130</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="adjustment">adjLinearScaling</property>
+                                    <property name="inverted">True</property>
+                                    <property name="round_digits">2</property>
+                                    <property name="digits">2</property>
+                                  </object>
                                 </child>
                               </object>
                               <packing>
@@ -1881,6 +1793,145 @@
                                 <property name="top_attach">16</property>
                                 <property name="bottom_attach">17</property>
                                 <property name="y_padding">5</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="labelDepthTest">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="xalign">1</property>
+                                <property name="label" translatable="yes">Depth Test</property>
+                              </object>
+                              <packing>
+                                <property name="top_attach">17</property>
+                                <property name="bottom_attach">18</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="checkbutton1">
+                                <property name="label" translatable="yes">checkbutton</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">False</property>
+                                <property name="use_action_appearance">False</property>
+                                <property name="draw_indicator">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="right_attach">2</property>
+                                <property name="top_attach">17</property>
+                                <property name="bottom_attach">18</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="labelPerspectiveAutoSwitch">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="xalign">1</property>
+                                <property name="xpad">3</property>
+                                <property name="label" translatable="yes">Auto Switch</property>
+                                <property name="justify">right</property>
+                              </object>
+                              <packing>
+                                <property name="top_attach">1</property>
+                                <property name="bottom_attach">2</property>
+                                <property name="y_padding">3</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkHBox" id="hbox2">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="spacing">3</property>
+                                <child>
+                                  <object class="GtkCheckButton" id="checkbuttonAutoSwitchTop">
+                                    <property name="label" translatable="yes">Top</property>
+                                    <property name="width_request">62</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="padding">11</property>
+                                    <property name="position">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkCheckButton" id="checkbuttonAutoSwitchFront">
+                                    <property name="label" translatable="yes">Front</property>
+                                    <property name="width_request">78</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">1</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkCheckButton" id="checkbuttonAutoSwitchSide">
+                                    <property name="label" translatable="yes">Side</property>
+                                    <property name="width_request">64</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="padding">6</property>
+                                    <property name="position">2</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkCheckButton" id="checkbuttonAutoSwitchIsometric">
+                                    <property name="label" translatable="yes">Isometric</property>
+                                    <property name="width_request">117</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="padding">6</property>
+                                    <property name="position">3</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="buttonTogglePerspectiveAutoSwitch">
+                                    <property name="width_request">31</property>
+                                    <property name="height_request">25</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">True</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="image">imagePlay</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">4</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="right_attach">2</property>
+                                <property name="top_attach">1</property>
+                                <property name="bottom_attach">2</property>
                               </packing>
                             </child>
                           </object>
@@ -2997,7 +3048,6 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconEnablePlayback10</property>
                                     <property name="draw_indicator">True</property>
                                   </object>
                                   <packing>
@@ -3054,7 +3104,6 @@ or the feedback will consume your soul.</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconEnablePlayback11</property>
                                     <property name="draw_indicator">True</property>
                                   </object>
                                   <packing>
@@ -3084,7 +3133,6 @@ or the feedback will consume your soul.</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
                                     <property name="use_action_appearance">False</property>
-                                    <property name="image">iconEnablePlayback12</property>
                                     <property name="draw_indicator">True</property>
                                   </object>
                                   <packing>

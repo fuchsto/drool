@@ -14,7 +14,10 @@ module Drool.Utils.RenderHelpers (
     drawNormal, 
 
     vertexToVector, 
-    vx4ToVx3
+    vx4ToVx3, 
+
+    drawIndices, 
+    renderSurface
 ) where
 
 import Debug.Trace
@@ -22,6 +25,8 @@ import Debug.Trace
 import Data.IORef ( IORef(..), newIORef ) 
 
 import Data.Array.IO ( readArray )
+import Data.Array ( Array(..) )
+import Data.Array.IArray ( listArray, (!), bounds, IArray(..) )
 import Data.Array.MArray ( getBounds )
 import Data.Ix ( rangeSize )
 import Drool.Types ( SignalList(..), Signal(..) )
@@ -40,7 +45,8 @@ import Graphics.Rendering.OpenGL (
     color, 
     GLfloat )
 
-data RenderSettings = RenderSettings { -- maps x index to x position: 
+data RenderSettings = RenderSettings { signalBuf :: IORef SignalList, 
+                                       -- maps x index to x position: 
                                        xPosFun :: (Int -> GLfloat),
                                        -- maps signal index to z position: 
                                        zPosFun :: (Int -> GLfloat), 
@@ -68,7 +74,6 @@ applyBandRangeAmp s t numSamples amps = s * ampValue
         rangeWidth     = numSamples `div` numRanges                          -- ...[-------]...
         rangePos       = t `mod` rangeWidth                                  -- ...|....x..|...
         activeRangeIdx = ((fromIntegral t)-rangePos) `div` rangeWidth :: Int -- [.|x|.|.|.]
-    --  amp_1          = realToFrac $ amps !! (max 0 (activeRangeIdx-1))             -- Amp value of previous range, use range 0 as previous range of range 0
         amp_1          = realToFrac $ amps !! activeRangeIdx                         -- Amp value of active range
         amp_2          = realToFrac $ amps !! (min (activeRangeIdx+1) (numRanges-1)) -- Amp value of next range, use range n as next range of range n
         ampValue       = amp_1 + ((amp_2-amp_1) * (fromIntegral (rangePos) / fromIntegral (rangeWidth-1)))
@@ -210,19 +215,20 @@ normalsFromSamples' sigs@(sigPrev:sig:sigNext:[]) numSamples xdist zdist xIdx = 
 normalsFromSamples :: [[ SValue ]] -> Int -> GLfloat -> GLfloat -> [ Normal3 GLfloat ]
 normalsFromSamples sigs numSamples xdist zdist = normalsFromSamples' sigs numSamples xdist zdist 0
 
-normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> Int -> [ Normal3 GLfloat ]
-normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) numSamples xIdx = if xIdx < numSamples then normal : normalsFromVertices' sigs numSamples (xIdx+1) else []
-  where boundx  = \a -> max 0 (min a (numSamples-1)) :: Int 
-        vertexC = sig !! xIdx
-        vertexR = sig !! (boundx (xIdx+1))
-        vertexL = sig !! (boundx (xIdx-1))
-        vertexT = if length sigPrev > xIdx then sigPrev !! xIdx else vertexC
-        vertexB = if length sigNext > xIdx then sigNext !! xIdx else vertexC
-        point   = vertexToVector vertexC
-        pointR  = vertexToVector vertexR
-        pointL  = vertexToVector vertexL
-        pointT  = vertexToVector vertexT
-        pointB  = vertexToVector vertexB
+normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
+normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) xIdx = if xIdx < nSamples then normal : normalsFromVertices' sigs (xIdx+1) else []
+  where nSamples = length sig
+        boundx   = \a -> max 0 (min a (nSamples-1)) :: Int 
+        vertexC  = sig !! xIdx
+        vertexR  = sig !! (boundx (xIdx+1))
+        vertexL  = sig !! (boundx (xIdx-1))
+        vertexT  = if length sigPrev > xIdx then sigPrev !! xIdx else vertexC
+        vertexB  = if length sigNext > xIdx then sigNext !! xIdx else vertexC
+        point    = vertexToVector vertexC
+        pointR   = vertexToVector vertexR
+        pointL   = vertexToVector vertexL
+        pointT   = vertexToVector vertexT
+        pointB   = vertexToVector vertexB
         vR = v3sub pointR point   --   n4  T  n1
         vT = v3sub pointT point   --       |
         vL = v3sub pointL point   --    L--C--R
@@ -235,8 +241,8 @@ normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) numSamples xIdx = if xIdx < n
         n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) 
         normal = n3Invert $ Normal3 (v3x n) (v3y n) (v3z n)
 
-normalsFromVertices :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
-normalsFromVertices sigs numSamples = normalsFromVertices' sigs numSamples 0
+normalsFromVertices :: [[ Vertex3 GLfloat ]] -> [ Normal3 GLfloat ]
+normalsFromVertices sigs = normalsFromVertices' sigs 0
 
 verticesFromSamples :: [ SValue ] -> Int -> RenderSettings -> [ Vertex3 GLfloat ]
 verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx
@@ -252,4 +258,39 @@ updateVerticesZCoord signalsVertices zPosFun = zipWith (\sigVertices zIdx -> set
   where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFun (numSignals-1-z)) ) vertexList
         numSignals = length signalsVertices
 
+
+
+drawIndices' :: Int -> Int -> Int -> [Int]
+drawIndices' i cols rows = cur ++ if i < ((cols) * (rows)) then drawIndices' (i+1) cols rows else []
+  where cur = preDegenerates ++ nonDegenerates ++ postDegenerates 
+        nonDegenerates = [ row * cols + col, (row+1) * cols + col ]
+        col   = i `mod` cols
+        row   = (i-col) `div` cols
+        preDegenerates  = if col == 0 then [row*cols] else []
+        postDegenerates = if col == (cols-1) then [(row+1) * cols + (col)] else []
+  
+drawIndices :: Int -> Int -> [Int]
+drawIndices cols rows = reverse $ take (numDrawIndices cols rows) $ drawIndices' 0 cols rows
+        -- two extra vertices for every row, but only one extra vertex 
+        -- in first and last row: 
+  where numDrawIndices cols rows = (rows-2) * (2*cols+2) + 2 * (cols+1)
+
+
+renderSurface :: Array Int (Vertex3 GLfloat) -> Array Int (Normal3 GLfloat) -> [Int] -> IO ()
+renderSurface vArray nArray (i:indices) = safeRecurse
+  where safeRecurse = if i < (rangeSize nBounds) && i < (rangeSize vBounds) 
+                      then do normal (nArray ! i)
+                              vertex (vArray ! i)
+                              renderSurface vArray nArray indices 
+                              return ()
+                      else return () 
+        vBounds = bounds vArray
+        nBounds = bounds nArray
+renderSurface _ _ [] = return ()
+
+renderSurfaceSimple :: [ Vertex3 GLfloat ] -> [ Normal3 GLfloat ] -> [Int] -> IO ()
+renderSurfaceSimple vertexList normalsList indices = do 
+  let vArray = listArray (0, (length vertexList)-1) vertexList
+  let nArray = listArray (0, (length normalsList)-1) normalsList
+  renderPrimitive TriangleStrip ( renderSurface vArray nArray indices ) 
 

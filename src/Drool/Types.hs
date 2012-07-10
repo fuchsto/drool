@@ -49,14 +49,16 @@ newtype SignalBuffer = CSignalBuffer { signalBufferArray :: IOArray Int Signal }
 newtype SignalList = CSignalList { signalList :: [Signal] }
 
 data SignalSource = Microphone | TestSignal | File
-  deriving ( Eq )
+  deriving ( Eq, Show, Read )
 
 -- Type for translation vector
 -- newtype TVector = TVector (Vector3 GLfloat GLfloat GLfloat)
 -- Type for rotation vector
 data RotationVector = CRotationVector { rotX :: GLfloat, rotY :: GLfloat, rotZ :: GLfloat }
+  deriving ( Show, Read ) 
 
 data RenderPerspective = Top | Side | Front | Isometric
+  deriving ( Show, Read )
 
 rvector_x :: (a,a,a) -> a
 rvector_x (x,_,_) = x

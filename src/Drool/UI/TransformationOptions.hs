@@ -28,11 +28,11 @@ import qualified Drool.ApplicationContext as AC
 
 -- Initializes GUI component for transformation options.
 -- Expects a GtkBuilder instance and default context settings. 
-initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
-initComponent gtkBuilder contextSettings = do
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
+initComponent gtkBuilder contextSettings _ = do
   putStrLn "Initializing TransformationOptions component"
 
-  defaultSettings <- readIORef contextSettings
+  -- defaultSettings <- readIORef contextSettings
 
   buttonSetNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonSetNumFFTBands"
   _ <- Gtk.onClicked buttonSetNumFFTBands $ do 

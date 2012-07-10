@@ -25,7 +25,11 @@ module Drool.Utils.Conversions (
     listFromCArray, 
     interleave, 
     adjustBufferSize,
-    adjustBufferSizeBack
+    adjustBufferSizeBack, 
+    blendModeSourceFromIndex, 
+    blendModeFrameBufferFromIndex, 
+    blendModeSourceIndex, 
+    blendModeFrameBufferIndex
 ) where
 
 import qualified Graphics.UI.Gtk as Gtk
@@ -80,3 +84,30 @@ adjustBufferSize buf maxLen = drop ((length buf)-maxLen) buf -- drop does not al
 adjustBufferSizeBack :: [a] -> Int -> [a] 
 adjustBufferSizeBack buf maxLen = take maxLen buf -- drop does not alter list for values <= 0
 
+blendSourceModes :: [ BlendingFactor ]
+blendSourceModes = [ Zero, One, DstColor, OneMinusDstColor, SrcAlpha, 
+                     OneMinusSrcAlpha, DstAlpha, OneMinusDstAlpha, 
+                     SrcAlphaSaturate ] 
+blendFrameBufferModes :: [ BlendingFactor ]
+blendFrameBufferModes = [ Zero, One, SrcColor, OneMinusSrcColor, SrcAlpha, 
+                          OneMinusSrcAlpha, DstAlpha, OneMinusDstAlpha ] 
+
+blendModeSourceFromIndex :: Int -> BlendingFactor
+blendModeSourceFromIndex i = blendSourceModes !! i
+
+blendModeFrameBufferFromIndex :: Int -> BlendingFactor
+blendModeFrameBufferFromIndex i = blendFrameBufferModes !! i
+
+blendModeSourceIndex :: BlendingFactor -> Int
+blendModeSourceIndex bm = blendModeSourceIndex' bm 0 blendSourceModes
+blendModeSourceIndex' :: BlendingFactor -> Int -> [ BlendingFactor ] -> Int
+blendModeSourceIndex' bm i (mode:modes) = index
+  where index = if bm == mode then i else blendModeSourceIndex' bm (i+1) modes
+blendModeSourceIndex' _ _ [] = 0
+
+blendModeFrameBufferIndex :: BlendingFactor -> Int
+blendModeFrameBufferIndex bm = blendModeFrameBufferIndex' bm 0 blendFrameBufferModes
+blendModeFrameBufferIndex' :: BlendingFactor -> Int -> [ BlendingFactor ] -> Int
+blendModeFrameBufferIndex' bm i (mode:modes) = index
+  where index = if bm == mode then i else blendModeFrameBufferIndex' bm (i+1) modes
+blendModeFrameBufferIndex' _ _ [] = 0

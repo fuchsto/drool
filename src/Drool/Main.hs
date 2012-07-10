@@ -22,7 +22,7 @@ module Main where
 import Data.IORef
 import Data.Array.IO
 
-import Graphics.Rendering.OpenGL ( ( $=!), GLfloat, Color3(..), BlendingFactor(..) )
+import Graphics.Rendering.OpenGL ( ( $=!), GLfloat ) 
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
@@ -32,6 +32,7 @@ import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.Utils.FFT as FFT
 import qualified Drool.ApplicationContext as AC
 
+import qualified Drool.UI.Menubar as Menubar
 import qualified Drool.UI.ViewOptions as ViewOptions
 import qualified Drool.UI.FeatureExtractionOptions as FeatureExtractionOptions
 import qualified Drool.UI.TransformationOptions as TransformationOptions
@@ -46,8 +47,8 @@ import qualified Control.Concurrent.Chan as CC
 
 main :: IO()
 main = do
---  _ <- Gtk.initGUI
-  _ <- Gtk.unsafeInitGUIForThreadedRTS
+
+  _ <- Gtk.unsafeInitGUIForThreadedRTS -- Hell yeah
 
   let signalBufferSize = 50
   emptySignal <- DT.newSignal
@@ -60,32 +61,13 @@ main = do
                                                 SigGen.ampTransformation = SigGen.CAmpTransformation transform,
                                                 SigGen.signalPeriodLength = 3,
                                                 SigGen.envelopePeriodLength = 40,
-                                                SigGen.numSamples = 150 }
+                                                SigGen.numSamples = 130 }
 
-  contextSettings <- newIORef(
-    AC.ContextSettings { AC.samplingThreadId = undefined, 
-                         AC.signalPushFrequency = 120,
-                         AC.renderingFrequency = 120,
-                         AC.signalBufferSize = signalBufferSize,
-                         AC.fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                         AC.incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                         AC.incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                         AC.scaling = 30,
-                         AC.blendModeSource = SrcAlpha, 
-                         AC.blendModeFrameBuffer = DstAlpha, 
-                         AC.useNormals = True, 
-                         AC.normalsScale = 10.0, 
-                         AC.rangeAmps = [ 1.0, 1.0, 1.0, 1.0, 1.0 ], 
-                         AC.gridOpacity = 15,
-                         AC.surfaceOpacity = 13,
-                         AC.surfaceColor = Color3 (62.0/255) (187.0/255) (1::GLfloat),
-                         AC.lightColor = Color3 (239.0/255) (19.0/255) (19.0/255.0::GLfloat) ,
-                         AC.gridColor = Color3 (142.0/255) 1 (58.0/255::GLfloat),
-                         AC.renderPerspective = DT.Isometric,
-                         AC.maxBeatBandSamples = 20, 
-                         AC.signalSource = DT.Microphone, 
-                         AC.signalBuf = signalBuffer,
-                         AC.signalGenerator = defaultSiggen } )
+  contextSettings <- newIORef ( AC.defaultContextSettings )
+  contextObjects <- newIORef (
+    AC.ContextObjects { AC.samplingThreadId = undefined, 
+                        AC.signalBuf = signalBuffer,
+                        AC.signalGenerator = defaultSiggen } ) 
 
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew
@@ -93,29 +75,26 @@ main = do
 
   -- Instatiate window from GtkBuilder file:
   mainWindow <- GtkBuilder.builderGetObject builder Gtk.castToWindow "mainWindow"
-
-
+  
   openVisualizerButton <- GtkBuilder.builderGetObject builder Gtk.castToButton "buttonVisualizer"
   _ <- Gtk.onClicked openVisualizerButton $ do
-    GLWindow.initComponent builder contextSettings
+    GLWindow.initComponent builder contextSettings contextObjects
 
   -- Application exit callback (quits main loop):
   _ <- Gtk.onDestroy mainWindow Gtk.mainQuit
 
-  -- Define button callbacks:
-  menuItem_FileClose <- GtkBuilder.builderGetObject builder Gtk.castToMenuItem "menuitemFileQuit"
-  _ <- Gtk.on menuItem_FileClose Gtk.menuItemActivate $ do
-    putStrLn "Exiting"
-    Gtk.widgetDestroy mainWindow
+  _ <- Menubar.initComponent builder contextSettings contextObjects
+  _ <- SignalBufferOptions.initComponent builder contextSettings contextObjects
+  _ <- ViewOptions.initComponent builder contextSettings contextObjects
+  _ <- SignalSourceOptions.initComponent builder contextSettings contextObjects
+  _ <- TransformationOptions.initComponent builder contextSettings contextObjects
+  _ <- FeatureExtractionOptions.initComponent builder contextSettings contextObjects
 
-  _ <- SignalBufferOptions.initComponent builder contextSettings
-  _ <- ViewOptions.initComponent builder contextSettings
-  _ <- SignalSourceOptions.initComponent builder contextSettings
-  _ <- TransformationOptions.initComponent builder contextSettings
-  _ <- FeatureExtractionOptions.initComponent builder contextSettings
+  objects <- readIORef contextObjects
+  settings <- readIORef contextSettings
 
-  let sampleRate = 191000 -- samples per second
-  let fftRes     = 10240  -- 4096 * 2 -- how many samples to use for FFT
+  let sampleRate = AC.audioSampleRate settings -- 191000 -- samples per second
+  let fftRes     = AC.numFFTBands settings -- 10240  -- 4096 * 2 -- how many samples to use for FFT
   soundSource <- Pulse.simpleNew Nothing "DroolRecord" Pulse.Record Nothing "Drool audio visualizer" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) Nothing Nothing Nothing (Just 0)))
   soundTarget <- Pulse.simpleNew Nothing "DroolPlayback" Pulse.Play Nothing "Drool audio playback" 
@@ -125,22 +104,21 @@ main = do
   sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ fftRes :: IO[Float]
                                             -- TODO: Enable if playback flag is set
                                             Pulse.simpleWrite soundTarget soundSamples
-                                            let fftSamples = (FFT.fftFloats soundSamples)
                                             fftSamples <- FFT.fftwFloats soundSamples
-                                            cSettings <- readIORef contextSettings
-                                            let siggen = AC.signalGenerator cSettings
+                                            cObjects <- readIORef contextObjects
+                                            let siggen = AC.signalGenerator cObjects
                                             let numChanSamples = SigGen.numSamples siggen
                                             CC.writeChan sampleChan (take numChanSamples (fftSamples))
                                             -- CC.writeChan sampleChan (take numChanSamples soundSamples)
                                             -- Pulse.simpleDrain soundTarget
-  -- settings <- readIORef contextSettings
-  -- contextSettings $=! settings { AC.samplingThreadId = sampleThread }
+  contextObjects $=! objects { AC.samplingThreadId = sampleThread }
  
   let updateCallback count = (do
 
       cSettings <- readIORef contextSettings
+      cObjects  <- readIORef contextObjects
 
-      let siggen = AC.signalGenerator cSettings
+      let siggen = AC.signalGenerator cObjects
 
       sigsamples <- CC.readChan sampleChan
       
@@ -157,7 +135,7 @@ main = do
       let bufferMaxSize = AC.signalBufferSize cSettings
       let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
       -- Push new signal to buffer:
-      modifyIORef signalBuffer (\list -> DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [ DT.CSignal newSignal ]) bufferMaxSize) )
+      _ <- atomicModifyIORef signalBuffer (\list -> ( DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [ DT.CSignal newSignal ]) bufferMaxSize), True ) )
 
       -- Increment values of incremental rotation: 
       let accIncRotation  = (AC.incRotationAccum cSettings) 
@@ -175,7 +153,7 @@ main = do
       return False)
 
   -- Initialize sample timer with t=0 and start immediately:
-  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 1
+  updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 0
 
   -- Remove sample timer when closing application:
   _ <- Gtk.onDestroy mainWindow (Gtk.timeoutRemove updateSamplesTimer)
@@ -192,6 +170,7 @@ main = do
   -- TODO
 
   -- Free playback sound buffer
+  putStrLn "Closing PulseAudio buffer ..."
   -- Pulse.simpleDrain soundTarget
   Pulse.simpleFree soundTarget
 

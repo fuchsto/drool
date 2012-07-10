@@ -15,7 +15,7 @@
 {-# OPTIONS -O2 -Wall #-}
 
 module Drool.UI.SignalBufferOptions (
-  initComponent
+  initComponent, updateSettings
 ) where
 
 import Data.IORef
@@ -25,37 +25,33 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import Graphics.Rendering.OpenGL
 
-import qualified Drool.Utils.Conversions as Conv
-import qualified Drool.Types as DT
 import qualified Drool.Utils.SigGen as SigGen
-import qualified Drool.ApplicationContext as AC (ContextSettings(..))
+import qualified Drool.ApplicationContext as AC ( ContextSettings(..), ContextObjects(..) )
 
 -- Initializes GUI component for view options.
 -- Expects a GtkBuilder instance.
-initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
-initComponent gtkBuilder contextSettings = do
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects-> IO Bool
+initComponent gtkBuilder contextSettings contextObjects = do
   putStrLn "Initializing SignalBufferOptions component"
 
   defaultSettings <- readIORef contextSettings
+  defaultObjects  <- readIORef contextObjects
 
-  let defaultSigGen = AC.signalGenerator defaultSettings
+  let defaultSigGen = AC.signalGenerator defaultObjects
 
   adjSignalPushFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSignalPushFreq"
-  Gtk.adjustmentSetValue adjSignalPushFreq (fromIntegral $ AC.signalPushFrequency defaultSettings)
   _ <- Gtk.onValueChanged adjSignalPushFreq $ do
     val <- Gtk.adjustmentGetValue adjSignalPushFreq
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.signalPushFrequency = round val }
 
   adjRenderingFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjRenderingFreq"
-  Gtk.adjustmentSetValue adjRenderingFreq (fromIntegral $ AC.renderingFrequency defaultSettings)
   _ <- Gtk.onValueChanged adjRenderingFreq $ do
     val <- Gtk.adjustmentGetValue adjRenderingFreq
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.renderingFrequency = round val }
 
   adjBufferSize <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBufferSize"
-  Gtk.adjustmentSetValue adjBufferSize (fromIntegral $ AC.signalBufferSize defaultSettings)
   _ <- Gtk.onValueChanged adjBufferSize $ do
     val <- Gtk.adjustmentGetValue adjBufferSize
     settings <- readIORef contextSettings
@@ -65,9 +61,23 @@ initComponent gtkBuilder contextSettings = do
   Gtk.adjustmentSetValue adjBufferSamples (fromIntegral $ SigGen.numSamples defaultSigGen)
   _ <- Gtk.onValueChanged adjBufferSamples $ do
     val <- Gtk.adjustmentGetValue adjBufferSamples
-    settings <- readIORef contextSettings
-    let currentSigGen = AC.signalGenerator settings
+    objects <- readIORef contextObjects
+    let currentSigGen = AC.signalGenerator objects
     let siggen = currentSigGen { SigGen.numSamples = round val }
-    contextSettings $=! settings { AC.signalGenerator = siggen }
+    contextObjects $=! objects { AC.signalGenerator = siggen }
+
+  _ <- updateSettings gtkBuilder defaultSettings
 
   return True
+
+updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
+updateSettings gtkBuilder settings = do 
+  adjSignalPushFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSignalPushFreq"
+  Gtk.adjustmentSetValue adjSignalPushFreq (fromIntegral $ AC.signalPushFrequency settings)
+  adjBufferSize <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBufferSize"
+  Gtk.adjustmentSetValue adjBufferSize (fromIntegral $ AC.signalBufferSize settings)
+  adjRenderingFreq <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjRenderingFreq"
+  Gtk.adjustmentSetValue adjRenderingFreq (fromIntegral $ AC.renderingFrequency settings)
+  
+  return True
+

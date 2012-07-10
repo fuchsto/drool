@@ -32,7 +32,7 @@ import Graphics.Rendering.OpenGL (GLfloat)
 type SValue = GLfloat
 type TValue = Int
 
-type SignalFun = (Int -> TValue -> SValue)
+type SignalFun = (Int -> TValue -> SValue) 
 type EnvelopeFun = (Int -> TValue -> SValue -> SValue)
 
 -- Generates a dirac impulse of amplitude 1 in every period.

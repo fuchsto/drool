@@ -25,18 +25,19 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import Graphics.Rendering.OpenGL
 
-import qualified Drool.ApplicationContext as AC
+import qualified Drool.ApplicationContext as AC ( ContextSettings(..), ContextObjects(..) )
 import qualified Drool.Utils.SigGen as SigGen
 import qualified Drool.Types as DT
 
 
 -- Initializes GUI component for signal source.
 -- Expects a GtkBuilder instance.
-initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
-initComponent gtkBuilder contextSettings = do
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
+initComponent gtkBuilder contextSettings contextObjects = do
   putStrLn "Initializing SignalSourceOptions component"
 
   defaultSettings <- readIORef contextSettings
+  defaultObjects  <- readIORef contextObjects
 
   -- Initialize tab "Test signal":
 
@@ -47,7 +48,7 @@ initComponent gtkBuilder contextSettings = do
   spinbutton_envelopePeriods <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToSpinButton "spinbuttonEnvelopePeriods"
 
   -- Apply default settings to UI components:
-  let defaultSigGen = AC.signalGenerator defaultSettings
+  let defaultSigGen = AC.signalGenerator defaultObjects
   Gtk.spinButtonSetValue spinbutton_signalPeriods (fromIntegral (SigGen.signalPeriodLength defaultSigGen))
   Gtk.spinButtonSetValue spinbutton_envelopePeriods (fromIntegral (SigGen.envelopePeriodLength defaultSigGen))
   Gtk.comboBoxSetActive cbox_testsignal_generator 3
@@ -56,6 +57,7 @@ initComponent gtkBuilder contextSettings = do
   button_activateSignalGenerator <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonActivateSignalGenerator"
   _ <- Gtk.onClicked button_activateSignalGenerator $ do
     cSettings <- readIORef contextSettings
+    cObjects  <- readIORef contextObjects
 
     sigGenIdx <- Gtk.comboBoxGetActive cbox_testsignal_generator
     sigEnvIdx <- Gtk.comboBoxGetActive cbox_testsignal_envelope
@@ -66,14 +68,15 @@ initComponent gtkBuilder contextSettings = do
     putStrLn $ "Signal generator: " ++ (show sigGenIdx) ++ " envelope: " ++ (show sigEnvIdx)
     putStrLn $ "Signal periods: " ++ (show sigPeriods) ++ " envelope periods: " ++ (show envPeriods)
 
-    let currentSigGen = AC.signalGenerator cSettings
+    let currentSigGen = AC.signalGenerator cObjects
     -- Update signal generator from settings:
     let siggen = currentSigGen { SigGen.baseSignal = SigGen.CBaseSignal (SigGen.signalFunFromIndex sigGenIdx),
                                  SigGen.ampTransformation = SigGen.CAmpTransformation (SigGen.envelopeFunFromIndex sigEnvIdx),
                                  SigGen.signalPeriodLength = sigPeriods,
                                  SigGen.envelopePeriodLength = envPeriods }
     -- Activate signal generator in application context:
-    contextSettings $=! cSettings { AC.signalGenerator = siggen, AC.signalSource = DT.TestSignal }
+    contextSettings $=! cSettings { AC.signalSource = DT.TestSignal }
+    contextObjects  $=! cObjects { AC.signalGenerator = siggen } 
 
   button_activateMicRecording <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonStartMicRecording"
   _ <- Gtk.onClicked button_activateMicRecording $ do

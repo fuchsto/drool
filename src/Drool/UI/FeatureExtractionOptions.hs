@@ -28,8 +28,8 @@ import qualified Drool.ApplicationContext as AC
 
 -- Initializes GUI component for transformation options.
 -- Expects a GtkBuilder instance and default context settings. 
-initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IO Bool
-initComponent gtkBuilder contextSettings = do
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
+initComponent gtkBuilder contextSettings _ = do
   putStrLn "Initializing FeatureExtractionOptions component"
 
   defaultSettings <- readIORef contextSettings
