@@ -34,6 +34,7 @@ import Drool.Utils.SigGen as SigGen
 
 import qualified Graphics.Rendering.OpenGL as GL ( BlendingFactor(..) ) 
 import qualified Drool.Utils.Conversions as Conv ( blendModeSourceIndex, blendModeFrameBufferIndex )
+import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) ) 
 
 -- Shared settings for communication between main controller, view options
 -- and rendering. 
@@ -66,7 +67,7 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          -- Perspective: 
                                          renderPerspective :: RenderPerspective,
                                       -- Feature extraction: 
-                                         maxBeatBandSamples :: Int, 
+                                         maxBeatBand :: Int, 
                                       -- Transformation options: 
                                          fftEnabled :: Bool, 
                                          numFFTBands :: Int, 
@@ -82,7 +83,7 @@ defaultContextSettings :: ContextSettings
 defaultContextSettings = ContextSettings { settingsFile = Nothing, 
                                            signalPushFrequency = 200,
                                            renderingFrequency = 150,
-                                           signalBufferSize = 40,
+                                           signalBufferSize = 30,
                                            fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                                            incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                                            incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
@@ -98,7 +99,7 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            lightColor = Color3 (239.0/255) (19.0/255) (19.0/255.0::GLfloat) ,
                                            gridColor = Color3 (142.0/255) 1 (58.0/255::GLfloat),
                                            renderPerspective = DT.Isometric,
-                                           maxBeatBandSamples = 20, 
+                                           maxBeatBand = 20, 
                                            fftEnabled = True, 
                                            audioSampleRate = 191000, 
                                            numFFTBands = 10240, 
@@ -107,7 +108,8 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
 
 -- Non-serializable context settings. 
 data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 
-                                       signalBuf :: (IORef SignalList),
+                                       signalBuf :: (IORef SignalList), 
+                                       featuresBuf :: (IORef FE.SignalFeaturesList), 
                                        signalGenerator :: (SigGen.SignalGenerator) } 
 
 saveContextSettingsAs :: ContextSettings -> String -> IO Bool

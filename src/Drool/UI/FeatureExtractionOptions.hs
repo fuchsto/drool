@@ -35,11 +35,11 @@ initComponent gtkBuilder contextSettings _ = do
   defaultSettings <- readIORef contextSettings
 
   adjBeatMaxBandSamples <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBeatMaxBandSamples"
-  Gtk.adjustmentSetValue adjBeatMaxBandSamples (fromIntegral $ AC.maxBeatBandSamples defaultSettings)
+  Gtk.adjustmentSetValue adjBeatMaxBandSamples (fromIntegral $ AC.maxBeatBand defaultSettings)
   _ <- Gtk.onValueChanged adjBeatMaxBandSamples $ do 
     val <- Gtk.adjustmentGetValue adjBeatMaxBandSamples
     settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.maxBeatBandSamples = round val }
+    contextSettings $=! settings { AC.maxBeatBand = round val }
 
   return True
 

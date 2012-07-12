@@ -1,12 +1,12 @@
 -----------------------------------------------------------------------------
 --
 -- Module      :  Drool.UI.GLWindow
--- Copyright   :
+-- Copyright   :  Tobias Fuchs
 -- License     :  AllRightsReserved
 --
--- Maintainer  :
--- Stability   :
--- Portability :
+-- Maintainer  :  twh.fuchs@gmail.com
+-- Stability   :  experimental
+-- Portability :  POSIX
 --
 -- |
 --
@@ -21,12 +21,7 @@ module Drool.UI.GLWindow (
 -- import Debug.Trace
 
 import Data.IORef(IORef, readIORef, newIORef, modifyIORef, writeIORef )
-import Data.Array.IArray ( listArray )
 import Data.Array.IO
-
-import Data.Packed.Matrix as HM ( (><), Matrix )
-import Numeric.LinearAlgebra.Algorithms as LA ( Field, inv ) 
-import Numeric.Container as NC ( vXm, fromList, toList, toLists )
 
 import Graphics.Rendering.OpenGL as GL
 
@@ -38,6 +33,7 @@ import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.Utils.Objects as Obj
 import qualified Drool.Utils.RenderHelpers as RH
+import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeatures(..), SignalFeaturesList(..) )
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
@@ -61,12 +57,12 @@ display contextSettingsIORef renderSettingsIORef = do
       incRotation    = (AC.incRotation settings) 
       accIncRotation = (AC.incRotationAccum settings) 
       maxNumSignals  = (AC.signalBufferSize settings)
-      maxBeatSamples = (AC.maxBeatBandSamples settings) 
+      maxBeatSamples = (AC.maxBeatBand settings) 
       lightPos0      = (RH.lightPos0 renderSettings)
       lightPos1      = (RH.lightPos1 renderSettings)
-      gridColor      = color3AddAlpha (AC.gridColor settings) gridOpacity
-      surfaceColor   = color3AddAlpha (AC.surfaceColor settings) surfOpacity
-      lightColor     = color3AddAlpha (AC.lightColor settings) 1
+      gridColor      = RH.color3AddAlpha (AC.gridColor settings) gridOpacity
+      surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
+      lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
 
   
   -- Rotate/translate to change view perspective: 
@@ -104,13 +100,17 @@ display contextSettingsIORef renderSettingsIORef = do
   ---------------------------------------------------------------------------------------------------
 
   -- Load signal buffer from context
-  signalBuf <- readIORef (RH.signalBuf renderSettings)
+  signalBuf   <- readIORef $ RH.signalBuf renderSettings
+  featuresBuf <- readIORef $ RH.featuresBuf renderSettings
+  
   let signalList = DT.signalList signalBuf
   let numNewSignals = length signalList
   -- Load vertex buffer from rendering context
   let vertexBufIORef = RH.vertexBuf renderSettings
   -- Load normals buffer from rendering context
   let normalsBufIORef = RH.normalsBuf renderSettings
+  -- Load features buffer from rendering context
+  let featuresBufIORef = RH.featuresBuf renderSettings
 
   ---------------------------------------------------------------------------------------------------
   -- Begin handling of new signal
@@ -175,98 +175,29 @@ display contextSettingsIORef renderSettingsIORef = do
   materialSpecular FrontAndBack $= mulColor4Value surfaceColor 2
   materialShininess FrontAndBack $= 30
 
-  let renderSampleSurfaceStrip vertices normals idx lC bC lbC = do let beatDamping      = fromIntegral maxBeatSamples
-                                                                   let loudnessDamping  = fromIntegral numSamples
-                                                                   let localBeatDamping = fromIntegral maxBeatSamples
-                                                                   let beatGridOpacity  = gridOpacity * ((bC / beatDamping) + (lC / loudnessDamping) + (lbC / localBeatDamping))
-                                                                   -- color $ color3AddAlpha (AC.gridColor settings) beatGridOpacity -- + bC / 100.0)
-                                                                   color $ color3AddAlpha (AC.gridColor settings) gridOpacity -- + bC / 100.0)
-                                                                   renderPrimitive LineStrip ( 
-                                                                     if AC.useNormals settings then
-                                                                       mapM_ RH.vertexWithNormal ( zip vertices normals ) 
-                                                                     else 
-                                                                       mapM_ vertex vertices )
-{-
-  let localBeatCoeff sigIdx = do let sigs = DT.signalList signalBuf
-                                 let sig = sigs !! ((length sigs) - sigIdx - 1)
-                                 sigSamples <- getElems $ DT.signalArray sig
-                                 let noisePerSample = 0.2
-                                 let lbc = realToFrac $ (sum $ take maxBeatSamples sigSamples :: GLfloat) - (fromIntegral maxBeatSamples * noisePerSample) 
-                                 return lbc 
--}
-  -- Render surface as single strips (for z : for x):
-  let renderSignalSurfaceStrip vBuf nBuf count loudnessCoeff beatCoeff = (
-        case vBuf of 
-          (currVertices:nextVertices:xs) -> (
-            do -- Local feature extraction (considering one signal at a time only): 
-               -- lbc <- localBeatCoeff count
-               let lbc = 0.0
-               
-            -- let currNormals = nBuf !! (min count (length nBuf-1))
-               let currNormals = nBuf !! (max 0 ( min count (length nBuf-1)))
-               let nextNormals = if length nBuf > (count+1) then nBuf !! (count+1) else currNormals
-               
-               -- Put vertices and normals in correct (interleaved) order for 
-               -- rendendering: 
-               let normals  = Conv.interleave currNormals nextNormals    -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
-               let vertices = Conv.interleave currVertices nextVertices  -- [ s_0_0, s_1_0,  s_0_1, s_1_1, ... ]
-               -- Render a single surface strip (consisting of values from two signals): 
-               renderSampleSurfaceStrip vertices normals count loudnessCoeff beatCoeff lbc
-               
-               -- recurse
-               let recurse = if True || (count+1) < (length vBuf) then renderSignalSurfaceStrip (nextVertices:xs) nBuf (count+1) loudnessCoeff beatCoeff else return ()
-               recurse
-               return () )
-          (_:[]) -> return () 
-          [] -> return () )
-
-  -- Global feature extraction (considering all signals): 
-  -- Analyze overall loudness: 
-  let noisePerSample = 0.2 :: GLfloat
-  let loudness sampleList = (sum sampleList) - (fromIntegral (length sampleList) * noisePerSample)
-  let beatLoudness sampleList = (sum $ take maxBeatSamples sampleList) - (fromIntegral maxBeatSamples * noisePerSample)
-
-  vertexBuf <- readIORef vertexBufIORef :: IO [[ Vertex3 GLfloat ]]
+  vertexBuf  <- readIORef vertexBufIORef :: IO [[ Vertex3 GLfloat ]]
   normalsBuf <- readIORef normalsBufIORef :: IO [[ Normal3 GLfloat ]]
-
-  let nBufList = concat normalsBuf
-  let vBufList = concat vertexBuf
-  let nSamples = if length vertexBuf > 0 then length $ vertexBuf !! 0 else 0
-  let nSignals = length vertexBuf
-  
-  let renderSurface vertexList normalsList indices = do 
-        color surfaceColor
-        renderPrimitive TriangleStrip ( RH.renderSurface vArray nArray indices ) 
-        where vArray = listArray (0, (length vertexList)-1) vertexList
-              nArray = listArray (0, (length normalsList)-1) normalsList
 
   ----------------------------------------------------------------------------------------
   -- Render scene 
   ----------------------------------------------------------------------------------------
   -- Get inverse of model view matrix: 
   glModelViewMatrix <- get currentMatrix :: IO (GLmatrix GLfloat)
-  glModelViewMatrixRows <- getMatrixComponents ColumnMajor glModelViewMatrix
-  let modelViewMatrix = (4 >< 4) $ map (\e -> realToFrac e :: Double) glModelViewMatrixRows
-  let modelViewMatrixInv = LA.inv ( modelViewMatrix :: HM.Matrix Double ) 
-  -- View point is at [0,0,0,1] in projection matrix. Multiply with 
-  -- inverse of model view matrix to transform it into model view 
-  -- coordinates: 
-  let viewPointProjection = NC.fromList [ 0.0, 0.0, 0.0, 1.0 ]
-  let viewPointModelView = NC.toList $ NC.vXm viewPointProjection modelViewMatrixInv
-  let viewPoint = Vector3 (realToFrac $ viewPointModelView !! 0) 
-                          (realToFrac $ viewPointModelView !! 1) 
-                          (realToFrac $ viewPointModelView !! 2) :: Vector3 GLfloat
+  viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
   -- Draw surface
   cullFace $= Just Back
+
+  RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings
+{-
   color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
-  renderSurface vBufList nBufList (RH.drawIndices nSamples nSignals)
+  RH.renderSurfaceDA TriangleStrip vertexBuf normalsBuf viewpoint 
   -- Draw grid
   cullFace $= Just Front
   translate $ Vector3 0 (0.001::GLfloat) 0
   renderSignalSurfaceStrip vertexBuf normalsBuf 0 (loudness recentSignalSamples) (beatLoudness recentSignalSamples) 
   translate $ Vector3 0 (-0.001::GLfloat) 0
-
+-}
 
 reshape :: Gtk.Rectangle -> IO ()
 reshape allocation = do
@@ -333,6 +264,7 @@ initComponent _ contextSettings contextObjects = do
   normalsBufIORef <- newIORef []
 
   renderSettings <- newIORef RH.RenderSettings { RH.signalBuf = AC.signalBuf objects, 
+                                                 RH.featuresBuf = AC.featuresBuf objects, 
                                                  RH.xPosFun = (\x -> fromIntegral x / 60.0), 
                                                  RH.zPosFun = (\z -> fromIntegral z / 15.0), 
                                                  RH.scaleFun = (\s _ _ -> s), 
@@ -417,10 +349,6 @@ initComponent _ contextSettings contextObjects = do
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
 
   Gtk.widgetShowAll window
-
-
-color3AddAlpha :: Color3 GLfloat -> GLfloat -> Color4 GLfloat
-color3AddAlpha (Color3 r g b) a = Color4 r g b a
 
 canvasInitWidth :: Int
 canvasInitWidth = 800

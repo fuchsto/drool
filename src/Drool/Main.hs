@@ -12,9 +12,6 @@
 --
 -----------------------------------------------------------------------------
 
--- Main controller of the application, managing IORefs between ViewOptions
--- and rendering display.
-
 {-# OPTIONS -O2 -Wall #-}
 
 module Main where
@@ -30,6 +27,7 @@ import qualified Drool.Types as DT
 import qualified Drool.Utils.SigGen as SigGen
 import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.Utils.FFT as FFT
+import qualified Drool.Utils.FeatureExtraction as FE
 import qualified Drool.ApplicationContext as AC
 
 import qualified Drool.UI.Menubar as Menubar
@@ -57,17 +55,20 @@ main = do
   signalBuffer <- newIORef (DT.CSignalList emptySignalBuffer)
   -- Initialize test signal generator:
   let transform pLength t sample = (SigGen.sine pLength t) * sample
-  let defaultSiggen = SigGen.CSignalGenerator { SigGen.baseSignal = SigGen.CBaseSignal SigGen.dirac,
-                                                SigGen.ampTransformation = SigGen.CAmpTransformation transform,
-                                                SigGen.signalPeriodLength = 3,
+  let defaultSiggen = SigGen.CSignalGenerator { SigGen.baseSignal           = SigGen.CBaseSignal SigGen.dirac,
+                                                SigGen.ampTransformation    = SigGen.CAmpTransformation transform,
+                                                SigGen.signalPeriodLength   = 3,
                                                 SigGen.envelopePeriodLength = 40,
-                                                SigGen.numSamples = 130 }
+                                                SigGen.numSamples           = 130 }
+
+  signalFeaturesBuffer <- newIORef (FE.SignalFeaturesList [])
 
   contextSettings <- newIORef ( AC.defaultContextSettings )
   contextObjects <- newIORef (
     AC.ContextObjects { AC.samplingThreadId = undefined, 
-                        AC.signalBuf = signalBuffer,
-                        AC.signalGenerator = defaultSiggen } ) 
+                        AC.signalBuf        = signalBuffer,
+                        AC.featuresBuf      = signalFeaturesBuffer, 
+                        AC.signalGenerator  = defaultSiggen } ) 
 
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew
@@ -83,6 +84,7 @@ main = do
   -- Application exit callback (quits main loop):
   _ <- Gtk.onDestroy mainWindow Gtk.mainQuit
 
+  -- Initialize all GUI components: 
   _ <- Menubar.initComponent builder contextSettings contextObjects
   _ <- SignalBufferOptions.initComponent builder contextSettings contextObjects
   _ <- ViewOptions.initComponent builder contextSettings contextObjects
@@ -90,17 +92,17 @@ main = do
   _ <- TransformationOptions.initComponent builder contextSettings contextObjects
   _ <- FeatureExtractionOptions.initComponent builder contextSettings contextObjects
 
-  objects <- readIORef contextObjects
+  objects  <- readIORef contextObjects
   settings <- readIORef contextSettings
 
-  let sampleRate = AC.audioSampleRate settings -- 191000 -- samples per second
-  let fftRes     = AC.numFFTBands settings -- 10240  -- 4096 * 2 -- how many samples to use for FFT
+  let sampleRate = AC.audioSampleRate settings -- samples per second, usually 191000. 
+  let fftRes     = AC.numFFTBands settings     -- how many samples to use for FFT, usually 10240. 
   soundSource <- Pulse.simpleNew Nothing "DroolRecord" Pulse.Record Nothing "Drool audio visualizer" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) Nothing Nothing Nothing (Just 0)))
   soundTarget <- Pulse.simpleNew Nothing "DroolPlayback" Pulse.Play Nothing "Drool audio playback" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing Nothing
-
-  sampleChan <- CC.newChan 
+  
+  sampleChan   <- CC.newChan 
   sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ fftRes :: IO[Float]
                                             -- TODO: Enable if playback flag is set
                                             Pulse.simpleWrite soundTarget soundSamples
@@ -109,7 +111,6 @@ main = do
                                             let siggen = AC.signalGenerator cObjects
                                             let numChanSamples = SigGen.numSamples siggen
                                             CC.writeChan sampleChan (take numChanSamples (fftSamples))
-                                            -- CC.writeChan sampleChan (take numChanSamples soundSamples)
                                             -- Pulse.simpleDrain soundTarget
   contextObjects $=! objects { AC.samplingThreadId = sampleThread }
  
@@ -118,24 +119,35 @@ main = do
       cSettings <- readIORef contextSettings
       cObjects  <- readIORef contextObjects
 
+      -- Get active signal generator from context objects: 
       let siggen = AC.signalGenerator cObjects
-
+      -- Get samples from sampling thread: 
       sigsamples <- CC.readChan sampleChan
-      
-      let scale s = s * 2.0 -- ((sqrt (s+13.0)) - 3.6) * 5.0
-      
-      let genSampleListTestSignal = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
-      let genSampleListMicrophone = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
 
+      -- Helper function. Pop first signal in buffer if buffer is full. 
+      let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
+      
+      let scale s = s * 2.0 
+      
+      -- If using a test signal, generate it: 
+      let genSampleListTestSignal = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
+      -- If sampling microphone input, read it: 
+      let genSampleListMicrophone = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
       let genSampleList = if AC.signalSource cSettings == DT.Microphone then genSampleListMicrophone else genSampleListTestSignal
+
+      -- Get max size of buffers: 
+      let bufferMaxSize = AC.signalBufferSize cSettings
+
+      -- Extract features from current signal buffer: 
+      let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
+      let features   = FE.extractSignalFeatures genSampleList feSettings siggen
+      -- Push new features to buffer: 
+      _ <- atomicModifyIORef signalFeaturesBuffer (\list -> ( FE.SignalFeaturesList( readjustBufferSize ((FE.signalFeaturesList list) ++ [features] ) bufferMaxSize), True ) )
 
       -- Sample list to array:
       newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
-      -- pop first signal in buffer if buffer is full:
-      let bufferMaxSize = AC.signalBufferSize cSettings
-      let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
       -- Push new signal to buffer:
-      _ <- atomicModifyIORef signalBuffer (\list -> ( DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [ DT.CSignal newSignal ]) bufferMaxSize), True ) )
+      _ <- atomicModifyIORef signalBuffer (\list -> ( DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [DT.CSignal newSignal]) bufferMaxSize), True ) )
 
       -- Increment values of incremental rotation: 
       let accIncRotation  = (AC.incRotationAccum cSettings) 
