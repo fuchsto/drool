@@ -115,7 +115,7 @@ main = do
   contextObjects $=! objects { AC.samplingThreadId = sampleThread }
  
   let updateCallback count = (do
-
+	-- {{{
       cSettings <- readIORef contextSettings
       cObjects  <- readIORef contextObjects
 
@@ -127,11 +127,10 @@ main = do
       -- Helper function. Pop first signal in buffer if buffer is full. 
       let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
       
-      let scale s = s * 2.0 
-      
       -- If using a test signal, generate it: 
       let genSampleListTestSignal = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
       -- If sampling microphone input, read it: 
+      let scale s = s * 2.0 
       let genSampleListMicrophone = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
       let genSampleList = if AC.signalSource cSettings == DT.Microphone then genSampleListMicrophone else genSampleListTestSignal
 
@@ -163,7 +162,8 @@ main = do
 
       -- do not run this callback again:
       return False)
-
+	-- }}}
+	
   -- Initialize sample timer with t=0 and start immediately:
   updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 0
 
@@ -177,10 +177,6 @@ main = do
   Gtk.mainGUI
 
   -- After main loop, when exiting application: 
-
-  -- Terminate sampling thread: 
-  -- TODO
-
   -- Free playback sound buffer
   putStrLn "Closing PulseAudio buffer ..."
   -- Pulse.simpleDrain soundTarget

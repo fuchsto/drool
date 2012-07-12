@@ -39,11 +39,13 @@ import qualified Drool.ApplicationContext as AC
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
+-- {{{
   renderSettings <- readIORef renderSettingsIORef
-  settings <- readIORef contextSettingsIORef
+  settings       <- readIORef contextSettingsIORef
 
-  let blendModeSource = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
+  let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
   let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx settings
+	
   blendFunc $= (blendModeSource, blendModeFrameBuffer)
   clear [ColorBuffer, DepthBuffer]
   
@@ -63,7 +65,6 @@ display contextSettingsIORef renderSettingsIORef = do
       gridColor      = RH.color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
-
   
   -- Rotate/translate to change view perspective: 
   case AC.renderPerspective settings of
@@ -81,7 +82,6 @@ display contextSettingsIORef renderSettingsIORef = do
       GL.translate $ Vector3 0 0 (-2.0::GLfloat)
       GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
       GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
-
 
   GL.diffuse (Light 0) $= lightColor
   GL.diffuse (Light 1) $= lightColor
@@ -131,10 +131,7 @@ display contextSettingsIORef renderSettingsIORef = do
   modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
   
   nBufCurr <- readIORef normalsBufIORef
-  -- putStrLn $ "length vBufZAdjusted: " ++ show (length vBufZAdjusted)
-  -- putStrLn $ "length nBufCurr: " ++ show (length nBufCurr)
   let nBufUpdated = updateNormalsBuffer nBufCurr (take ((length newSigVertices)+2) vBufZAdjusted) maxNumSignals
-  -- putStrLn $ "length nBufUpdated: " ++ show (length nBufUpdated)
   modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
   
   -- Load most recent signal from buffer (last signal in list): 
@@ -158,17 +155,6 @@ display contextSettingsIORef renderSettingsIORef = do
   GL.position (Light 0) $= lightPos0
   GL.position (Light 0) $= lightPos1
 
-  preservingMatrix $ do 
-     let cubePos = RH.vertexToVector $ RH.vx4ToVx3 lightPos0
-     translate cubePos
-     Obj.renderCube 0.1
-     Obj.renderCubeFrame 0.11
-  preservingMatrix $ do 
-     let cubePos = RH.vertexToVector $ RH.vx4ToVx3 lightPos1
-     translate cubePos
-     Obj.renderCube 0.1
-     Obj.renderCubeFrame 0.11
-
   GL.translate $ Vector3 (-0.5 * surfaceWidth) 0 0
   GL.translate $ Vector3 0 0 (-0.5 * surfaceDepth)
   
@@ -183,21 +169,11 @@ display contextSettingsIORef renderSettingsIORef = do
   ----------------------------------------------------------------------------------------
   -- Get inverse of model view matrix: 
   glModelViewMatrix <- get currentMatrix :: IO (GLmatrix GLfloat)
+	-- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
-  -- Draw surface
-  cullFace $= Just Back
-
   RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings
-{-
-  color (Color4 0.7 0.2 0.7 surfOpacity :: Color4 GLfloat)
-  RH.renderSurfaceDA TriangleStrip vertexBuf normalsBuf viewpoint 
-  -- Draw grid
-  cullFace $= Just Front
-  translate $ Vector3 0 (0.001::GLfloat) 0
-  renderSignalSurfaceStrip vertexBuf normalsBuf 0 (loudness recentSignalSamples) (beatLoudness recentSignalSamples) 
-  translate $ Vector3 0 (-0.001::GLfloat) 0
--}
+-- }}} 
 
 reshape :: Gtk.Rectangle -> IO ()
 reshape allocation = do
@@ -214,6 +190,7 @@ reshape allocation = do
 -- Returns updated normals buffer. 
 updateNormalsBuffer :: [[ Normal3 GLfloat ]] -> [[ Vertex3 GLfloat ]] -> Int -> [[ Normal3 GLfloat ]] 
 updateNormalsBuffer nBuf vBuf@(_:_:_:vBufTail) numSignals = updateNormalsBuffer updatedNormalsBuf (tail vBuf) numSignals
+-- {{{
   where 
   -- Drop first and last element of nBuf. 
   -- Last element has incomplete normals and will be replaced by element 
@@ -238,12 +215,13 @@ updateNormalsBuffer nBuf vBuf@(_:_:_:vBufTail) numSignals = updateNormalsBuffer 
     verticesAndNormalsPrev = RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] 
 
     updatedNormalsBuf = verticesAndNormalsCurr : verticesAndNormalsPrev : adjNormalsBuf 
+-- }}}
 
 updateNormalsBuffer nBuf _ _ = nBuf
 
 -- Component init interface for main UI. 
 initComponent _ contextSettings contextObjects = do
-
+-- {{{
   window <- Gtk.windowNew
 
   Gtk.set window [ Gtk.containerBorderWidth := 0,
@@ -349,6 +327,7 @@ initComponent _ contextSettings contextObjects = do
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
 
   Gtk.widgetShowAll window
+-- }}} 
 
 canvasInitWidth :: Int
 canvasInitWidth = 800

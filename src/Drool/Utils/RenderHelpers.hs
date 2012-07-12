@@ -130,6 +130,8 @@ bandRangeAmpSamplesRec [] _ _ _ = []
 scaleSamples :: [SValue] -> SValue -> [SValue]
 scaleSamples samples a = map ( \s -> s * a ) samples
 
+-- {{{
+
 -- Resolve x component of a 3-dimensional Vector
 v3x :: Vector3 a -> a
 v3x (Vector3 x _ _) = x
@@ -213,6 +215,8 @@ n3Invert n = Normal3 x y z
 
 color3AddAlpha :: Color3 GLfloat -> GLfloat -> Color4 GLfloat
 color3AddAlpha (Color3 r g b) a = Color4 r g b a
+
+-- }}}
 
 -- Useful for mapping over a list containing tuples of (vertex, vertexNormal): 
 vertexWithNormal :: (Vertex3 GLfloat, Normal3 GLfloat) -> IO ()
@@ -317,81 +321,12 @@ surfaceSplitIndexX vArray viewpoint nSamples switchIndexZ colIndices@(ci:_:_) =
 surfaceSplitIndexX _ _ _ _ (ci:[]) = ci 
 surfaceSplitIndexX _ _ _ _ [] = 0
 
-{-
--- {{{ 
-drawIndices' :: Int -> Int -> Int -> [Int]
-drawIndices' i cols rows = cur ++ if i < ((cols) * (rows)) then drawIndices' (i+1) cols rows else []
-  where cur = preDegenerates ++ nonDegenerates ++ postDegenerates 
-        nonDegenerates = [ row * cols + col, (row+1) * cols + col ]
-        col   = i `mod` cols
-        row   = (i-col) `div` cols
-        preDegenerates  = if col == 0 then [row*cols] else []
-        postDegenerates = if col == (cols-1) then [(row+1) * cols + (col)] else []
-
--- Resolves order in which to render vertices for a triangle strip surface 
--- using one surface strip per row. 
--- Resulting order is not depth-sorted. 
-drawIndices :: Int -> Int -> [Int]
-drawIndices cols rows = take (numDrawIndices cols rows) $ drawIndices' 0 cols rows
-
--- two extra vertices for every row, but only one extra vertex 
--- in first and last row. Vertices in non-first and non-last row
--- are visited twice: 
-numDrawIndices :: Int -> Int -> Int
-numDrawIndices cols rows = (rows-2) * (2*cols+2) + 2 * (cols+1)
-
--- Renders given vertex and normal buffer. To be used within a renderPrimitive
--- context. 
-renderSurface :: Array Int (Vertex3 GLfloat) -> Array Int (Normal3 GLfloat) -> [Int] -> IO ()
-renderSurface vArray nArray (i:idcs) = safeRecurse
-  where safeRecurse = if i < (rangeSize nBounds) && i < (rangeSize vBounds) 
-                      then do normal (nArray ! i)
-                              vertex (vArray ! i)
-                              renderSurface vArray nArray idcs
-                              return ()
-                      else return () 
-        vBounds = bounds vArray
-        nBounds = bounds nArray
-renderSurface _ _ [] = return ()
-
-renderSurfaceSimple :: [ Vertex3 GLfloat ] -> [ Normal3 GLfloat ] -> [Int] -> IO ()
-renderSurfaceSimple vertexList normalsList idcs = do 
-  let vArray = listArray (0, (length vertexList)-1) vertexList
-  let nArray = listArray (0, (length normalsList)-1) normalsList
-  renderPrimitive TriangleStrip ( renderSurface vArray nArray idcs ) 
-
-renderSurfaceDA :: PrimitiveMode -> [[ Vertex3 GLfloat ]] -> [[ Normal3 GLfloat ]] -> Vector3 GLfloat -> IO ()
-renderSurfaceDA mode vBuf nBuf viewpoint = do 
-
---  color $ (Color4 0.8 0.4 0.4 0.8 :: Color4 GLfloat)
---  translate $ Vector3 0 (0.1 :: GLfloat) 0
-  renderPrimitive mode ( renderSurface vArray nArray vIndicesRight )
-
---  color $ (Color4 0.4 0.4 0.8 0.8 :: Color4 GLfloat)
---  translate $ Vector3 0 (-0.1 :: GLfloat) 0
-  renderPrimitive mode ( renderSurface vArray nArray vIndicesLeft )
-
-  where nBufList = concat nBuf
-        vBufList = concat vBuf
-        vArray = listArray (0, (length vBufList)-1) vBufList
-        nArray = listArray (0, (length nBufList)-1) nBufList
-        nSamples = if length vBuf > 0 then length $ vBuf !! 0 else 0
-        nSignals = length vBuf
-        vIndices = drawIndices nSamples nSignals
-        (switchIndexZ, switchIndexX) = surfaceSplitIndices vArray viewpoint nSamples
-        vIndicesRight = take numVIndicesSplit vIndices
-        vIndicesLeft = reverse $ drop numVIndicesSplit vIndices
-        numVIndicesSplit = numVIndices - (numDrawIndices nSamples switchIndexZ)
-        numVIndices = numDrawIndices nSamples nSignals
--- }}}
--}
-
 applyFeaturesToGrid :: FE.SignalFeatures -> AC.ContextSettings -> IO ()
 applyFeaturesToGrid features settings = do
   let loudCoeff       = realToFrac $ FE.totalEnergy features
       bassCoeff       = realToFrac $ FE.bassEnergy features 
       gBaseOpacity    = (AC.gridOpacity settings) / 100.0 :: GLfloat
-      gOpacity        = gBaseOpacity * ( 0.5 * loudCoeff + 0.5 * bassCoeff )
+      gOpacity        = gBaseOpacity -- * ( 0.5 * loudCoeff + 0.5 * bassCoeff )
       gColor          = color3AddAlpha (AC.gridColor settings) gOpacity
   color $ gColor
 
@@ -400,7 +335,7 @@ applyFeaturesToSurface features settings = do
   let loudCoeff    = realToFrac $ FE.totalEnergy features
       bassCoeff    = realToFrac $ FE.bassEnergy features 
       sBaseOpacity = (AC.surfaceOpacity settings) / 100.0 :: GLfloat
-      sOpacity     = sBaseOpacity * ( 0.2 * loudCoeff + 0.8 * bassCoeff )
+      sOpacity     = sBaseOpacity -- * ( 0.2 * loudCoeff + 0.8 * bassCoeff )
       sColor       = color3AddAlpha (AC.surfaceColor settings) sOpacity
   color $ sColor
 
@@ -430,10 +365,15 @@ renderSignalSurfaceStrip mode fAppFun dir (vsCurr,vsNext) (nsCurr,nsNext) (fsCur
      renderPrimitive mode ( 
        mapM_ vertexWithNormal (zip sortedVertices sortedNormals) ) )
 
-vertexSectionIndices :: Int -> (Int,Int) -> (Int,Int) -> [[ Int ]]
-vertexSectionIndices nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = 
-  [ [ absIndex zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ]
-  where absIndex z x = (nSamples * z) + x 
+vertexSectionIndices :: DirectionZ -> Int -> (Int,Int) -> (Int,Int) -> [[ Int ]]
+vertexSectionIndices dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = list
+  where absIndexBtF z x = (nSamples * z) + x 
+        absIndexFtB z x = (nSamples * zEndIdx) + x - (nSamples * (z-zStartIdx))
+        list = if dirZ == BackToFront then (
+                  [ [ absIndexBtF zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ] )
+               else (
+                  [ [ absIndexFtB zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ] )
+
 
 -- Using Arrays instead of lists here as we need efficient random access on element. 
 renderSurfaceSection :: DirectionX -> DirectionZ -> 
@@ -448,11 +388,8 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
     let nSecSignals = zEndIdx - zStartIdx -- Number of signals in section
     -- let nSecSamples = xEndIdx - xStartIdx -- Number of samples per signal in section
 
-    -- returns lists of vertex indices sorted from left to right, back to front. 
-    -- TODO: Use vertexSectionIndices dirZ nSamples secStart secEnd 
-    --       instead of reversing the result!
-    let vIndexMatrix = vertexSectionIndices nSamples secStart secEnd
-    let vIndexMatrixZSorted = if dirZ == FrontToBack then reverse vIndexMatrix else vIndexMatrix
+    -- returns lists of vertex indices sorted in correct z-direction: 
+    let vIndexMatrixZSorted = vertexSectionIndices dirZ nSamples secStart secEnd
     -- returns lists of signal vertices in the order they will be rendered. 
     -- First dimension is signal vertices, second dimension is sample value. 
     -- Second dimension is sorted left to right. 
@@ -460,24 +397,24 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
     -- in renderSignalSurfaceStrip. 
     --
     -- TODO: Use Arrays here! 
-    let secVertices = map (\idcs -> map (\i -> vArray ! i) idcs) vIndexMatrixZSorted
-    let secNormals  = map (\idcs -> map (\i -> nArray ! i) idcs) vIndexMatrixZSorted
-    let secFeaturesBtF = map (\sIdx -> fArray ! sIdx) [zStartIdx..zEndIdx]
-    let secFeaturesFtB = map (\sIdx -> fArray ! sIdx) [ zEndIdx-x | x <- [zStartIdx..zEndIdx] ]
-    let secFeaturesZSorted = if dirZ == FrontToBack then secFeaturesFtB else secFeaturesBtF
-    let safeAt xs idx fallback = if length xs > idx then xs !! idx else fallback
+    let secVertices    = map (\idcs -> map (\i -> vArray ! i) idcs) vIndexMatrixZSorted
+    let secNormals     = map (\idcs -> map (\i -> nArray ! i) idcs) vIndexMatrixZSorted
+    let safeAt xs idx fallback = if idx >= 0 && length xs > idx then xs !! idx else fallback
+    let safeArrayAt xs idx fallback = if idx >= 0 && rangeSize (bounds xs) > idx then xs ! idx else fallback
+    let nSignals = rangeSize $ bounds fArray
+    let sigIdcs  = if dirZ == BackToFront then [zStartIdx..zEndIdx] else [ zEndIdx-x | x <- [0..zEndIdx] ]
     -- Render single surface strips of this section in correct Z-order: 
-    mapM_ ( \secSigIdx -> ( do let globalSigIdx = zEndIdx
-                                   vsCurr = safeAt secVertices secSigIdx []
-                                   vsNext = safeAt secVertices (secSigIdx+1) vsCurr
-                                   nsCurr = safeAt secNormals secSigIdx []
-                                   nsNext = safeAt secNormals (secSigIdx+1) nsCurr
-                                   fCurr  = safeAt secFeaturesZSorted secSigIdx FE.emptyFeatures
-                                   fNext  = safeAt secFeaturesZSorted (secSigIdx+1) fCurr
-                               renderSignalSurfaceStrip TriangleStrip applyFeaturesToSurface dirX (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
-                               translate $ Vector3 0 (0.01::GLfloat) 0
-                               renderSignalSurfaceStrip LineStrip applyFeaturesToGrid dirX (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
-                               translate $ Vector3 0 (-0.01::GLfloat) 0 ) ) [0..nSecSignals] 
+    mapM_ ( \(sigIdx,secSigIdx) -> ( do let globalSigIdx = zEndIdx
+                                            vsCurr = safeAt secVertices secSigIdx []
+                                            vsNext = safeAt secVertices (secSigIdx+1) vsCurr
+                                            nsCurr = safeAt secNormals secSigIdx []
+                                            nsNext = safeAt secNormals (secSigIdx+1) nsCurr
+                                            fCurr  = trace (show nSignals ++ " " ++ show dirZ ++ " " ++ show (zStartIdx,zEndIdx) ++ " " ++ show sigIdcs) $ safeArrayAt fArray sigIdx FE.emptyFeatures
+                                            fNext  = safeArrayAt fArray sigIdx fCurr
+                                        renderSignalSurfaceStrip TriangleStrip applyFeaturesToSurface dirX (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
+                                        translate $ Vector3 0 (0.01::GLfloat) 0
+                                        renderSignalSurfaceStrip LineStrip applyFeaturesToGrid dirX (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
+                                        translate $ Vector3 0 (-0.01::GLfloat) 0 ) ) (zip sigIdcs [0..nSecSignals])
 
 -- Render surface as four sections, each with a different X- and Z-direction. 
 renderSurface :: [[ Vertex3 GLfloat ]] -> 
