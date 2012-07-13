@@ -48,7 +48,7 @@ import Numeric.LinearAlgebra.Algorithms as LA ( Field, inv )
 import Numeric.Container as NC ( vXm, fromList, toList )
 
 import Data.Array ( Array, indices )
-import Data.Array.IArray ( (!), bounds, IArray(..), listArray )
+import Data.Array.IArray ( (!), bounds, IArray(..), listArray, ixmap )
 import Data.Ix ( rangeSize )
 import Drool.Types ( SignalList(..) )
 import Drool.ApplicationContext as AC ( ContextSettings(..) )
@@ -345,21 +345,24 @@ applyFeaturesToSurface features settings = do
 renderSignalSurfaceStrip :: PrimitiveMode -> 
                             ( FE.SignalFeatures -> AC.ContextSettings -> IO () ) -> 
                             DirectionX -> 
-                            ([Vertex3 GLfloat], [Vertex3 GLfloat]) -> 
-                            ([Normal3 GLfloat], [Normal3 GLfloat]) -> 
+                            (Array Int (Vertex3 GLfloat), Array Int (Vertex3 GLfloat)) -> 
+                            (Array Int (Normal3 GLfloat), Array Int (Normal3 GLfloat)) -> 
                             (FE.SignalFeatures, FE.SignalFeatures) -> 
                             AC.ContextSettings -> 
                             Int -> 
                             IO ()
-renderSignalSurfaceStrip mode fAppFun dir (vsCurr,vsNext) (nsCurr,nsNext) (fsCurr,_) settings idx = (
+renderSignalSurfaceStrip mode fAppFun dir (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,_) settings idx = (
   do -- Put vertices and normals in correct (interleaved) order for 
      -- rendendering: 
-     let vertices = Conv.interleave vsCurr vsNext  -- [ s_0_0, s_1_0,  s_0_1, s_1_1, ... ]
-     let normals  = Conv.interleave nsCurr nsNext  -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
+     let aMaxIdx array = snd $ bounds array
+     let aMap array = map (\i -> array ! i) ( if dir == LeftToRight then [0..(aMaxIdx array)] else [ aMaxIdx array - x | x <- [0..(aMaxIdx array)] ] )
+     let vsCurr = aMap vsArrCurr
+     let vsNext = aMap vsArrNext
+     let nsCurr = aMap nsArrCurr
+     let nsNext = aMap nsArrNext
 
-     -- TODO: Use Arrays here! 
-     let sortedVertices = if dir == LeftToRight then vertices else reverse vertices
-     let sortedNormals  = if dir == LeftToRight then normals  else reverse normals
+     let sortedVertices = Conv.interleave vsCurr vsNext  -- [ s_0_0, s_1_0,  s_0_1, s_1_1, ... ]
+     let sortedNormals  = Conv.interleave nsCurr nsNext  -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
 
      fAppFun fsCurr settings
      renderPrimitive mode ( 
@@ -386,7 +389,7 @@ renderSurfaceSection :: DirectionX -> DirectionZ ->
                         IO ()
 renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartIdx) secEnd@(zEndIdx,xEndIdx) nSamples settings = do
     let nSecSignals = zEndIdx - zStartIdx -- Number of signals in section
-    -- let nSecSamples = xEndIdx - xStartIdx -- Number of samples per signal in section
+    let nSecSamples = xEndIdx - xStartIdx -- Number of samples per signal in section
 
     -- returns lists of vertex indices sorted in correct z-direction: 
     let vIndexMatrixZSorted = vertexSectionIndices dirZ nSamples secStart secEnd
@@ -395,19 +398,20 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
     -- Second dimension is sorted left to right. 
     -- We do not sort according to X-direction here, this is taken care of 
     -- in renderSignalSurfaceStrip. 
-    --
-    -- TODO: Use Arrays here! 
-    let secVertices    = map (\idcs -> map (\i -> vArray ! i) idcs) vIndexMatrixZSorted
-    let secNormals     = map (\idcs -> map (\i -> nArray ! i) idcs) vIndexMatrixZSorted
+    
+    -- Vertices and normals as list of Arrays: 
+    let secVertices = map (\xIdcs -> ixmap (0,nSecSamples) (\i -> xIdcs !! i) vArray) vIndexMatrixZSorted
+    let secNormals  = map (\xIdcs -> ixmap (0,nSecSamples) (\i -> xIdcs !! i) nArray) vIndexMatrixZSorted
+
     let safeAt xs idx fallback = if idx >= 0 && length xs > idx then xs !! idx else fallback
     let safeArrayAt xs idx fallback = if idx >= 0 && rangeSize (bounds xs) > idx then xs ! idx else fallback
     let nSignals = rangeSize $ bounds fArray
     let sigIdcs  = if dirZ == BackToFront then [zStartIdx..zEndIdx] else [ zEndIdx-x | x <- [0..zEndIdx] ]
     -- Render single surface strips of this section in correct Z-order: 
     mapM_ ( \(sigIdx,secSigIdx) -> ( do let globalSigIdx = zEndIdx
-                                            vsCurr = safeAt secVertices secSigIdx []
+                                            vsCurr = safeAt secVertices secSigIdx (listArray (0,0) [])
                                             vsNext = safeAt secVertices (secSigIdx+1) vsCurr
-                                            nsCurr = safeAt secNormals secSigIdx []
+                                            nsCurr = safeAt secNormals secSigIdx (listArray (0,0) [])
                                             nsNext = safeAt secNormals (secSigIdx+1) nsCurr
                                             fCurr  = trace (show nSignals ++ " " ++ show dirZ ++ " " ++ show (zStartIdx,zEndIdx) ++ " " ++ show sigIdcs) $ safeArrayAt fArray sigIdx FE.emptyFeatures
                                             fNext  = safeArrayAt fArray sigIdx fCurr
@@ -446,12 +450,18 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings = do
       secBottomRightStartIdcs = ( splitZ, splitX )
       secBottomRightEndIdcs   = ( (nSignals-1), (nSamples-1) )
 
-  let renderSec dX dZ sS sE   = renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
+  let renderSec dX dZ sS sE   = trace (show (splitZ,splitX)) $ renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
   
   cullFace $= Just Front
+  -- translate $ Vector3 (-0.1 :: GLfloat) 0 ( 0.1 :: GLfloat)  
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
+  cullFace $= Just Back
+  -- translate $ Vector3 ( 0.1 :: GLfloat) 0 ( 0.0 :: GLfloat)  
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
   cullFace $= Just Back
+  -- translate $ Vector3 (-0.1 :: GLfloat) 0 (-0.1 :: GLfloat)  
   renderSec LeftToRight FrontToBack secBottomLeftStartIdcs secBottomLeftEndIdcs 
+  cullFace $= Just Front
+  -- translate $ Vector3 ( 0.1 :: GLfloat) 0 (-0.0 :: GLfloat)  
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
 
