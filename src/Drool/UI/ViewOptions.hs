@@ -238,6 +238,25 @@ initComponent gtkBuilder contextSettings _ = do
     val <- Gtk.adjustmentGetValue adjFeatureBassEnergyGridCoeff
     contextSettings $=! settings { AC.featureBassEnergyGridCoeff = realToFrac val } 
 
+  buttonSetMarquee <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonSetMarquee"
+  entryMarquee <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToEntry "entryMarqueeText"
+  _ <- Gtk.onClicked buttonSetMarquee $ do 
+    marqueeText <- Gtk.entryGetText entryMarquee
+ {- 
+    textBuffer  <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToTextBuffer "textbufferMarquee"
+    numChars    <- Gtk.textBufferGetCharCount textBuffer
+    itBegin     <- Gtk.textBufferGetIterAtOffset textBuffer 0
+    itEnd       <- Gtk.textBufferGetIterAtOffset textBuffer numChars
+    marqueeText <- Gtk.textBufferGetText textBuffer itBegin itEnd False
+ -}
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.marqueeText = marqueeText } 
+
+  _ <- Gtk.afterEntryActivate entryMarquee $ do 
+    marqueeText <- Gtk.entryGetText entryMarquee
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.marqueeText = marqueeText } 
+    
   
   return True
 

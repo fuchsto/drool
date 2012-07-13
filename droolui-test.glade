@@ -180,6 +180,7 @@
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
+  <object class="GtkEntryBuffer" id="entrybuffer1"/>
   <object class="GtkImage" id="iconFreezeVisualizer">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -3283,11 +3284,10 @@ and it doesn't look that nice, either. </property>
                                     <property name="can_focus">False</property>
                                     <child>
                                       <object class="GtkEntry" id="entryMarqueeText">
-                                        <property name="width_request">200</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
+                                        <property name="buffer">entrybuffer1</property>
                                         <property name="invisible_char">•</property>
-                                        <property name="invisible_char_set">True</property>
                                         <property name="primary_icon_activatable">False</property>
                                         <property name="secondary_icon_activatable">False</property>
                                         <property name="primary_icon_sensitive">True</property>
@@ -3396,4 +3396,5 @@ and it doesn't look that nice, either. </property>
       </object>
     </child>
   </object>
+  <object class="GtkTextBuffer" id="textbufferMarquee"/>
 </interface>

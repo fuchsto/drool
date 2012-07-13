@@ -18,7 +18,7 @@ module Drool.UI.GLWindow (
     initComponent
 ) where
 
--- import Debug.Trace
+import Debug.Trace
 
 import Data.IORef(IORef, readIORef, newIORef, modifyIORef, writeIORef )
 import Data.Array.IO
@@ -26,6 +26,7 @@ import Data.Array.IO
 import Control.Monad.Trans ( liftIO )
 
 import Graphics.Rendering.OpenGL as GL
+import qualified Graphics.Rendering.FTGL as FTGL
 
 import Graphics.UI.Gtk as Gtk
 import Graphics.UI.Gtk (AttrOp((:=)))
@@ -48,7 +49,6 @@ display contextSettingsIORef renderSettingsIORef = do
   let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
   let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx settings
 	
-  blendFunc $= (blendModeSource, blendModeFrameBuffer)
   clear [ColorBuffer, DepthBuffer]
   
   matrixMode $= Modelview 0
@@ -67,6 +67,8 @@ display contextSettingsIORef renderSettingsIORef = do
       gridColor      = RH.color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
+
+  blendFunc $= (blendModeSource, blendModeFrameBuffer)
   
   -- Rotate/translate to change view perspective: 
   case AC.renderPerspective settings of
@@ -175,6 +177,31 @@ display contextSettingsIORef renderSettingsIORef = do
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
   RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings
+
+  -- Render marquee text, if any
+  blendFunc $= ( One, One )
+  colorMaterial $= Just (Front, AmbientAndDiffuse)
+  materialAmbient Front $= mulColor4Value surfaceColor 2
+  materialSpecular Front $= mulColor4Value surfaceColor 4
+  materialShininess Front $= 30
+  let marqueeText = AC.marqueeText settings
+  gridfont <- readIORef $ RH.gridFont renderSettings
+  fillfont <- readIORef $ RH.fillFont renderSettings
+
+  marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
+
+  preservingMatrix $ do 
+    let fontWidth  = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
+    let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
+    let fontScaling = (surfaceWidth * 1.5) / fontWidth
+    GL.scale fontScaling fontScaling (0 :: GLfloat)
+    translate $ Vector3 (-0.5 * fontWidth + 0.5 * surfaceWidth / fontScaling) (0.7 / fontScaling) (-4.5 :: GLfloat)
+    color $ mulColor4Value surfaceColor 4
+    FTGL.renderFont fillfont marqueeText FTGL.Front
+    blendFunc $= ( SrcAlpha, OneMinusSrcAlpha )
+    color $ Color4 0 0 0 (0.5::GLfloat)
+    FTGL.renderFont gridfont marqueeText FTGL.Front
+
 -- }}} 
 
 reshape :: Gtk.Rectangle -> IO ()
@@ -243,6 +270,14 @@ initComponent _ contextSettings contextObjects = do
   vertexBufIORef  <- newIORef []
   normalsBufIORef <- newIORef []
 
+  gridfont <- FTGL.createOutlineFont "FreeMono.ttf"
+  fillfont <- FTGL.createPolygonFont "FreeMono.ttf"
+  FTGL.setFontFaceSize gridfont 36 36 
+  FTGL.setFontFaceSize fillfont 36 36 
+
+  gridFontIORef <- newIORef gridfont
+  fillFontIORef <- newIORef fillfont
+
   renderSettings <- newIORef RH.RenderSettings { RH.signalBuf = AC.signalBuf objects, 
                                                  RH.featuresBuf = AC.featuresBuf objects, 
                                                  RH.xPosFun = (\x -> fromIntegral x / 60.0), 
@@ -252,6 +287,8 @@ initComponent _ contextSettings contextObjects = do
                                                  RH.normalsBuf = normalsBufIORef, 
                                                  RH.lightPos0 = (Vertex4 (-1.0) 3.0 (-2.0) 0.0), 
                                                  RH.lightPos1 = (Vertex4 (1.0) 3.0 (2.0) 0.0), 
+                                                 RH.fillFont = fillFontIORef,
+                                                 RH.gridFont = gridFontIORef, 
                                                  RH.numSignals = 0, 
                                                  RH.numSamples = 0 } 
 
@@ -320,7 +357,6 @@ initComponent _ contextSettings contextObjects = do
 
   -- Fullscreen mode: 
   _ <- Gtk.on window Gtk.keyPressEvent $ Gtk.tryEvent $ do 
-    rEventKeyName <- Gtk.eventKeyName
     [Gtk.Control] <- Gtk.eventModifier
     "f" <- Gtk.eventKeyName
     liftIO $ Gtk.windowSetKeepAbove window True

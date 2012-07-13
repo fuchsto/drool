@@ -81,6 +81,8 @@ import Graphics.Rendering.OpenGL (
     Face(..), 
     cullFace,
     GLfloat )
+import qualified Graphics.Rendering.FTGL as FTGL
+
 
 data RenderSettings = RenderSettings { signalBuf :: IORef SignalList, 
                                        -- maps x index to x position: 
@@ -103,7 +105,10 @@ data RenderSettings = RenderSettings { signalBuf :: IORef SignalList,
                                        -- Current number of signals in signal buffer: 
                                        numSignals :: Int, 
                                        -- Number of samples in most recent signal: 
-                                       numSamples :: Int } 
+                                       numSamples :: Int, 
+                                       
+                                       fillFont :: IORef FTGL.Font, 
+                                       gridFont :: IORef FTGL.Font } 
 
 data DirectionX = LeftToRight | RightToLeft
   deriving ( Eq, Show )

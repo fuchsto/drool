@@ -90,6 +90,8 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                       -- Preferences
                                          -- Enable playback:
                                          playbackEnabled :: Bool, 
+                                         -- Marquee text to render in visualizer: 
+                                         marqueeText :: [Char], 
                                       -- Signal source options: 
                                          signalSource :: DT.SignalSource }
   deriving ( Show, Read ) 
@@ -127,7 +129,8 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            audioSampleRate = 191000, 
                                            numFFTBands = 10240, 
                                            playbackEnabled = False, 
-                                           signalSource = DT.Microphone } 
+                                           marqueeText = "bass macht glücklich", 
+                                           signalSource = DT.Microphone }
 
 -- Non-serializable context settings. 
 data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 
