@@ -8,6 +8,12 @@
     <property name="step_increment">0.01</property>
     <property name="page_increment">0.10000000000000001</property>
   </object>
+  <object class="GtkAdjustment" id="adjAutoPerspectiveSwitchInterval">
+    <property name="lower">100</property>
+    <property name="upper">10000</property>
+    <property name="step_increment">10</property>
+    <property name="page_increment">100</property>
+  </object>
   <object class="GtkAdjustment" id="adjBandRange1Amp">
     <property name="upper">2</property>
     <property name="value">1</property>
@@ -1975,7 +1981,7 @@
                                 <child>
                                   <object class="GtkCheckButton" id="checkbuttonAutoSwitchTop">
                                     <property name="label" translatable="yes">Top</property>
-                                    <property name="width_request">62</property>
+                                    <property name="width_request">63</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
@@ -1992,7 +1998,7 @@
                                 <child>
                                   <object class="GtkCheckButton" id="checkbuttonAutoSwitchFront">
                                     <property name="label" translatable="yes">Front</property>
-                                    <property name="width_request">78</property>
+                                    <property name="width_request">80</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
@@ -2008,7 +2014,7 @@
                                 <child>
                                   <object class="GtkCheckButton" id="checkbuttonAutoSwitchSide">
                                     <property name="label" translatable="yes">Side</property>
-                                    <property name="width_request">64</property>
+                                    <property name="width_request">66</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
@@ -2025,7 +2031,7 @@
                                 <child>
                                   <object class="GtkCheckButton" id="checkbuttonAutoSwitchIsometric">
                                     <property name="label" translatable="yes">Isometric</property>
-                                    <property name="width_request">117</property>
+                                    <property name="width_request">96</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
@@ -2040,9 +2046,8 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkButton" id="buttonTogglePerspectiveAutoSwitch">
-                                    <property name="width_request">31</property>
-                                    <property name="height_request">25</property>
+                                  <object class="GtkToggleButton" id="buttonToggleAutoPerspectiveSwitch">
+                                    <property name="width_request">40</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">True</property>
@@ -2053,6 +2058,36 @@
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
                                     <property name="position">4</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkSpinButton" id="spinbuttonAutoPerspectiveSwitchInterval">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="invisible_char">•</property>
+                                    <property name="primary_icon_activatable">False</property>
+                                    <property name="secondary_icon_activatable">False</property>
+                                    <property name="primary_icon_sensitive">True</property>
+                                    <property name="secondary_icon_sensitive">True</property>
+                                    <property name="adjustment">adjAutoPerspectiveSwitchInterval</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">5</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="labelAutoPerspectiveSwitchInterval">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">ms</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="padding">3</property>
+                                    <property name="position">6</property>
                                   </packing>
                                 </child>
                               </object>

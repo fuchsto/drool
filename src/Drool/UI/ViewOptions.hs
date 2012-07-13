@@ -257,7 +257,18 @@ initComponent gtkBuilder contextSettings _ = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.marqueeText = marqueeText } 
     
+  buttonToggleAutoPerspectiveSwitch <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToToggleButton "buttonToggleAutoPerspectiveSwitch"
+  _ <- Gtk.onToggled buttonToggleAutoPerspectiveSwitch $ do
+    state <- Gtk.toggleButtonGetActive buttonToggleAutoPerspectiveSwitch
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.autoPerspectiveSwitch = state } 
   
+  adjAutoPerspectiveSwitchInterval <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAutoPerspectiveSwitchInterval"
+  _ <- Gtk.onValueChanged adjAutoPerspectiveSwitchInterval $ do
+    val <- Gtk.adjustmentGetValue adjAutoPerspectiveSwitchInterval
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.autoPerspectiveSwitchInterval = round val } 
+
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
@@ -305,6 +316,9 @@ updateSettings gtkBuilder settings = do
   Gtk.adjustmentSetValue adjFeatureBassEnergySurfaceCoeff (realToFrac $ AC.featureBassEnergySurfaceCoeff settings)
   adjFeatureSignalEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureSignalEnergySurfaceCoeff"
   Gtk.adjustmentSetValue adjFeatureSignalEnergySurfaceCoeff (realToFrac $ AC.featureSignalEnergySurfaceCoeff settings)
+
+  adjAutoPerspectiveSwitchInterval <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAutoPerspectiveSwitchInterval"
+  Gtk.adjustmentSetValue adjAutoPerspectiveSwitchInterval (fromIntegral $ AC.autoPerspectiveSwitchInterval settings)
 
   return True
 

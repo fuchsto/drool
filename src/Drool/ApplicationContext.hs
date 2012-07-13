@@ -79,6 +79,8 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          normalsScale :: Float, 
                                          -- Perspective: 
                                          renderPerspective :: RenderPerspective,
+                                         autoPerspectiveSwitch :: Bool, 
+                                         autoPerspectiveSwitchInterval :: Int, 
                                       -- Feature extraction: 
                                          maxBeatBand :: Int, 
                                       -- Transformation options: 
@@ -117,6 +119,8 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            lightColor = Color3 (239.0/255) (19.0/255) (19.0/255.0::GLfloat) ,
                                            gridColor = Color3 (142.0/255) 1 (58.0/255::GLfloat),
                                            renderPerspective = DT.Isometric,
+                                           autoPerspectiveSwitch = False, 
+                                           autoPerspectiveSwitchInterval = 500, 
                                            maxBeatBand = 20, 
                                            fftEnabled = True, 
                                            ampEnabled = True, 

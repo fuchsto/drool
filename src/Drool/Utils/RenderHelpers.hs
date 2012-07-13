@@ -18,6 +18,7 @@ module Drool.Utils.RenderHelpers (
     RenderSettings(..), 
     DirectionX(..), 
     DirectionZ(..), 
+    nextPerspective, 
     applyBandRangeAmp, 
     bandRangeAmpSamples, 
     scaleSamples, 
@@ -50,7 +51,7 @@ import Data.Array ( Array, indices )
 import Data.Array.IArray ( (!), bounds, IArray(..), listArray, ixmap, amap )
 import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
-import Drool.Types ( SignalList(..) )
+import qualified Drool.Types as DT ( SignalList(..), RenderPerspective(..) )
 import Drool.ApplicationContext as AC ( ContextSettings(..) )
 import Drool.Utils.SigGen ( SValue, TValue )
 import Drool.Utils.FeatureExtraction as FE ( 
@@ -84,7 +85,7 @@ import Graphics.Rendering.OpenGL (
 import qualified Graphics.Rendering.FTGL as FTGL
 
 
-data RenderSettings = RenderSettings { signalBuf :: IORef SignalList, 
+data RenderSettings = RenderSettings { signalBuf :: IORef DT.SignalList, 
                                        -- maps x index to x position: 
                                        xPosFun :: (Int -> GLfloat),
                                        -- maps signal index to z position: 
@@ -107,6 +108,8 @@ data RenderSettings = RenderSettings { signalBuf :: IORef SignalList,
                                        -- Number of samples in most recent signal: 
                                        numSamples :: Int, 
                                        
+                                       tick :: Int, 
+                                       
                                        fillFont :: IORef FTGL.Font, 
                                        gridFont :: IORef FTGL.Font } 
 
@@ -115,6 +118,12 @@ data DirectionX = LeftToRight | RightToLeft
 data DirectionZ = FrontToBack | BackToFront
   deriving ( Eq, Show )
 
+nextPerspective :: DT.RenderPerspective -> DT.RenderPerspective
+nextPerspective cur = case cur of 
+  DT.Isometric -> DT.Top
+  DT.Top       -> DT.Front 
+  DT.Front     -> DT.Side
+  DT.Side      -> DT.Isometric
 
 -- Expects a sample, t, number of samples in total, list of band range amplifiers, and returns amplified sample for t. 
 applyBandRangeAmp :: SValue -> TValue -> Int -> [Float] -> SValue

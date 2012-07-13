@@ -46,9 +46,6 @@ display contextSettingsIORef renderSettingsIORef = do
   renderSettings <- readIORef renderSettingsIORef
   settings       <- readIORef contextSettingsIORef
 
-  let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
-  let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx settings
-	
   clear [ColorBuffer, DepthBuffer]
   
   matrixMode $= Modelview 0
@@ -67,11 +64,29 @@ display contextSettingsIORef renderSettingsIORef = do
       gridColor      = RH.color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
+      perspective    = AC.renderPerspective settings
 
+  let tick   = RH.tick renderSettings
+  let tickMs = tick * 25
+
+  modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = (tick+1) `mod` 10000 } )
+
+  let updatePerspective p = if AC.autoPerspectiveSwitch settings && tickMs >= AC.autoPerspectiveSwitchInterval settings then ( do 
+                                let nextPerspective = RH.nextPerspective p
+                                modifyIORef contextSettingsIORef ( \_ -> settings { AC.renderPerspective = nextPerspective } )
+                                modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = 0 } )
+                                return nextPerspective )
+                            else return p
+  curPerspective <- updatePerspective perspective
+
+
+  let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
+  let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx settings
+  
   blendFunc $= (blendModeSource, blendModeFrameBuffer)
   
   -- Rotate/translate to change view perspective: 
-  case AC.renderPerspective settings of
+  case curPerspective of
     DT.Isometric -> do
       GL.translate $ Vector3 0 0.1 (-1.7::GLfloat)
       GL.rotate (45::GLfloat) $ Vector3 1.0 0.0 0.0
@@ -173,7 +188,7 @@ display contextSettingsIORef renderSettingsIORef = do
   ----------------------------------------------------------------------------------------
   -- Get inverse of model view matrix: 
   glModelViewMatrix <- GL.get currentMatrix :: IO (GLmatrix GLfloat)
-	-- Resolve view point in model view coordinates: 
+  -- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
   RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings
@@ -289,6 +304,7 @@ initComponent _ contextSettings contextObjects = do
                                                  RH.lightPos1 = (Vertex4 (1.0) 3.0 (2.0) 0.0), 
                                                  RH.fillFont = fillFontIORef,
                                                  RH.gridFont = gridFontIORef, 
+                                                 RH.tick = 0, 
                                                  RH.numSignals = 0, 
                                                  RH.numSamples = 0 } 
 
