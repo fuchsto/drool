@@ -32,7 +32,6 @@ module Drool.Utils.RenderHelpers (
     vertexToVector, 
     vx4ToVx3, 
 
-    surfaceSplitIndices, 
     getViewpointFromModelView, 
 
     vertexSectionIndices, 
@@ -50,11 +49,12 @@ import Numeric.Container as NC ( vXm, fromList, toList )
 import Data.Array ( Array, indices )
 import Data.Array.IArray ( (!), bounds, IArray(..), listArray, ixmap, amap )
 import Data.Ix ( rangeSize )
+import Data.List ( findIndex )
 import Drool.Types ( SignalList(..) )
 import Drool.ApplicationContext as AC ( ContextSettings(..) )
 import Drool.Utils.SigGen ( SValue, TValue )
 import Drool.Utils.FeatureExtraction as FE ( SignalFeatures(..), SignalFeaturesList(..), emptyFeatures )
-import Drool.Utils.Conversions as Conv ( interleave ) 
+import Drool.Utils.Conversions as Conv ( interleave, interleaveArrays, aZip ) 
 import Graphics.Rendering.OpenGL ( 
     Vector3 (..), 
     Vertex3 (..), 
@@ -293,34 +293,6 @@ getViewpointFromModelView mvMatrix = do
                           (realToFrac $ viewPointModelView !! 2) :: Vector3 GLfloat
   return viewPoint
 
--- Resolves index of row where drawing order has to be switched (e.g. from 
--- left-to-right to right-to-left) depending on given position of viewpoint. 
--- Returns length of vertex array if drawing order does not have to be switched. 
-surfaceSplitIndices :: Array Int (Vertex3 GLfloat) -> Vector3 GLfloat -> Int -> (Int,Int)
-surfaceSplitIndices vArray viewpoint nSamples = (indexZ, indexX)
-  where rowIdcs  = [ i | i <- [ 0..(nSignals-1)] ]
-        colIdcs  = [ i | i <- [ 0..(nSamples-1)] ]
-        nSignals = vBufLen `div` nSamples
-        vBufLen  = rangeSize $ bounds vArray
-        indexZ   = surfaceSplitIndexZ vArray viewpoint nSamples rowIdcs
-        indexX   = surfaceSplitIndexX vArray viewpoint nSamples indexZ colIdcs
-
-surfaceSplitIndexZ :: Array Int (Vertex3 GLfloat) -> Vector3 GLfloat -> Int -> [Int] -> Int
-surfaceSplitIndexZ vArray viewpoint nSamples rowIndices@(ri:_:_) = 
-  if vx3z (vArray ! i) <= v3z viewpoint then ri else recurse
-  where recurse = surfaceSplitIndexZ vArray viewpoint nSamples (tail rowIndices)
-        i = ri * nSamples
-surfaceSplitIndexZ _ _ _ (ri:[]) = ri 
-surfaceSplitIndexZ _ _ _ [] = 0
-
-surfaceSplitIndexX :: Array Int (Vertex3 GLfloat) -> Vector3 GLfloat -> Int -> Int -> [Int] -> Int
-surfaceSplitIndexX vArray viewpoint nSamples switchIndexZ colIndices@(ci:_:_) = 
-  if vx3x (vArray ! i) >= v3x viewpoint then ci else recurse
-  where recurse = surfaceSplitIndexX vArray viewpoint nSamples switchIndexZ (tail colIndices)
-        i = (switchIndexZ * nSamples + ci)
-surfaceSplitIndexX _ _ _ _ (ci:[]) = ci 
-surfaceSplitIndexX _ _ _ _ [] = 0
-
 applyFeaturesToGrid :: FE.SignalFeatures -> AC.ContextSettings -> IO ()
 applyFeaturesToGrid features settings = do
   let loudCoeff       = realToFrac $ FE.totalEnergy features
@@ -343,33 +315,38 @@ applyFeaturesToSurface features settings = do
 -- Expects pairs of current and next signal data, 
 -- with signal data being vertices, normals, and signal features. 
 renderSignalSurfaceStrip :: PrimitiveMode -> 
-                            ( FE.SignalFeatures -> AC.ContextSettings -> IO () ) -> 
                             DirectionX -> 
+                            ( FE.SignalFeatures -> AC.ContextSettings -> IO () ) -> 
                             (Array Int (Vertex3 GLfloat), Array Int (Vertex3 GLfloat)) -> 
                             (Array Int (Normal3 GLfloat), Array Int (Normal3 GLfloat)) -> 
                             (FE.SignalFeatures, FE.SignalFeatures) -> 
                             AC.ContextSettings -> 
                             Int -> 
                             IO ()
-renderSignalSurfaceStrip mode fAppFun dir (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,_) settings idx = (
+renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings idx = (
   do -- Put vertices and normals in correct (interleaved) order for 
      -- rendendering: 
      let aMaxIdx array = snd $ bounds array
-     let aMap array = map (\i -> array ! i) ( if dir == LeftToRight then [0..(aMaxIdx array)] else [ aMaxIdx array - x | x <- [0..(aMaxIdx array)] ] )
+     let aMap array = ixmap (0,aMaxIdx array) (\i -> colIdcs !! i) array
+                      where colIdcs = if dirX == LeftToRight then ( 
+                                        [0..(aMaxIdx array)] ) 
+                                      else ( 
+                                        [ aMaxIdx array - x | x <- [0..(aMaxIdx array)] ] )
      let vsCurr = aMap vsArrCurr
      let vsNext = aMap vsArrNext
      let nsCurr = aMap nsArrCurr
      let nsNext = aMap nsArrNext
-
-     let sortedVertices = Conv.interleave vsCurr vsNext  -- [ s_0_0, s_1_0,  s_0_1, s_1_1, ... ]
-     let sortedNormals  = Conv.interleave nsCurr nsNext  -- [ n_0_0, n_1_0,  n_0_1, n_1_1, ... ]
+     -- Bottleneck here: If splitXEnd - splitXStart gets big, so do vsCurr and vsNext! 
+     let sortedVertices = if dirX == LeftToRight then Conv.interleaveArrays vsCurr vsNext else Conv.interleaveArrays vsNext vsCurr
+     let sortedNormals  = if dirX == LeftToRight then Conv.interleaveArrays nsCurr nsNext else Conv.interleaveArrays nsNext nsCurr
 
      fAppFun fsCurr settings
+     fAppFun fsNext settings
      renderPrimitive mode ( 
-       mapM_ vertexWithNormal (zip sortedVertices sortedNormals) ) )
+       mapM_ vertexWithNormal (Conv.aZip sortedVertices sortedNormals) ) )
 
-vertexSectionIndices :: DirectionZ -> Int -> (Int,Int) -> (Int,Int) -> Array Int (Array Int Int)
-vertexSectionIndices dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = listArray (0,((length list)-1)) $ map (\idcs -> listArray (0,((length idcs)-1)) idcs) list
+vertexSectionIndices :: DirectionX -> DirectionZ -> Int -> (Int,Int) -> (Int,Int) -> Array Int (Array Int Int)
+vertexSectionIndices dirX dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = listArray (0,((length list)-1)) $ map (\idcs -> listArray (0,((length idcs)-1)) idcs) list
   where absIndexBtF z x = (nSamples * z) + x 
         absIndexFtB z x = (nSamples * zEndIdx) + x - (nSamples * (z-zStartIdx))
         list = if dirZ == BackToFront then (
@@ -394,12 +371,9 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
       let nSecSamples = xEndIdx - xStartIdx -- Number of samples per signal in section
 
       -- returns array of arrays of vertex indices sorted in correct z-direction: 
-      let vIndexMatrixZSorted = vertexSectionIndices dirZ nSamples secStart secEnd
+      let vIndexMatrixZSorted = vertexSectionIndices dirX dirZ nSamples secStart secEnd
       -- returns lists of signal vertices in the order they will be rendered. 
       -- First dimension is signal vertices, second dimension is sample value. 
-      -- Second dimension is sorted left to right. 
-      -- We do not sort according to X-direction here, this is taken care of 
-      -- in renderSignalSurfaceStrip. 
       
       let safeArrayAt xs idx fallback = if idx >= 0 && rangeSize (bounds xs) > idx then xs ! idx else fallback
       let nSignals = rangeSize $ bounds fArray
@@ -408,7 +382,7 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
       let vSecArray = amap ( \zArray -> amap ( \i -> vArray ! i ) zArray ) vIndexMatrixZSorted
       let nSecArray = amap ( \zArray -> amap ( \i -> nArray ! i ) zArray ) vIndexMatrixZSorted
 
-      -- Render single surface strips of this section in correct Z-order: 
+      -- Render single surface strips of this section in correct Z- and X-order: 
       mapM_ ( \(sigIdx,secSigIdx) -> ( do let globalSigIdx = zEndIdx
                                               vsCurr = safeArrayAt vSecArray secSigIdx (listArray (0,-1) [])
                                               vsNext = safeArrayAt vSecArray (secSigIdx+1) vsCurr
@@ -416,9 +390,9 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               nsNext = safeArrayAt nSecArray (secSigIdx+1) nsCurr
                                               fCurr  = safeArrayAt fArray (nSignals-sigIdx-1) FE.emptyFeatures
                                               fNext  = safeArrayAt fArray (nSignals-sigIdx-1) fCurr
-                                          renderSignalSurfaceStrip TriangleStrip applyFeaturesToSurface dirX (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
+                                          renderSignalSurfaceStrip TriangleStrip dirX applyFeaturesToSurface (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
                                           translate $ Vector3 0 (0.01::GLfloat) 0
-                                          renderSignalSurfaceStrip LineStrip applyFeaturesToGrid dirX (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
+                                          renderSignalSurfaceStrip LineStrip dirX applyFeaturesToGrid (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
                                           translate $ Vector3 0 (-0.01::GLfloat) 0 ) ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
 
@@ -429,18 +403,26 @@ renderSurface :: [[ Vertex3 GLfloat ]] ->
                  Vector3 GLfloat -> 
                  Int -> 
                  AC.ContextSettings -> 
+                 RenderSettings -> 
                  IO ()
-renderSurface vBuf nBuf fBuf viewpoint nSamples settings = do
-  let vBufMaxIdx = ((length vBuf) * nSamples) - 1
+renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
+  let nSignals   = length vBuf
+      vBufMaxIdx = (nSignals * nSamples) - 1
       nBufMaxIdx = ((length nBuf) * nSamples) - 1
       fBufMaxIdx = (length fBuf) - 1
       vArray     = listArray (0,vBufMaxIdx) (concat vBuf)
       nArray     = listArray (0,nBufMaxIdx) (concat nBuf)
       fArray     = listArray (0,fBufMaxIdx) fBuf
 
-  let (splitZ,splitX) = surfaceSplitIndices vArray viewpoint nSamples 
-      nSignals = (rangeSize $ bounds vArray) `div` nSamples
-  
+  let zCoordFun = zPosFun renderSettings
+      xCoordFun = xPosFun renderSettings
+      splitZ    = case findIndex ( \z -> (zCoordFun (z+1)) >= (v3z viewpoint) ) [0..(nSignals-1)] of 
+                    Just idx -> nSignals-idx-1
+                    Nothing  -> 0
+      splitX    = case findIndex ( \x -> (xCoordFun x) >= (v3x viewpoint) ) [0..(nSamples-1)] of 
+                    Just idx -> idx
+                    Nothing  -> if (xCoordFun 0) >= (v3x viewpoint) then 0 else (nSamples-1)
+
   let secTopLeftStartIdcs     = ( 0 :: Int, 0 :: Int)
       secTopLeftEndIdcs       = ( splitZ, splitX )
       secTopRightStartIdcs    = ( 0 :: Int, splitX )
@@ -455,13 +437,11 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings = do
   cullFace $= Just Front
   -- translate $ Vector3 (-0.1 :: GLfloat) 0 ( 0.1 :: GLfloat)  
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
-  cullFace $= Just Back
   -- translate $ Vector3 ( 0.1 :: GLfloat) 0 ( 0.0 :: GLfloat)  
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
   cullFace $= Just Back
   -- translate $ Vector3 (-0.1 :: GLfloat) 0 (-0.1 :: GLfloat)  
   renderSec LeftToRight FrontToBack secBottomLeftStartIdcs secBottomLeftEndIdcs 
-  cullFace $= Just Front
   -- translate $ Vector3 ( 0.1 :: GLfloat) 0 (-0.0 :: GLfloat)  
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
 

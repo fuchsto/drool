@@ -24,6 +24,10 @@ module Drool.Utils.Conversions (
     listToCArray, 
     listFromCArray, 
     interleave, 
+    interleaveArrays, 
+    aMax, 
+    aLength, 
+    aZip, 
     adjustBufferSize,
     adjustBufferSizeBack, 
     blendModeSourceFromIndex, 
@@ -35,6 +39,8 @@ module Drool.Utils.Conversions (
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.Rendering.OpenGL
 import Data.Complex
+import Data.Array ( Array )
+import Data.Array.IArray ( (!), bounds, listArray, ixmap, amap, rangeSize )
 import Data.Array.CArray ( createCArray, elems )
 import Foreign.Marshal.Array ( pokeArray, peekArray )
 import GHC.Float
@@ -77,6 +83,15 @@ listFromCArray carr = elems carr
 
 interleave :: [a] -> [a] -> [a]
 interleave xsA xsB = foldl (\acc (a,b) -> acc ++ [a,b] ) [] (zip xsA xsB)
+
+aLength a = rangeSize $ bounds a
+
+aMax a = snd $ bounds a
+
+interleaveArrays :: Array Int e -> Array Int e -> Array Int e 
+interleaveArrays a b = listArray (0,(aLength a) + (aMax b)) (concat [ [(a ! i),(b ! i)] | i <- [0..(min (aMax a) (aMax b))] ])
+
+aZip a b = [ ((a ! i),(b ! i)) | i <- [0..(min (aMax a) (aMax b))] ]
 
 adjustBufferSize :: [a] -> Int -> [a] 
 adjustBufferSize buf maxLen = drop ((length buf)-maxLen) buf -- drop does not alter list for values <= 0

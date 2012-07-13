@@ -172,7 +172,7 @@ display contextSettingsIORef renderSettingsIORef = do
 	-- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
-  RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings
+  RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings
 -- }}} 
 
 reshape :: Gtk.Rectangle -> IO ()
