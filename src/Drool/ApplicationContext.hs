@@ -81,8 +81,8 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
 
 defaultContextSettings :: ContextSettings
 defaultContextSettings = ContextSettings { settingsFile = Nothing, 
-                                           signalPushFrequency = 200,
-                                           renderingFrequency = 150,
+                                           signalPushFrequency = 100, -- 200,
+                                           renderingFrequency = 100, -- 150,
                                            signalBufferSize = 30,
                                            fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                                            incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },

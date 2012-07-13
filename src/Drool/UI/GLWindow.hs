@@ -121,6 +121,9 @@ display contextSettingsIORef renderSettingsIORef = do
   let rangeAmps = AC.rangeAmps settings
 
   let newSignals = DT.signalList signalBuf
+  -- All signals in buffer loaded, empty signal buffer: 
+  writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
+
   newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
                                       let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
                                       let sigVertices = RH.verticesFromSamples sigSamplesT 0 renderSettings
@@ -141,9 +144,6 @@ display contextSettingsIORef renderSettingsIORef = do
   let numSamples = rangeSize signalBounds
   -- Transform samples in recent signal: 
   recentSignalSamples <- getElems $ DT.signalArray recentSignal
-
-  -- All signals in buffer handled, empty signal buffer: 
-  writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
 
   ---------------------------------------------------------------------------------------------------
   -- End handling of new signal
