@@ -23,9 +23,11 @@ module Drool.UI.GLWindow (
 import Data.IORef(IORef, readIORef, newIORef, modifyIORef, writeIORef )
 import Data.Array.IO
 
+import Control.Monad.Trans ( liftIO )
+
 import Graphics.Rendering.OpenGL as GL
 
-import qualified Graphics.UI.Gtk as Gtk
+import Graphics.UI.Gtk as Gtk
 import Graphics.UI.Gtk (AttrOp((:=)))
 
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
@@ -168,7 +170,7 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Render scene 
   ----------------------------------------------------------------------------------------
   -- Get inverse of model view matrix: 
-  glModelViewMatrix <- get currentMatrix :: IO (GLmatrix GLfloat)
+  glModelViewMatrix <- GL.get currentMatrix :: IO (GLmatrix GLfloat)
 	-- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
@@ -275,7 +277,7 @@ initComponent _ contextSettings contextObjects = do
     multisample $= Enabled
     sampleAlphaToCoverage $= Enabled
     
-    lineWidthRange <- get smoothLineWidthRange
+    lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
 
     cullFace $= Just Back
@@ -316,6 +318,19 @@ initComponent _ contextSettings contextObjects = do
 
   Gtk.set window [ Gtk.containerChild := canvas ]
 
+  -- Fullscreen mode: 
+  _ <- Gtk.on window Gtk.keyPressEvent $ Gtk.tryEvent $ do 
+    rEventKeyName <- Gtk.eventKeyName
+    [Gtk.Control] <- Gtk.eventModifier
+    "f" <- Gtk.eventKeyName
+    liftIO $ Gtk.windowSetKeepAbove window True
+    liftIO $ Gtk.windowFullscreen window
+  
+  _ <- Gtk.on window Gtk.keyPressEvent $ Gtk.tryEvent $ do 
+    "Escape" <- Gtk.eventKeyName
+    liftIO $ Gtk.windowUnfullscreen window
+    liftIO $ Gtk.windowSetKeepAbove window False
+
   let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency settings)
   -- Redraw canvas according to rendering frequency:
   updateCanvasTimer <- Gtk.timeoutAddFull (do
@@ -332,7 +347,7 @@ initComponent _ contextSettings contextObjects = do
 canvasInitWidth :: Int
 canvasInitWidth = 800
 canvasInitHeight :: Int
-canvasInitHeight = 800
+canvasInitHeight = 600
 
 mulColor4Value :: Color4 GLfloat -> GLfloat -> Color4 GLfloat
 mulColor4Value (Color4 r g b a) value = Color4 r' g' b' a'

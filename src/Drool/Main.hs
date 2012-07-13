@@ -43,6 +43,10 @@ import qualified Control.Monad as M
 import qualified Control.Concurrent as C
 import qualified Control.Concurrent.Chan as CC
 
+
+data SamplingState = SamplingPaused | SamplingActive
+  deriving ( Eq, Show ) 
+
 main :: IO()
 main = do
 
@@ -70,6 +74,8 @@ main = do
                         AC.featuresBuf      = signalFeaturesBuffer, 
                         AC.signalGenerator  = defaultSiggen } ) 
 
+  samplingStateIORef <- newIORef SamplingActive
+
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew
   GtkBuilder.builderAddFromFile builder "droolui-test.glade"
@@ -96,33 +102,39 @@ main = do
   settings <- readIORef contextSettings
 
   let sampleRate = AC.audioSampleRate settings -- samples per second, usually 191000. 
-  let fftRes     = AC.numFFTBands settings     -- how many samples to use for FFT, usually 10240. 
   soundSource <- Pulse.simpleNew Nothing "DroolRecord" Pulse.Record Nothing "Drool audio visualizer" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing (Just (Pulse.BufferAttr (Just (-1)) Nothing Nothing Nothing (Just 0)))
   soundTarget <- Pulse.simpleNew Nothing "DroolPlayback" Pulse.Play Nothing "Drool audio playback" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing Nothing
   
-  sampleChan   <- CC.newChan 
-  sampleThread <- C.forkOS . M.forever $ do soundSamples <- Pulse.simpleRead soundSource $ fftRes :: IO[Float]
-                                            -- TODO: Enable if playback flag is set
-                                            Pulse.simpleWrite soundTarget soundSamples
-                                            fftSamples <- FFT.fftwFloats soundSamples
-                                            cObjects <- readIORef contextObjects
-                                            let siggen = AC.signalGenerator cObjects
-                                            let numChanSamples = SigGen.numSamples siggen
-                                            CC.writeChan sampleChan (take numChanSamples (fftSamples))
-                                            -- Pulse.simpleDrain soundTarget
+  sampleChan       <- CC.newChan 
+  sampleThread     <- C.forkOS . M.forever $ do sampleState <- readIORef samplingStateIORef
+                                                cSettings   <- readIORef contextSettings
+                                                let loop = if sampleState == SamplingPaused then ( 
+                                                             C.threadDelay 10 )
+                                                           else ( do
+                                                             soundSamples <- Pulse.simpleRead soundSource $ (AC.numFFTBands cSettings) :: IO[Float]
+                                                             -- TODO: Enable if playback flag is set
+                                                             Pulse.simpleWrite soundTarget soundSamples
+                                                             renderSamples <- if AC.fftEnabled cSettings then FFT.fftwFloats soundSamples else return soundSamples
+                                                             cObjects <- readIORef contextObjects
+                                                             let siggen = AC.signalGenerator cObjects
+                                                             let numChanSamples = SigGen.numSamples siggen
+                                                             CC.writeChan sampleChan (take numChanSamples (renderSamples)) )
+                                                loop
+                                                
   contextObjects $=! objects { AC.samplingThreadId = sampleThread }
  
   let updateCallback count = (do
-	-- {{{
-      cSettings <- readIORef contextSettings
-      cObjects  <- readIORef contextObjects
+  -- {{{
+      cSettings     <- readIORef contextSettings
+      cObjects      <- readIORef contextObjects
+      samplingState <- readIORef samplingStateIORef
 
       -- Get active signal generator from context objects: 
       let siggen = AC.signalGenerator cObjects
       -- Get samples from sampling thread: 
-      sigsamples <- CC.readChan sampleChan
+      sigsamples <- if samplingState == SamplingActive then CC.readChan sampleChan else return []
 
       -- Helper function. Pop first signal in buffer if buffer is full. 
       let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
@@ -130,9 +142,19 @@ main = do
       -- If using a test signal, generate it: 
       let genSampleListTestSignal = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
       -- If sampling microphone input, read it: 
-      let scale s = s * 2.0 
-      let genSampleListMicrophone = map (\x -> scale (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
+      let ampSignal s = if (AC.ampEnabled cSettings) then s * (realToFrac $ AC.signalAmpDb cSettings) else s
+      let genSampleListMicrophone = map (\x -> ampSignal (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
       let genSampleList = if AC.signalSource cSettings == DT.Microphone then genSampleListMicrophone else genSampleListTestSignal
+
+      let toggleSampling source state = case source of 
+                                          DT.Microphone -> if state == SamplingPaused then 
+                                                              atomicModifyIORef samplingStateIORef ( \_ -> (SamplingActive, True) ) >>= return
+                                                           else return (False)
+                                          DT.TestSignal -> if state == SamplingActive then 
+                                                              atomicModifyIORef samplingStateIORef ( \_ -> (SamplingPaused, True) ) >>= return
+                                                           else return (False)
+                                          _ -> return False 
+      samplingToggled <- toggleSampling (AC.signalSource cSettings) samplingState
 
       -- Get max size of buffers: 
       let bufferMaxSize = AC.signalBufferSize cSettings
@@ -162,8 +184,8 @@ main = do
 
       -- do not run this callback again:
       return False)
-	-- }}}
-	
+  -- }}}
+  
   -- Initialize sample timer with t=0 and start immediately:
   updateSamplesTimer <- Gtk.timeoutAddFull (updateCallback 0) Gtk.priorityDefaultIdle 0
 

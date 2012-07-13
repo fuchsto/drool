@@ -201,6 +201,43 @@ initComponent gtkBuilder contextSettings _ = do
     contextSettings $=! settings { AC.blendModeFrameBufferIdx = modeIdx } 
 
   _ <- updateSettings gtkBuilder defaultSettings
+
+  comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
+  _ <- Gtk.on comboboxFeatureBassEnergyTarget Gtk.changed $ do 
+    settings <- readIORef contextSettings
+    targetIdx <- Gtk.comboBoxGetActive comboboxFeatureBassEnergyTarget
+    contextSettings $=! settings { AC.featureBassEnergyTargetIdx = targetIdx } 
+
+  comboboxFeatureSignalEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureSignalEnergyTarget"
+  _ <- Gtk.on comboboxFeatureSignalEnergyTarget Gtk.changed $ do 
+    settings <- readIORef contextSettings
+    targetIdx <- Gtk.comboBoxGetActive comboboxFeatureSignalEnergyTarget
+    contextSettings $=! settings { AC.featureSignalEnergyTargetIdx = targetIdx } 
+
+  adjFeatureSignalEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureSignalEnergySurfaceCoeff"
+  _ <- Gtk.onValueChanged adjFeatureSignalEnergySurfaceCoeff $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjFeatureSignalEnergySurfaceCoeff
+    contextSettings $=! settings { AC.featureSignalEnergySurfaceCoeff = realToFrac val } 
+  
+  adjFeatureSignalEnergyGridCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureSignalEnergyGridCoeff"
+  _ <- Gtk.onValueChanged adjFeatureSignalEnergyGridCoeff $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjFeatureSignalEnergyGridCoeff
+    contextSettings $=! settings { AC.featureSignalEnergyGridCoeff = realToFrac val } 
+
+  adjFeatureBassEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureBassEnergySurfaceCoeff"
+  _ <- Gtk.onValueChanged adjFeatureBassEnergySurfaceCoeff $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjFeatureBassEnergySurfaceCoeff
+    contextSettings $=! settings { AC.featureBassEnergySurfaceCoeff = realToFrac val } 
+  
+  adjFeatureBassEnergyGridCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureBassEnergyGridCoeff"
+  _ <- Gtk.onValueChanged adjFeatureBassEnergyGridCoeff $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjFeatureBassEnergyGridCoeff
+    contextSettings $=! settings { AC.featureBassEnergyGridCoeff = realToFrac val } 
+
   
   return True
 
@@ -234,6 +271,21 @@ updateSettings gtkBuilder settings = do
   Gtk.adjustmentSetValue adjBandRange4Amp (realToFrac $ (AC.rangeAmps settings) !! 3)
   adjBandRange5Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange5Amp"
   Gtk.adjustmentSetValue adjBandRange5Amp (realToFrac $ (AC.rangeAmps settings) !! 4)
+  
+  comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
+  Gtk.comboBoxSetActive comboboxFeatureBassEnergyTarget (AC.featureBassEnergyTargetIdx settings)
+  comboboxFeatureSignalEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureSignalEnergyTarget"
+  Gtk.comboBoxSetActive comboboxFeatureSignalEnergyTarget (AC.featureSignalEnergyTargetIdx settings)
+
+  adjFeatureBassEnergyGridCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureBassEnergyGridCoeff"
+  Gtk.adjustmentSetValue adjFeatureBassEnergyGridCoeff (realToFrac $ AC.featureBassEnergyGridCoeff settings)
+  adjFeatureSignalEnergyGridCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureSignalEnergyGridCoeff"
+  Gtk.adjustmentSetValue adjFeatureSignalEnergyGridCoeff (realToFrac $ AC.featureSignalEnergyGridCoeff settings)
+
+  adjFeatureBassEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureBassEnergySurfaceCoeff"
+  Gtk.adjustmentSetValue adjFeatureBassEnergySurfaceCoeff (realToFrac $ AC.featureBassEnergySurfaceCoeff settings)
+  adjFeatureSignalEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureSignalEnergySurfaceCoeff"
+  Gtk.adjustmentSetValue adjFeatureSignalEnergySurfaceCoeff (realToFrac $ AC.featureSignalEnergySurfaceCoeff settings)
 
   return True
 

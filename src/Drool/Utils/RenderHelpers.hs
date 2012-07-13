@@ -53,7 +53,10 @@ import Data.List ( findIndex )
 import Drool.Types ( SignalList(..) )
 import Drool.ApplicationContext as AC ( ContextSettings(..) )
 import Drool.Utils.SigGen ( SValue, TValue )
-import Drool.Utils.FeatureExtraction as FE ( SignalFeatures(..), SignalFeaturesList(..), emptyFeatures )
+import Drool.Utils.FeatureExtraction as FE ( 
+    SignalFeatures(..), SignalFeaturesList(..), 
+    emptyFeatures, 
+    FeatureTarget(..), featureTargetFromIndex )
 import Drool.Utils.Conversions as Conv ( interleave, interleaveArrays, aZip ) 
 import Graphics.Rendering.OpenGL ( 
     Vector3 (..), 
@@ -293,21 +296,37 @@ getViewpointFromModelView mvMatrix = do
                           (realToFrac $ viewPointModelView !! 2) :: Vector3 GLfloat
   return viewPoint
 
-applyFeaturesToGrid :: FE.SignalFeatures -> AC.ContextSettings -> IO ()
-applyFeaturesToGrid features settings = do
-  let loudCoeff       = realToFrac $ FE.totalEnergy features
-      bassCoeff       = realToFrac $ FE.bassEnergy features 
-      gBaseOpacity    = (AC.gridOpacity settings) / 100.0 :: GLfloat
-      gOpacity        = gBaseOpacity * ( 0.5 * loudCoeff + 0.5 * bassCoeff )
-      gColor          = color3AddAlpha (AC.gridColor settings) gOpacity
+applyFeaturesToGrid :: FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO ()
+applyFeaturesToGrid features target settings = do
+  let loudness     = realToFrac $ FE.totalEnergy features
+      basslevel    = realToFrac $ FE.bassEnergy features 
+      lTarget      = FE.featureTargetFromIndex $ AC.featureSignalEnergyTargetIdx settings
+      bTarget      = FE.featureTargetFromIndex $ AC.featureBassEnergyTargetIdx settings
+      lCoeff       = if lTarget == target || target == FE.GlobalAndLocalTarget then (
+                        realToFrac $ AC.featureSignalEnergyGridCoeff settings )
+                     else 0.0
+      bCoeff       = if bTarget == target || target == FE.GlobalAndLocalTarget then (
+                        realToFrac $ AC.featureBassEnergyGridCoeff settings )
+                     else 0.0 
+      gBaseOpacity = (AC.gridOpacity settings) / 100.0 :: GLfloat
+      gOpacity     = gBaseOpacity + (lCoeff * loudness) + (bCoeff * basslevel)
+      gColor       = color3AddAlpha (AC.gridColor settings) gOpacity
   color $ gColor
 
-applyFeaturesToSurface :: FE.SignalFeatures -> AC.ContextSettings -> IO ()
-applyFeaturesToSurface features settings = do
-  let loudCoeff    = realToFrac $ FE.totalEnergy features
-      bassCoeff    = realToFrac $ FE.bassEnergy features 
+applyFeaturesToSurface :: FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO ()
+applyFeaturesToSurface features target settings = do
+  let loudness     = realToFrac $ FE.totalEnergy features
+      basslevel    = realToFrac $ FE.bassEnergy features 
+      lTarget      = FE.featureTargetFromIndex $ AC.featureSignalEnergyTargetIdx settings
+      bTarget      = FE.featureTargetFromIndex $ AC.featureBassEnergyTargetIdx settings
+      lCoeff       = if lTarget == target || target == FE.GlobalAndLocalTarget then (
+                        realToFrac $ AC.featureSignalEnergySurfaceCoeff settings )
+                     else 0.0
+      bCoeff       = if bTarget == target || target == FE.GlobalAndLocalTarget then (
+                        realToFrac $ AC.featureBassEnergySurfaceCoeff settings )
+                     else 0.0 
       sBaseOpacity = (AC.surfaceOpacity settings) / 100.0 :: GLfloat
-      sOpacity     = sBaseOpacity * ( 0.2 * loudCoeff + 0.8 * bassCoeff )
+      sOpacity     = sBaseOpacity + (lCoeff * loudness) + (bCoeff * basslevel)
       sColor       = color3AddAlpha (AC.surfaceColor settings) sOpacity
   color $ sColor
 
@@ -316,7 +335,7 @@ applyFeaturesToSurface features settings = do
 -- with signal data being vertices, normals, and signal features. 
 renderSignalSurfaceStrip :: PrimitiveMode -> 
                             DirectionX -> 
-                            ( FE.SignalFeatures -> AC.ContextSettings -> IO () ) -> 
+                            ( FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO () ) -> 
                             (Array Int (Vertex3 GLfloat), Array Int (Vertex3 GLfloat)) -> 
                             (Array Int (Normal3 GLfloat), Array Int (Normal3 GLfloat)) -> 
                             (FE.SignalFeatures, FE.SignalFeatures) -> 
@@ -337,11 +356,13 @@ renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsAr
      let nsCurr = aMap nsArrCurr
      let nsNext = aMap nsArrNext
      -- Bottleneck here: If splitXEnd - splitXStart gets big, so do vsCurr and vsNext! 
+     -- This is why we need Arrays for interleaving, not lists. Lists are really, really 
+     -- slow in this case. 
      let sortedVertices = if dirX == LeftToRight then Conv.interleaveArrays vsCurr vsNext else Conv.interleaveArrays vsNext vsCurr
      let sortedNormals  = if dirX == LeftToRight then Conv.interleaveArrays nsCurr nsNext else Conv.interleaveArrays nsNext nsCurr
 
-     fAppFun fsCurr settings
-     fAppFun fsNext settings
+     fAppFun fsCurr FE.LocalTarget settings
+     fAppFun fsNext FE.LocalTarget settings
      renderPrimitive mode ( 
        mapM_ vertexWithNormal (Conv.aZip sortedVertices sortedNormals) ) )
 

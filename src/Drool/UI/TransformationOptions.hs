@@ -32,13 +32,34 @@ initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.Cont
 initComponent gtkBuilder contextSettings _ = do
   putStrLn "Initializing TransformationOptions component"
 
-  -- defaultSettings <- readIORef contextSettings
+  defaultSettings <- readIORef contextSettings
 
-  buttonSetNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonSetNumFFTBands"
-  _ <- Gtk.onClicked buttonSetNumFFTBands $ do 
-    adjNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjNumFFTBands"
+  adjAmpDb <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAmpDb"
+  Gtk.adjustmentSetValue adjAmpDb (realToFrac $ AC.signalAmpDb defaultSettings)
+  _ <- Gtk.onValueChanged adjAmpDb $ do
+    val <- Gtk.adjustmentGetValue adjAmpDb
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.signalAmpDb = realToFrac val }
+
+  adjNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjNumFFTBands"
+  Gtk.adjustmentSetValue adjNumFFTBands (realToFrac $ AC.numFFTBands defaultSettings)
+  _ <- Gtk.onValueChanged adjAmpDb $ do
     val <- Gtk.adjustmentGetValue adjNumFFTBands
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.numFFTBands = round val }
+
+  checkbuttonUseFFT <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseFFT"
+  Gtk.toggleButtonSetActive checkbuttonUseFFT (AC.fftEnabled defaultSettings)
+  _ <- Gtk.on checkbuttonUseFFT Gtk.toggled $ do 
+    val <- Gtk.toggleButtonGetActive checkbuttonUseFFT
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.fftEnabled = val }
+
+  checkbuttonUseAmp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseAmp"
+  Gtk.toggleButtonSetActive checkbuttonUseAmp (AC.fftEnabled defaultSettings)
+  _ <- Gtk.on checkbuttonUseAmp Gtk.toggled $ do 
+    val <- Gtk.toggleButtonGetActive checkbuttonUseAmp
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.ampEnabled = val }
 
   return True

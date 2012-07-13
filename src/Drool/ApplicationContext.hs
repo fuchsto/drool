@@ -34,7 +34,7 @@ import Drool.Utils.SigGen as SigGen
 
 import qualified Graphics.Rendering.OpenGL as GL ( BlendingFactor(..) ) 
 import qualified Drool.Utils.Conversions as Conv ( blendModeSourceIndex, blendModeFrameBufferIndex )
-import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) ) 
+import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), featureTargetIndex, FeatureTarget(..) ) 
 
 -- Shared settings for communication between main controller, view options
 -- and rendering. 
@@ -45,6 +45,8 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          signalPushFrequency :: Int,  -- Maximum frequency signals are pushed to rendering 
                                          renderingFrequency :: Int, -- Maximum frequency of GL rendering loop
                                          signalBufferSize :: Int,   -- Size of signal buffer 
+
+                                         signalAmpDb :: Float, 
                                       -- View Options: 
                                          incRotation :: RotationVector,      -- Incremental rotation step size
                                          incRotationAccum :: RotationVector, -- Incremental rotation accumulated value (sum of step sizes)
@@ -61,6 +63,17 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          -- Blending: 
                                          blendModeSourceIdx :: Int, 
                                          blendModeFrameBufferIdx :: Int,
+                                         -- Feature Influence: 
+                                         -- Target of signal energy feature (none, local, global): 
+                                         featureSignalEnergyTargetIdx :: Int, 
+                                         -- Target of bass energy feature (none, local, global): 
+                                         featureBassEnergyTargetIdx :: Int, 
+                                         -- Feature application coeffs for surface: 
+                                         featureSignalEnergySurfaceCoeff :: Float, 
+                                         featureBassEnergySurfaceCoeff :: Float, 
+                                         -- Feature application coeffs for grid: 
+                                         featureSignalEnergyGridCoeff :: Float, 
+                                         featureBassEnergyGridCoeff :: Float, 
                                          -- Vector stuff: 
                                          useNormals :: Bool, 
                                          normalsScale :: Float, 
@@ -70,6 +83,8 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          maxBeatBand :: Int, 
                                       -- Transformation options: 
                                          fftEnabled :: Bool, 
+                                         ampEnabled :: Bool, 
+                                      -- Sample rates
                                          numFFTBands :: Int, 
                                          audioSampleRate :: Int, 
                                       -- Preferences
@@ -84,10 +99,11 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            signalPushFrequency = 100, -- 200,
                                            renderingFrequency = 100, -- 150,
                                            signalBufferSize = 30,
+                                           signalAmpDb = 1.0, 
                                            fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                                            incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
                                            incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                                           scaling = 30,
+                                           scaling = 20,
                                            blendModeSourceIdx = Conv.blendModeSourceIndex SrcAlpha, 
                                            blendModeFrameBufferIdx = Conv.blendModeFrameBufferIndex DstAlpha, 
                                            useNormals = True, 
@@ -101,6 +117,13 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            renderPerspective = DT.Isometric,
                                            maxBeatBand = 20, 
                                            fftEnabled = True, 
+                                           ampEnabled = True, 
+                                           featureSignalEnergyTargetIdx = FE.featureTargetIndex FE.GlobalTarget, 
+                                           featureBassEnergyTargetIdx = FE.featureTargetIndex FE.LocalTarget, 
+                                           featureSignalEnergySurfaceCoeff = 0.2, 
+                                           featureBassEnergySurfaceCoeff = 0.8, 
+                                           featureSignalEnergyGridCoeff = 0.5, 
+                                           featureBassEnergyGridCoeff = 0.5, 
                                            audioSampleRate = 191000, 
                                            numFFTBands = 10240, 
                                            playbackEnabled = False, 

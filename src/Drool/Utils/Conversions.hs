@@ -126,3 +126,4 @@ blendModeFrameBufferIndex' :: BlendingFactor -> Int -> [ BlendingFactor ] -> Int
 blendModeFrameBufferIndex' bm i (mode:modes) = index
   where index = if bm == mode then i else blendModeFrameBufferIndex' bm (i+1) modes
 blendModeFrameBufferIndex' _ _ [] = 0
+

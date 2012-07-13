@@ -20,7 +20,10 @@ module Drool.Utils.FeatureExtraction (
     SignalFeatures(..), 
     SignalFeaturesList(..), 
     FeatureExtractionSettings(..), 
-    emptyFeatures
+    emptyFeatures, 
+    FeatureTarget(..), 
+    featureTargetIndex, 
+    featureTargetFromIndex
 ) where 
 
 import Drool.Utils.SigGen as SigGen ( SValue, SignalGenerator(..) )
@@ -30,6 +33,9 @@ data SignalFeatures = SignalFeatures { totalEnergy :: Float,
                                        bassEnergy :: Float } 
 
 data FeatureExtractionSettings = FeatureExtractionSettings { maxBeatBand :: Int } 
+
+data FeatureTarget = NoTarget | LocalTarget | GlobalTarget | GlobalAndLocalTarget
+  deriving ( Eq, Show )
 
 newtype SignalFeaturesList = SignalFeaturesList { signalFeaturesList :: [SignalFeatures] } 
 
@@ -44,3 +50,20 @@ extractSignalFeatures samples settings siggen = SignalFeatures { totalEnergy = t
 
 emptyFeatures :: SignalFeatures
 emptyFeatures = SignalFeatures { totalEnergy = 0, bassEnergy = 0 } 
+
+featureTargetIndex :: FeatureTarget -> Int
+featureTargetIndex target = case target of 
+  NoTarget             -> 0
+  LocalTarget          -> 1
+  GlobalTarget         -> 2
+  GlobalAndLocalTarget -> 3
+  _ -> 0
+
+featureTargetFromIndex :: Int -> FeatureTarget
+featureTargetFromIndex idx = case idx of 
+  0 -> NoTarget
+  1 -> LocalTarget
+  2 -> GlobalTarget
+  3 -> GlobalAndLocalTarget
+  _ -> NoTarget
+
