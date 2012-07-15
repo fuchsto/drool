@@ -57,7 +57,6 @@ featureTargetIndex target = case target of
   LocalTarget          -> 1
   GlobalTarget         -> 2
   GlobalAndLocalTarget -> 3
-  _ -> 0
 
 featureTargetFromIndex :: Int -> FeatureTarget
 featureTargetFromIndex idx = case idx of 

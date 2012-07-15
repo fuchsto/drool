@@ -154,12 +154,12 @@ main = do
                                                               atomicModifyIORef samplingStateIORef ( \_ -> (SamplingPaused, True) ) >>= return
                                                            else return (False)
                                           _ -> return False 
-      samplingToggled <- toggleSampling (AC.signalSource cSettings) samplingState
+      _ <- toggleSampling (AC.signalSource cSettings) samplingState
 
       -- Get max size of buffers: 
       let bufferMaxSize = AC.signalBufferSize cSettings
 
-      -- Extract features from current signal buffer: 
+      -- Extract features from current signal: 
       let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
       let features   = FE.extractSignalFeatures genSampleList feSettings siggen
       -- Push new features to buffer: 

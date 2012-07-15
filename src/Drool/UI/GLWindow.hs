@@ -18,27 +18,26 @@ module Drool.UI.GLWindow (
     initComponent
 ) where
 
-import Debug.Trace
-
 import Data.IORef(IORef, readIORef, newIORef, modifyIORef, writeIORef )
 import Data.Array.IO
 
 import Control.Monad.Trans ( liftIO )
 
-import Graphics.Rendering.OpenGL as GL
+import qualified Graphics.UI.Gtk.Builder as GtkBuilder
+import Graphics.Rendering.OpenGL as GL 
 import qualified Graphics.Rendering.FTGL as FTGL
 
 import Graphics.UI.Gtk as Gtk
-import Graphics.UI.Gtk (AttrOp((:=)))
 
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
 import qualified Drool.Utils.Conversions as Conv
-import qualified Drool.Utils.Objects as Obj
+-- import qualified Drool.Utils.Objects as Obj
 import qualified Drool.Utils.RenderHelpers as RH
-import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeatures(..), SignalFeaturesList(..) )
+import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) )
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
+
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
@@ -52,19 +51,15 @@ display contextSettingsIORef renderSettingsIORef = do
   loadIdentity
 
   let hScale         = (AC.scaling settings) / (100.0::GLfloat)
-      gridOpacity    = (AC.gridOpacity settings) / (100.0::GLfloat)
       surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
       fixedRotation  = (AC.fixedRotation settings) 
-      incRotation    = (AC.incRotation settings) 
       accIncRotation = (AC.incRotationAccum settings) 
       maxNumSignals  = (AC.signalBufferSize settings)
-      maxBeatSamples = (AC.maxBeatBand settings) 
       lightPos0      = (RH.lightPos0 renderSettings)
       lightPos1      = (RH.lightPos1 renderSettings)
-      gridColor      = RH.color3AddAlpha (AC.gridColor settings) gridOpacity
       surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
-      perspective    = AC.renderPerspective settings
+      vPerspective   = AC.renderPerspective settings
 
   let tick   = RH.tick renderSettings
   let tickMs = tick * 25
@@ -77,7 +72,7 @@ display contextSettingsIORef renderSettingsIORef = do
                                 modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = 0 } )
                                 return nextPerspective )
                             else return p
-  curPerspective <- updatePerspective perspective
+  curPerspective <- updatePerspective vPerspective
 
 
   let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
@@ -122,14 +117,14 @@ display contextSettingsIORef renderSettingsIORef = do
   signalBuf   <- readIORef $ RH.signalBuf renderSettings
   featuresBuf <- readIORef $ RH.featuresBuf renderSettings
   
-  let signalList = DT.signalList signalBuf
-  let numNewSignals = length signalList
+  -- let signalList = DT.signalList signalBuf
+  -- let numNewSignals = length signalList
   -- Load vertex buffer from rendering context
   let vertexBufIORef = RH.vertexBuf renderSettings
   -- Load normals buffer from rendering context
   let normalsBufIORef = RH.normalsBuf renderSettings
   -- Load features buffer from rendering context
-  let featuresBufIORef = RH.featuresBuf renderSettings
+  -- let featuresBufIORef = RH.featuresBuf renderSettings
 
   ---------------------------------------------------------------------------------------------------
   -- Begin handling of new signal
@@ -161,9 +156,7 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Get length of most recent signal (= number of samples per signal): 
   signalBounds <- getBounds $ DT.signalArray recentSignal
   let numSamples = rangeSize signalBounds
-  -- Transform samples in recent signal: 
-  recentSignalSamples <- getElems $ DT.signalArray recentSignal
-
+  
   ---------------------------------------------------------------------------------------------------
   -- End handling of new signal
   ---------------------------------------------------------------------------------------------------
@@ -187,7 +180,7 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Render scene 
   ----------------------------------------------------------------------------------------
   -- Get inverse of model view matrix: 
-  glModelViewMatrix <- GL.get currentMatrix :: IO (GLmatrix GLfloat)
+  glModelViewMatrix <- GL.get (matrix (Just (Modelview 0))) :: IO (GLmatrix GLfloat)
   -- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
@@ -207,7 +200,7 @@ display contextSettingsIORef renderSettingsIORef = do
 
   preservingMatrix $ do 
     let fontWidth  = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
-    let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
+    -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
     let fontScaling = (surfaceWidth * 1.5) / fontWidth
     GL.scale fontScaling fontScaling (0 :: GLfloat)
     translate $ Vector3 (-0.5 * fontWidth + 0.5 * surfaceWidth / fontScaling) (0.7 / fontScaling) (-4.5 :: GLfloat)
@@ -233,37 +226,40 @@ reshape allocation = do
 -- normals buffer. 
 -- Returns updated normals buffer. 
 updateNormalsBuffer :: [[ Normal3 GLfloat ]] -> [[ Vertex3 GLfloat ]] -> Int -> [[ Normal3 GLfloat ]] 
-updateNormalsBuffer nBuf vBuf@(_:_:_:vBufTail) numSignals = updateNormalsBuffer updatedNormalsBuf (tail vBuf) numSignals
 -- {{{
-  where 
-  -- Drop first and last element of nBuf. 
-  -- Last element has incomplete normals and will be replaced by element 
-  -- with correct normals. This happens in any case. 
-  -- Drop first element if max buffer size is exceeded. 
-    adjNormalsBuf = take (numSignals-2) (Conv.adjustBufferSize nBuf (numSignals-1))
-    vBufLen = length vBuf
-  
-  -- Take 3 most recent signals from vertex buffer. 
-  -- Last element in signal buffer is most recent signal: 
-    sigCurrIdx  = 0
-    sigPrev1Idx = if length vBuf > 1 then 1 else sigCurrIdx
-    sigPrev2Idx = if length vBuf > 2 then 2 else sigPrev1Idx
-    
-    sigCurr  = if vBufLen > 0 then (vBuf !! sigCurrIdx)  else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
-    sigPrev1 = if vBufLen > 0 then (vBuf !! sigPrev1Idx) else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
-    sigPrev2 = if vBufLen > 0 then (vBuf !! sigPrev2Idx) else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
-  
-  -- Normal vector for current signal is incomplete: 
-    verticesAndNormalsCurr = RH.normalsFromVertices [sigPrev1,sigCurr,[]] 
-  -- Normal vector for prev signal is complete: 
-    verticesAndNormalsPrev = RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] 
+updateNormalsBuffer nBuf vBuf@(_:_:_:_) numSignals = case vBuf of 
+  (_:_:_:_) -> updateNormalsBuffer updatedNormalsBuf (tail vBuf) numSignals
+               where 
+               -- Drop first and last element of nBuf. 
+               -- Last element has incomplete normals and will be replaced by element 
+               -- with correct normals. This happens in any case. 
+               -- Drop first element if max buffer size is exceeded. 
+                 adjNormalsBuf = take (numSignals-2) (Conv.adjustBufferSize nBuf (numSignals-1))
+                 vBufLen = length vBuf
+               
+               -- Take 3 most recent signals from vertex buffer. 
+               -- Last element in signal buffer is most recent signal: 
+                 sigCurrIdx  = 0
+                 sigPrev1Idx = if length vBuf > 1 then 1 else sigCurrIdx
+                 sigPrev2Idx = if length vBuf > 2 then 2 else sigPrev1Idx
+                 
+                 sigCurr  = if vBufLen > 0 then (vBuf !! sigCurrIdx)  else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
+                 sigPrev1 = if vBufLen > 0 then (vBuf !! sigPrev1Idx) else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
+                 sigPrev2 = if vBufLen > 0 then (vBuf !! sigPrev2Idx) else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
+               
+               -- Normal vector for current signal is incomplete: 
+                 verticesAndNormalsCurr = RH.normalsFromVertices [sigPrev1,sigCurr,[]] 
+               -- Normal vector for prev signal is complete: 
+                 verticesAndNormalsPrev = RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] 
 
-    updatedNormalsBuf = verticesAndNormalsCurr : verticesAndNormalsPrev : adjNormalsBuf 
+                 updatedNormalsBuf = verticesAndNormalsCurr : verticesAndNormalsPrev : adjNormalsBuf 
+  _ -> []
 -- }}}
 
 updateNormalsBuffer nBuf _ _ = nBuf
 
 -- Component init interface for main UI. 
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO ()
 initComponent _ contextSettings contextObjects = do
 -- {{{
   window <- Gtk.windowNew
@@ -287,8 +283,8 @@ initComponent _ contextSettings contextObjects = do
 
   gridfont <- FTGL.createOutlineFont "FreeMono.ttf"
   fillfont <- FTGL.createPolygonFont "FreeMono.ttf"
-  FTGL.setFontFaceSize gridfont 36 36 
-  FTGL.setFontFaceSize fillfont 36 36 
+  _ <- FTGL.setFontFaceSize gridfont 36 36 
+  _ <- FTGL.setFontFaceSize fillfont 36 36 
 
   gridFontIORef <- newIORef gridfont
   fillFontIORef <- newIORef fillfont
@@ -314,7 +310,6 @@ initComponent _ contextSettings contextObjects = do
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
     -- {{{ 
-    cSettings <- readIORef contextSettings
     -- depthMask $= Disabled
     -- dither $= Enabled
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
@@ -409,4 +404,4 @@ mulColor4Value (Color4 r g b a) value = Color4 r' g' b' a'
         a' = a * value
 
 viewPerspective :: Int
-viewPerspective = 90
+viewPerspective = 120

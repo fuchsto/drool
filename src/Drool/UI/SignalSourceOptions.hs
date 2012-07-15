@@ -36,7 +36,7 @@ initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.Cont
 initComponent gtkBuilder contextSettings contextObjects = do
   putStrLn "Initializing SignalSourceOptions component"
 
-  defaultSettings <- readIORef contextSettings
+  -- defaultSettings <- readIORef contextSettings
   defaultObjects  <- readIORef contextObjects
 
   -- Initialize tab "Test signal":

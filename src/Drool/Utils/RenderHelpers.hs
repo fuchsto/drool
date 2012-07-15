@@ -39,15 +39,13 @@ module Drool.Utils.RenderHelpers (
     renderSurface
 ) where
 
-import Debug.Trace
-
-import Data.IORef ( IORef(..) )
+import Data.IORef ( IORef )
 
 import Data.Packed.Matrix as HM ( (><), Matrix )
-import Numeric.LinearAlgebra.Algorithms as LA ( Field, inv ) 
+import Numeric.LinearAlgebra.Algorithms as LA ( inv ) 
 import Numeric.Container as NC ( vXm, fromList, toList )
 
-import Data.Array ( Array, indices )
+import Data.Array ( Array )
 import Data.Array.IArray ( (!), bounds, IArray(..), listArray, ixmap, amap )
 import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
@@ -58,7 +56,7 @@ import Drool.Utils.FeatureExtraction as FE (
     SignalFeatures(..), SignalFeaturesList(..), 
     emptyFeatures, 
     FeatureTarget(..), featureTargetFromIndex )
-import Drool.Utils.Conversions as Conv ( interleave, interleaveArrays, aZip ) 
+import Drool.Utils.Conversions as Conv ( interleaveArrays, aZip ) 
 import Graphics.Rendering.OpenGL ( 
     Vector3 (..), 
     Vertex3 (..), 
@@ -67,7 +65,6 @@ import Graphics.Rendering.OpenGL (
     Color3(..),
     Color4(..),
     VertexComponent,
-    NormalComponent, 
     renderPrimitive, 
     PrimitiveMode(..),
     vertex, normal, 
@@ -77,8 +74,6 @@ import Graphics.Rendering.OpenGL (
     getMatrixComponents, 
     GLmatrix, 
     ($=), 
-    FrontFaceDirection(..), 
-    frontFace, 
     Face(..), 
     cullFace,
     GLfloat )
@@ -127,15 +122,19 @@ nextPerspective cur = case cur of
 
 -- Expects a sample, t, number of samples in total, list of band range amplifiers, and returns amplified sample for t. 
 applyBandRangeAmp :: SValue -> TValue -> Int -> [Float] -> SValue
+-- {{{
 applyBandRangeAmp s t nSamples amps = s * ampValue
   where numRanges      = length amps
-        rangeWidth     = nSamples `div` numRanges                          -- ...[-------]...
+        rangeWidth     = nSamples `div` numRanges                            -- ...[-------]...
         rangePos       = t `mod` rangeWidth                                  -- ...|....x..|...
         activeRangeIdx = ((fromIntegral t)-rangePos) `div` rangeWidth :: Int -- [.|x|.|.|.]
-        amp_1          = realToFrac $ amps !! activeRangeIdx                         -- Amp value of active range
-        amp_2          = realToFrac $ amps !! (min (activeRangeIdx+1) (numRanges-1)) -- Amp value of next range, use range n as next range of range n
+        -- Amp value of active range
+        amp_1          = realToFrac $ amps !! activeRangeIdx
+        -- Amp value of next range, use range n as next range of range n
+        amp_2          = realToFrac $ amps !! (min (activeRangeIdx+1) (numRanges-1)) 
         ampValue       = amp_1 + ((amp_2-amp_1) * (fromIntegral (rangePos) / fromIntegral (rangeWidth-1)))
-        
+-- }}}
+
 bandRangeAmpSamples :: [SValue] -> [Float] -> [SValue]
 bandRangeAmpSamples samples amps = bandRangeAmpSamplesRec samples amps (length samples) 0
 
@@ -179,6 +178,9 @@ n3y (Normal3 _ y _) = y
 n3z :: Normal3 a -> a
 n3z (Normal3 _ _ z) = z
 
+-- TODO: All these vector / matrix operations should be 
+--       outsourced to BLAS. 
+
 vx4ToVx3 :: Vertex4 a -> Vertex3 a
 vx4ToVx3 (Vertex4 x y z _) = Vertex3 x y z
 
@@ -210,20 +212,22 @@ v3div a b = Vector3 x y z
   where x = v3x a / v3x b
         y = v3y a / v3y b
         z = v3z a / v3z b
-
+{-
 v3mul :: (Num a) => Vector3 a -> Vector3 a -> Vector3 a
 v3mul a b = Vector3 x y z
   where x = v3x a * v3x b
         y = v3y a * v3y b
         z = v3z a * v3z b
+-}
 
+{-
 n3normalize :: Normal3 GLfloat -> Normal3 GLfloat
 n3normalize n = Normal3 x y z 
   where norm = sqrt $ ((n3x n)**2) + ((n3y n)**2) + ((n3z n)**2) :: GLfloat
         x = (n3x n) / norm 
         y = (n3y n) / norm
         z = (n3z n) / norm
-
+-}
 n3Invert :: Normal3 GLfloat -> Normal3 GLfloat
 n3Invert n = Normal3 x y z
   where x = -(n3x n)
@@ -251,34 +255,38 @@ drawNormal (v,n) = do let from = v
                       renderPrimitive Lines ( do vertex from
                                                  vertex to )
 
-normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
-normalsFromVertices' sigs@(sigPrev:sig:sigNext:[]) xIdx = if xIdx < nSamples then resultNormal : normalsFromVertices' sigs (xIdx+1) else []
-  where nSamples = length sig
-        boundx   = \a -> max 0 (min a (nSamples-1)) :: Int 
-        vertexC  = sig !! xIdx
-        vertexR  = sig !! (boundx (xIdx+1))
-        vertexL  = sig !! (boundx (xIdx-1))
-        vertexT  = if length sigPrev > xIdx then sigPrev !! xIdx else vertexC
-        vertexB  = if length sigNext > xIdx then sigNext !! xIdx else vertexC
-        point    = vertexToVector vertexC
-        pointR   = vertexToVector vertexR
-        pointL   = vertexToVector vertexL
-        pointT   = vertexToVector vertexT
-        pointB   = vertexToVector vertexB
-        vR = v3sub pointR point   --   n4  T  n1
-        vT = v3sub pointT point   --       |
-        vL = v3sub pointL point   --    L--C--R
-        vB = v3sub pointB point   --       |
-        n1 = v3cross vT vR        --   n3  B  n2
-        n2 = v3cross vR vB
-        n3 = v3cross vB vL
-        n4 = v3cross vL vT
-        -- no normalization here as GL.normalize is enabled
-        n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) 
-        resultNormal = n3Invert $ Normal3 (v3x n) (v3y n) (v3z n)
-
 normalsFromVertices :: [[ Vertex3 GLfloat ]] -> [ Normal3 GLfloat ]
+-- {{{
 normalsFromVertices sigs = normalsFromVertices' sigs 0
+
+normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
+normalsFromVertices' sigs xIdx = case sigs of  
+  (sigPrev:sig:sigNext:[]) -> if xIdx < nSamples then resultNormal : normalsFromVertices' sigs (xIdx+1) else []
+    where nSamples = length sig
+          boundx   = \a -> max 0 (min a (nSamples-1)) :: Int 
+          vertexC  = sig !! xIdx
+          vertexR  = sig !! (boundx (xIdx+1))
+          vertexL  = sig !! (boundx (xIdx-1))
+          vertexT  = if length sigPrev > xIdx then sigPrev !! xIdx else vertexC
+          vertexB  = if length sigNext > xIdx then sigNext !! xIdx else vertexC
+          point    = vertexToVector vertexC
+          pointR   = vertexToVector vertexR
+          pointL   = vertexToVector vertexL
+          pointT   = vertexToVector vertexT
+          pointB   = vertexToVector vertexB
+          vR = v3sub pointR point   --   n4  T  n1
+          vT = v3sub pointT point   --       |
+          vL = v3sub pointL point   --    L--C--R
+          vB = v3sub pointB point   --       |
+          n1 = v3cross vT vR        --   n3  B  n2
+          n2 = v3cross vR vB
+          n3 = v3cross vB vL
+          n4 = v3cross vL vT
+          -- no normalization here as GL.normalize is enabled
+          n  = v3div (v3sum [ n1, n2, n3, n4 ]) (Vector3 4.0 4.0 (4.0 :: GLfloat)) 
+          resultNormal = n3Invert $ Normal3 (v3x n) (v3y n) (v3z n)
+  _ -> []
+-- }}}
 
 verticesFromSamples :: [ SValue ] -> Int -> RenderSettings -> [ Vertex3 GLfloat ]
 verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx
@@ -295,6 +303,7 @@ updateVerticesZCoord signalsVertices zPosFunc = zipWith (\sigVertices zIdx -> se
         nSignals = length signalsVertices
 
 getViewpointFromModelView :: GLmatrix GLfloat -> IO ( Vector3 GLfloat )
+-- {{{
 getViewpointFromModelView mvMatrix = do 
   mvMatrixRows <- getMatrixComponents ColumnMajor mvMatrix
   -- OpenGL float matrix to GSL double matrix: 
@@ -309,8 +318,10 @@ getViewpointFromModelView mvMatrix = do
                           (realToFrac $ viewPointModelView !! 1) 
                           (realToFrac $ viewPointModelView !! 2) :: Vector3 GLfloat
   return viewPoint
+-- }}}
 
 applyFeaturesToGrid :: FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO ()
+-- {{{
 applyFeaturesToGrid features target settings = do
   let loudness     = realToFrac $ FE.totalEnergy features
       basslevel    = realToFrac $ FE.bassEnergy features 
@@ -326,8 +337,10 @@ applyFeaturesToGrid features target settings = do
       gOpacity     = gBaseOpacity + (lCoeff * loudness) + (bCoeff * basslevel)
       gColor       = color3AddAlpha (AC.gridColor settings) gOpacity
   color $ gColor
+-- }}}
 
 applyFeaturesToSurface :: FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO ()
+-- {{{
 applyFeaturesToSurface features target settings = do
   let loudness     = realToFrac $ FE.totalEnergy features
       basslevel    = realToFrac $ FE.bassEnergy features 
@@ -343,6 +356,7 @@ applyFeaturesToSurface features target settings = do
       sOpacity     = sBaseOpacity + (lCoeff * loudness) + (bCoeff * basslevel)
       sColor       = color3AddAlpha (AC.surfaceColor settings) sOpacity
   color $ sColor
+-- }}}
 
 -- Render surface as single strips (for z : for x). 
 -- Expects pairs of current and next signal data, 
@@ -354,9 +368,10 @@ renderSignalSurfaceStrip :: PrimitiveMode ->
                             (Array Int (Normal3 GLfloat), Array Int (Normal3 GLfloat)) -> 
                             (FE.SignalFeatures, FE.SignalFeatures) -> 
                             AC.ContextSettings -> 
-                            Int -> 
+                            Int -> -- signal index
                             IO ()
-renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings idx = (
+-- {{{
+renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings _ = (
   do -- Put vertices and normals in correct (interleaved) order for 
      -- rendendering: 
      let aMaxIdx array = snd $ bounds array
@@ -379,18 +394,26 @@ renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsAr
      fAppFun fsNext FE.LocalTarget settings
      renderPrimitive mode ( 
        mapM_ vertexWithNormal (Conv.aZip sortedVertices sortedNormals) ) )
+-- }}}
 
+-- List of indices indicating the order in which vertices have to be drawn depending 
+-- on Z-direction (BackToFront | FrontToBack). 
+-- TODO: Check if there is a performance gain when creating final drawing indices here (by
+--       depending on X-direction) instead of switching X-order in renderSignalSurfaceStrip. 
 vertexSectionIndices :: DirectionX -> DirectionZ -> Int -> (Int,Int) -> (Int,Int) -> Array Int (Array Int Int)
-vertexSectionIndices dirX dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = listArray (0,((length list)-1)) $ map (\idcs -> listArray (0,((length idcs)-1)) idcs) list
+-- {{{
+vertexSectionIndices _ dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = listArray (0,((length list)-1)) $ map (\idcs -> listArray (0,((length idcs)-1)) idcs) list
   where absIndexBtF z x = (nSamples * z) + x 
         absIndexFtB z x = (nSamples * zEndIdx) + x - (nSamples * (z-zStartIdx))
         list = if dirZ == BackToFront then (
                   [ [ absIndexBtF zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ] )
                else (
                   [ [ absIndexFtB zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ] )
+-- }}}
 
-
--- Using Arrays instead of lists here as we need efficient random access on element. 
+-- Render a section of the surface. A single section is one of four sub-rectangles of 
+-- the surface (the surface is split once in X and Z axis). 
+-- Using Arrays instead of lists here as we need efficient random access on elements. 
 renderSurfaceSection :: DirectionX -> DirectionZ -> 
                         Array Int (Vertex3 GLfloat) -> 
                         Array Int (Normal3 GLfloat) -> 
@@ -399,11 +422,12 @@ renderSurfaceSection :: DirectionX -> DirectionZ ->
                         Int -> 
                         AC.ContextSettings -> 
                         IO ()
+-- {{{
 renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartIdx) secEnd@(zEndIdx,xEndIdx) nSamples settings = 
   if zEndIdx-zStartIdx > 0 && xEndIdx-xStartIdx > 0 then ( 
     do
       let nSecSignals = zEndIdx - zStartIdx -- Number of signals in section
-      let nSecSamples = xEndIdx - xStartIdx -- Number of samples per signal in section
+      -- let nSecSamples = xEndIdx - xStartIdx -- Number of samples per signal in section
 
       -- returns array of arrays of vertex indices sorted in correct z-direction: 
       let vIndexMatrixZSorted = vertexSectionIndices dirX dirZ nSamples secStart secEnd
@@ -430,6 +454,7 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                           renderSignalSurfaceStrip LineStrip dirX applyFeaturesToGrid (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
                                           translate $ Vector3 0 (-0.01::GLfloat) 0 ) ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
+-- }}}
 
 -- Render surface as four sections, each with a different X- and Z-direction. 
 renderSurface :: [[ Vertex3 GLfloat ]] -> 
@@ -440,6 +465,7 @@ renderSurface :: [[ Vertex3 GLfloat ]] ->
                  AC.ContextSettings -> 
                  RenderSettings -> 
                  IO ()
+-- {{{
 renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
   let nSignals   = length vBuf
       vBufMaxIdx = (nSignals * nSamples) - 1
@@ -470,13 +496,10 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
   let renderSec dX dZ sS sE   = renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
   
   cullFace $= Just Front
-  -- translate $ Vector3 (-0.1 :: GLfloat) 0 ( 0.1 :: GLfloat)  
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
-  -- translate $ Vector3 ( 0.1 :: GLfloat) 0 ( 0.0 :: GLfloat)  
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
   cullFace $= Just Back
-  -- translate $ Vector3 (-0.1 :: GLfloat) 0 (-0.1 :: GLfloat)  
   renderSec LeftToRight FrontToBack secBottomLeftStartIdcs secBottomLeftEndIdcs 
-  -- translate $ Vector3 ( 0.1 :: GLfloat) 0 (-0.0 :: GLfloat)  
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
+-- }}}
 
