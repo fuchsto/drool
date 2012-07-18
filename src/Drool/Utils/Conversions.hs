@@ -33,7 +33,7 @@ module Drool.Utils.Conversions (
     blendModeSourceFromIndex, 
     blendModeFrameBufferFromIndex, 
     blendModeSourceIndex, 
-    blendModeFrameBufferIndex
+    blendModeFrameBufferIndex, 
 ) where
 
 import qualified Graphics.UI.Gtk as Gtk
@@ -126,4 +126,3 @@ blendModeFrameBufferIndex' :: BlendingFactor -> Int -> [ BlendingFactor ] -> Int
 blendModeFrameBufferIndex' bm i (mode:modes) = index
   where index = if bm == mode then i else blendModeFrameBufferIndex' bm (i+1) modes
 blendModeFrameBufferIndex' _ _ [] = 0
-

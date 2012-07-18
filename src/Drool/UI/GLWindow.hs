@@ -72,7 +72,10 @@ display contextSettingsIORef renderSettingsIORef = do
   let tick   = RH.tick renderSettings
   let tickMs = tick * 25
 
-  modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = (tick+1) `mod` 10000 } )
+  modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = (tick+1) `mod` 10000, 
+                                                           RH.xLinScale = AC.xLinScale settings, 
+                                                           RH.xLogScale = AC.xLogScale settings, 
+                                                           RH.zLinScale = AC.zLinScale settings } )
 
   let updatePerspective p = if AC.autoPerspectiveSwitch settings && tickMs >= AC.autoPerspectiveSwitchInterval settings then ( do 
                                 let nextPerspective = RH.nextPerspective p
@@ -144,7 +147,8 @@ display contextSettingsIORef renderSettingsIORef = do
   let zPosFun   = RH.zPosFun renderSettings
   let rangeAmps = AC.rangeAmps settings
 
-  let newSignals = DT.signalList signalBuf
+  let newSignals    = DT.signalList signalBuf
+  let numNewSignals = length newSignals
   -- All signals in buffer loaded, empty signal buffer: 
   writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
 
@@ -157,7 +161,7 @@ display contextSettingsIORef renderSettingsIORef = do
                                       return sigVertices ) newSignals
   vBufCurr <- readIORef vertexBufIORef
   let vBufUpdated   = newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (maxNumSignals-(length newSigVertices)))
-  let vBufZAdjusted = RH.updateVerticesZCoord vBufUpdated zPosFun 
+  let vBufZAdjusted = RH.updateVerticesZCoord vBufUpdated zPosFun renderSettings
   modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
   
   nBufCurr <- readIORef normalsBufIORef
@@ -176,8 +180,8 @@ display contextSettingsIORef renderSettingsIORef = do
   -- End handling of new signal
   ---------------------------------------------------------------------------------------------------
   
-  let surfaceWidth = xPosFun (numSamples-1)
-  let surfaceDepth = zPosFun (maxNumSignals-1)
+  let surfaceWidth = xPosFun (numSamples-1) numSamples renderSettings
+  let surfaceDepth = zPosFun (maxNumSignals-1) maxNumSignals renderSettings
 
   GL.position (Light 0) $= lightPos0
   GL.position (Light 0) $= lightPos1
@@ -307,11 +311,26 @@ initComponent _ contextSettings contextObjects = do
   gridFontIORef <- newIORef gridfont
   fillFontIORef <- newIORef fillfont
 
-  renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = AC.signalGenerator objects, 
+  let sigGen     = AC.signalGenerator objects
+  let numSamples = SigGen.numSamples sigGen
+
+  let xPosFun x n rs = (log (x'+1.0) + (x' / n' * xLogScale)) / (log n' + xLogScale) * xLinScale
+                       where xLogScale = RH.xLogScale rs
+                             xLinScale = RH.xLinScale rs
+                             n' = fromIntegral n
+                             x' = fromIntegral x
+
+  let zPosFun z n rs = fromIntegral z / fromIntegral n * zLinScale
+                       where zLinScale = RH.zLinScale rs
+  
+  renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = sigGen, 
                                                  RH.signalBuf = AC.signalBuf objects, 
                                                  RH.featuresBuf = AC.featuresBuf objects, 
-                                                 RH.xPosFun = (\x -> fromIntegral x / 20.0), 
-                                                 RH.zPosFun = (\z -> fromIntegral z / 5.0), 
+                                                 RH.xPosFun = xPosFun, 
+                                                 RH.zPosFun = zPosFun, 
+                                                 RH.xLinScale = AC.xLinScale settings, 
+                                                 RH.xLogScale = AC.xLogScale settings, 
+                                                 RH.zLinScale = AC.zLinScale settings,
                                                  RH.scaleFun = (\s _ _ -> s), 
                                                  RH.vertexBuf = vertexBufIORef, 
                                                  RH.normalsBuf = normalsBufIORef, 

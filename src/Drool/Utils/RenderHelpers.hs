@@ -36,7 +36,10 @@ module Drool.Utils.RenderHelpers (
     getViewpointFromModelView, 
 
     vertexSectionIndices, 
-    renderSurface
+    renderSurface, 
+
+    vxIIR, 
+    vxApplyIIR
 ) where
 
 import Debug.Trace
@@ -53,7 +56,7 @@ import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
 import qualified Drool.Types as DT ( SignalList(..), RenderPerspective(..) )
 import Drool.ApplicationContext as AC ( ContextSettings(..) )
-import Drool.Utils.SigGen ( SValue, TValue, SignalGenerator(..) )
+import Drool.Utils.SigGen as SigGen ( SValue, TValue, SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 
     emptyFeatures, 
@@ -86,11 +89,17 @@ data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator,
                                        -- IORef to signal buffer: 
                                        signalBuf :: IORef DT.SignalList, 
                                        -- maps x index to x position: 
-                                       xPosFun :: (Int -> GLfloat),
+                                       xPosFun :: (Int -> Int -> RenderSettings -> GLfloat),
                                        -- maps signal index to z position: 
-                                       zPosFun :: (Int -> GLfloat), 
+                                       zPosFun :: (Int -> Int -> RenderSettings -> GLfloat), 
                                        -- scales sample (vertex y position) according to x and z index: 
                                        scaleFun :: (SValue -> Int -> Int -> GLfloat), 
+                                       -- Linear scaling of X axis
+                                       xLinScale :: GLfloat, 
+                                       -- Log scaling of X axis
+                                       xLogScale :: GLfloat, 
+                                       -- Linear scaling of Z axis
+                                       zLinScale :: GLfloat, 
                                        -- Position of light 0
                                        lightPos0 :: Vertex4 GLfloat, 
                                        -- Position of light 1
@@ -217,6 +226,12 @@ v3div a b = Vector3 x y z
   where x = v3x a / v3x b
         y = v3y a / v3y b
         z = v3z a / v3z b
+
+vx3add :: (Num a) => Vertex3 a -> Vertex3 a -> Vertex3 a
+vx3add a b = Vertex3 x y z
+  where x = vx3x a + vx3x b
+        y = vx3y a + vx3y b
+        z = vx3z a + vx3z b
 {-
 v3mul :: (Num a) => Vector3 a -> Vector3 a -> Vector3 a
 v3mul a b = Vector3 x y z
@@ -294,17 +309,19 @@ normalsFromVertices' sigs xIdx = case sigs of
 -- }}}
 
 verticesFromSamples :: [ SValue ] -> Int -> RenderSettings -> [ Vertex3 GLfloat ]
-verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx
+verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx nSamples renderSettings
                                                                                 y = (scaleFun renderSettings) s signalIdx xIdx
-                                                                                z = (zPosFun renderSettings) signalIdx in
+                                                                                z = (zPosFun renderSettings) signalIdx nSignals renderSettings in
                                                                             Vertex3 x y z ) [0..] samples
+                                                                              where nSamples = length samples
+                                                                                    nSignals = numSignals renderSettings
 
 -- Expects a 2-dimensional list of vertices, considering the first dimension a z-Index, 
 -- and a function mapping z-Indices to z-coordinates. 
 -- Updates z-coordinate in every vertex to (zPosFunc zIndex). 
-updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> GLfloat) -> [[ Vertex3 GLfloat ]]
-updateVerticesZCoord signalsVertices zPosFunc = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
-  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFunc (nSignals-1-z)) ) vertexList
+updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> Int -> RenderSettings -> GLfloat) -> RenderSettings -> [[ Vertex3 GLfloat ]]
+updateVerticesZCoord signalsVertices zPosFunc renderSettings = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
+  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFunc (nSignals-1-z) nSignals renderSettings ) ) vertexList
         nSignals = length signalsVertices
 
 getViewpointFromModelView :: GLmatrix GLfloat -> IO ( Vector3 GLfloat )
@@ -485,12 +502,12 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
 
   let zCoordFun = zPosFun renderSettings
       xCoordFun = xPosFun renderSettings
-      splitZ    = case findIndex ( \z -> (zCoordFun (z+1)) >= (v3z viewpoint) ) [0..(nSignals-1)] of 
+      splitZ    = case findIndex ( \z -> (zCoordFun (z+1) nSignals renderSettings) >= (v3z viewpoint) ) [0..(nSignals-1)] of 
                     Just idx -> nSignals-idx-1
                     Nothing  -> 0
-      splitX    = case findIndex ( \x -> (xCoordFun x) >= (v3x viewpoint) ) [0..(nSamples-1)] of 
+      splitX    = case findIndex ( \x -> (xCoordFun x nSamples renderSettings) >= (v3x viewpoint) ) [0..(nSamples-1)] of 
                     Just idx -> idx
-                    Nothing  -> if (xCoordFun 0) >= (v3x viewpoint) then 0 else (nSamples-1)
+                    Nothing  -> if (xCoordFun 0 nSamples renderSettings) >= (v3x viewpoint) then 0 else (nSamples-1)
 
   let secTopLeftStartIdcs     = ( 0 :: Int, 0 :: Int)
       secTopLeftEndIdcs       = ( splitZ, splitX )
@@ -510,4 +527,38 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
   renderSec LeftToRight FrontToBack secBottomLeftStartIdcs secBottomLeftEndIdcs 
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
 -- }}}
+
+{-
+iir :: (Fractional a) => a -> [a] -> [a] -> a
+iir sample samples coefs = foldl (\ac (i,v) -> ac + (coefs !! i) * v) 0.0 (zip [0..num-1] (sample : (take num samples)))
+  where num = length coefs
+
+-- Applies IIR filter to buffer, updating num elements in the front. 
+-- Element in the front is considered the most recent signal sample. 
+applyIIR :: (Fractional a) => [a] -> [a] -> Int -> [a]
+applyIIR samples coefs num =  if num > 0 then applyIIR (headSamples ++ [iirSample] ++ tailSamples) coefs (num-1) else samples
+  where iirSample = iir (samples !! (num - 1)) tailSamples coefs
+        headSamples = take (num-1) samples
+        tailSamples = drop num samples
+-}
+
+vxIIR :: (Fractional a) => Vertex3 a -> [Vertex3 a] -> [a] -> Vertex3 a
+vxIIR sample samples coefs = foldl (\ac (i,(Vertex3 x y z)) -> vx3add ac (Vertex3 x ((coefs !! i) * y) z)) (Vertex3 0.0 0.0 0.0) (zip [0..num-1] (sample : (take num samples)))
+  where num = length coefs
+
+vxApplyIIR :: (Fractional a) => [Vertex3 a] -> [a] -> Int -> [Vertex3 a]
+vxApplyIIR samples coefs num =  if num > 0 then vxApplyIIR (headSamples ++ [iirVertex] ++ tailSamples) coefs (num-1) else samples
+  where iirVertex   = vxIIR curVertex tailSamples coefs
+        curVertex   = samples !! (num-1)
+        headSamples = take (num-1) samples
+        tailSamples = drop num samples
+  
+{-
+vxApplyIIR :: (Fractional a) => [[ Vertex3 a ]] -> [a] -> Int -> [[ Vertex3 a ]]
+vxApplyIIR vBuf coefs num = updatedSignals ++ (drop num vBuf)
+  where updatedSignals = map (\sigIdx,sigVertices -> map (\vIdx, v ->  ) (zip [0..maxVidx] sigVertices) ) (zip [0..num-1] (take num vBuf))
+-}
+
+
+
 

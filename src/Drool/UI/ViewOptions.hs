@@ -200,17 +200,7 @@ initComponent gtkBuilder contextSettings _ = do
     modeIdx <- Gtk.comboBoxGetActive comboboxBlendingFrameBuffer
     contextSettings $=! settings { AC.blendModeFrameBufferIdx = modeIdx } 
 
-  adjViewAngle <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewAngle"
-  _ <- Gtk.onValueChanged adjViewAngle $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjViewAngle
-    contextSettings $=! settings { AC.viewAngle = realToFrac val } 
-
-  adjViewDistance <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewDistance"
-  _ <- Gtk.onValueChanged adjViewDistance $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjViewDistance
-    contextSettings $=! settings { AC.viewDistance = realToFrac val } 
+  _ <- updateSettings gtkBuilder defaultSettings
 
   comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
   _ <- Gtk.on comboboxFeatureBassEnergyTarget Gtk.changed $ do 
@@ -279,7 +269,38 @@ initComponent gtkBuilder contextSettings _ = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.autoPerspectiveSwitchInterval = round val } 
 
+  adjViewAngle <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewAngle"
+  _ <- Gtk.onValueChanged adjViewAngle $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjViewAngle
+    contextSettings $=! settings { AC.viewAngle = realToFrac val } 
+
+  adjViewDistance <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewDistance"
+  _ <- Gtk.onValueChanged adjViewDistance $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjViewDistance
+    contextSettings $=! settings { AC.viewDistance = realToFrac val } 
+
+  adjXLinScale <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjXLinScale"
+  _ <- Gtk.onValueChanged adjXLinScale $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjXLinScale
+    contextSettings $=! settings { AC.xLinScale = realToFrac val } 
+
+  adjXLogScale <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjXLogScale"
+  _ <- Gtk.onValueChanged adjXLogScale $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjXLogScale
+    contextSettings $=! settings { AC.xLogScale = realToFrac val } 
+
+  adjZLinScale <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjZLinScale"
+  _ <- Gtk.onValueChanged adjZLinScale $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjZLinScale
+    contextSettings $=! settings { AC.zLinScale = realToFrac val } 
+  
   _ <- updateSettings gtkBuilder defaultSettings
+
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
