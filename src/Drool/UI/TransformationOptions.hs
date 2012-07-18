@@ -43,7 +43,7 @@ initComponent gtkBuilder contextSettings _ = do
 
   adjNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjNumFFTBands"
   Gtk.adjustmentSetValue adjNumFFTBands (realToFrac $ AC.numFFTBands defaultSettings)
-  _ <- Gtk.onValueChanged adjAmpDb $ do
+  _ <- Gtk.onValueChanged adjNumFFTBands $ do
     val <- Gtk.adjustmentGetValue adjNumFFTBands
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.numFFTBands = round val }

@@ -39,6 +39,8 @@ module Drool.Utils.RenderHelpers (
     renderSurface
 ) where
 
+import Debug.Trace
+
 import Data.IORef ( IORef )
 
 import Data.Packed.Matrix as HM ( (><), Matrix )
@@ -51,7 +53,7 @@ import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
 import qualified Drool.Types as DT ( SignalList(..), RenderPerspective(..) )
 import Drool.ApplicationContext as AC ( ContextSettings(..) )
-import Drool.Utils.SigGen ( SValue, TValue )
+import Drool.Utils.SigGen ( SValue, TValue, SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 
     emptyFeatures, 
@@ -80,7 +82,9 @@ import Graphics.Rendering.OpenGL (
 import qualified Graphics.Rendering.FTGL as FTGL
 
 
-data RenderSettings = RenderSettings { signalBuf :: IORef DT.SignalList, 
+data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator, 
+                                       -- IORef to signal buffer: 
+                                       signalBuf :: IORef DT.SignalList, 
                                        -- maps x index to x position: 
                                        xPosFun :: (Int -> GLfloat),
                                        -- maps signal index to z position: 
@@ -127,11 +131,12 @@ applyBandRangeAmp s t nSamples amps = s * ampValue
   where numRanges      = length amps
         rangeWidth     = nSamples `div` numRanges                            -- ...[-------]...
         rangePos       = t `mod` rangeWidth                                  -- ...|....x..|...
-        activeRangeIdx = ((fromIntegral t)-rangePos) `div` rangeWidth :: Int -- [.|x|.|.|.]
+        activeRangeIdx = max 0 $ ((fromIntegral t)-rangePos) `div` rangeWidth :: Int -- [.|x|.|.|.]
         -- Amp value of active range
-        amp_1          = realToFrac $ amps !! activeRangeIdx
+        amp_1          = if length amps > activeRangeIdx then realToFrac $ amps !! activeRangeIdx else 1.0
         -- Amp value of next range, use range n as next range of range n
-        amp_2          = realToFrac $ amps !! (min (activeRangeIdx+1) (numRanges-1)) 
+        nextRangeIdx   = max 0 $ min (activeRangeIdx+1) (numRanges-1) 
+        amp_2          = if length amps > nextRangeIdx then realToFrac $ amps !! nextRangeIdx else 1.0
         ampValue       = amp_1 + ((amp_2-amp_1) * (fromIntegral (rangePos) / fromIntegral (rangeWidth-1)))
 -- }}}
 
@@ -261,7 +266,7 @@ normalsFromVertices sigs = normalsFromVertices' sigs 0
 
 normalsFromVertices' :: [[ Vertex3 GLfloat ]] -> Int -> [ Normal3 GLfloat ]
 normalsFromVertices' sigs xIdx = case sigs of  
-  (sigPrev:sig:sigNext:[]) -> if xIdx < nSamples then resultNormal : normalsFromVertices' sigs (xIdx+1) else []
+  (sigPrev:sig:sigNext:[]) -> if nSamples > 0 && xIdx < nSamples then resultNormal : normalsFromVertices' sigs (xIdx+1) else []
     where nSamples = length sig
           boundx   = \a -> max 0 (min a (nSamples-1)) :: Int 
           vertexC  = sig !! xIdx
@@ -449,9 +454,12 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               nsNext = safeArrayAt nSecArray (secSigIdx+1) nsCurr
                                               fCurr  = safeArrayAt fArray (nSignals-sigIdx-1) FE.emptyFeatures
                                               fNext  = safeArrayAt fArray (nSignals-sigIdx-1) fCurr
-                                          renderSignalSurfaceStrip TriangleStrip dirX applyFeaturesToSurface (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
+                                              vsTpl  = if dirZ == FrontToBack then (vsCurr,vsNext) else (vsNext,vsCurr)
+                                              nsTpl  = if dirZ == FrontToBack then (nsCurr,nsNext) else (nsNext,nsCurr)
+                                              fTpl   = if dirZ == FrontToBack then (fCurr,fNext) else (fNext,fCurr)
+                                          renderSignalSurfaceStrip TriangleStrip dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
                                           translate $ Vector3 0 (0.01::GLfloat) 0
-                                          renderSignalSurfaceStrip LineStrip dirX applyFeaturesToGrid (vsCurr,vsNext) (nsCurr,nsNext) (fCurr,fNext) settings globalSigIdx 
+                                          renderSignalSurfaceStrip LineStrip dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
                                           translate $ Vector3 0 (-0.01::GLfloat) 0 ) ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
 -- }}}
@@ -495,10 +503,10 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
 
   let renderSec dX dZ sS sE   = renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
   
-  cullFace $= Just Front
+  cullFace $= if v3y viewpoint > 0 then Just Back else Just Front
+  
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
-  cullFace $= Just Back
   renderSec LeftToRight FrontToBack secBottomLeftStartIdcs secBottomLeftEndIdcs 
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
 -- }}}

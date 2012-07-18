@@ -200,7 +200,17 @@ initComponent gtkBuilder contextSettings _ = do
     modeIdx <- Gtk.comboBoxGetActive comboboxBlendingFrameBuffer
     contextSettings $=! settings { AC.blendModeFrameBufferIdx = modeIdx } 
 
-  _ <- updateSettings gtkBuilder defaultSettings
+  adjViewAngle <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewAngle"
+  _ <- Gtk.onValueChanged adjViewAngle $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjViewAngle
+    contextSettings $=! settings { AC.viewAngle = realToFrac val } 
+
+  adjViewDistance <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewDistance"
+  _ <- Gtk.onValueChanged adjViewDistance $ do
+    settings <- readIORef contextSettings
+    val <- Gtk.adjustmentGetValue adjViewDistance
+    contextSettings $=! settings { AC.viewDistance = realToFrac val } 
 
   comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
   _ <- Gtk.on comboboxFeatureBassEnergyTarget Gtk.changed $ do 
@@ -269,6 +279,7 @@ initComponent gtkBuilder contextSettings _ = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.autoPerspectiveSwitchInterval = round val } 
 
+  _ <- updateSettings gtkBuilder defaultSettings
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool

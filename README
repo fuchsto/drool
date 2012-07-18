@@ -1,26 +1,45 @@
 
+Maintainer: twh.fuchs@gmail.com
+
+Build: 
+$ cabal configure
+$ cabal build
+$ ./run
+
+Edit the RTS flag "-N" in ./run to match your number of CPUs - 1, as we need
+one core dedicated to pulseaudio. So: 
+
+-N1 for dual core
+-N3 for quad core
+
+
+===============================================================================
+
 Drool has the following platform dependencies. 
 On Debian / Ubuntu platforms, install them via apt-get install <package-name>: 
 
 - libgtk-dev
 - libglib2.0-dev
 - libglade2-dev
-- fftw3-dev on POSIX systems
-- fft-pure on WIN32 systems
+- fftw3-dev 
 - libpulse-dev
+- FTGL
 
 Drool depends on the following hackage modules. 
 Install them via cabal install <package-name>: 
 
 - mtl
 - array
-- GLUT
 - OpenGL
+- GLUT
+- FTGL
 - glade
 - gtk
 - gtkglext
 - gtk2hs-cast-glade
 - pulse-simple
+- mtl
+- hmatrix
 - fft
 
 You might need to patch the drool.cabal configuration file a bit. 

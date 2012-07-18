@@ -84,9 +84,11 @@ newSignalList size el = if size > 0 then (el::Signal) : (newSignalList (size-1) 
 getSignal :: SignalList -> Int -> Signal
 getSignal signals time_idx = (signalList signals) !! time_idx
 
-getRecentSignal :: SignalList -> Signal
-getRecentSignal signals= sigList !! (length sigList - 1)
+-- Using !! here is okay as signal buffer passed is supposed to be really short (<= 3 signals).
+getRecentSignal :: SignalList -> Maybe Signal
+getRecentSignal signals@(CSignalList (_:_)) = Just $ sigList !! (length sigList - 1)
   where sigList = signalList signals
+getRecentSignal (CSignalList []) = Nothing
 
 {-
 getBufferSample signalBuf time_idx sample_idx = do

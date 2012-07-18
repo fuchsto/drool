@@ -18,6 +18,8 @@ module Drool.UI.GLWindow (
     initComponent
 ) where
 
+import Debug.Trace
+
 import Data.IORef(IORef, readIORef, newIORef, modifyIORef, writeIORef )
 import Data.Array.IO
 
@@ -31,8 +33,8 @@ import Graphics.UI.Gtk as Gtk
 
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
+import qualified Drool.Utils.SigGen as SigGen ( SignalGenerator(..) )
 import qualified Drool.Utils.Conversions as Conv
--- import qualified Drool.Utils.Objects as Obj
 import qualified Drool.Utils.RenderHelpers as RH
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) )
 import qualified Drool.Types as DT
@@ -44,6 +46,10 @@ display contextSettingsIORef renderSettingsIORef = do
 -- {{{
   renderSettings <- readIORef renderSettingsIORef
   settings       <- readIORef contextSettingsIORef
+    
+  matrixMode $= Projection
+  loadIdentity
+  perspective (realToFrac (AC.viewAngle settings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
 
   clear [ColorBuffer, DepthBuffer]
   
@@ -52,11 +58,13 @@ display contextSettingsIORef renderSettingsIORef = do
 
   let hScale         = (AC.scaling settings) / (100.0::GLfloat)
       surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
-      fixedRotation  = (AC.fixedRotation settings) 
-      accIncRotation = (AC.incRotationAccum settings) 
-      maxNumSignals  = (AC.signalBufferSize settings)
-      lightPos0      = (RH.lightPos0 renderSettings)
-      lightPos1      = (RH.lightPos1 renderSettings)
+      fixedRotation  = AC.fixedRotation settings
+      accIncRotation = AC.incRotationAccum settings
+      viewDistance   = AC.viewDistance settings
+      maxNumSignals  = AC.signalBufferSize settings
+      lightPos0      = RH.lightPos0 renderSettings
+      lightPos1      = RH.lightPos1 renderSettings
+      sigGen         = RH.signalGenerator renderSettings
       surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
       vPerspective   = AC.renderPerspective settings
@@ -80,6 +88,8 @@ display contextSettingsIORef renderSettingsIORef = do
   
   blendFunc $= (blendModeSource, blendModeFrameBuffer)
   
+  GL.translate $ Vector3 0 0 viewDistance
+
   -- Rotate/translate to change view perspective: 
   case curPerspective of
     DT.Isometric -> do
@@ -138,6 +148,9 @@ display contextSettingsIORef renderSettingsIORef = do
   -- All signals in buffer loaded, empty signal buffer: 
   writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
 
+  -- TODO: Add IIR-filter over vertex Y-coordinates in Z-direction here, like: 
+  -- v_n = Vertex3 (v3x v_n) (v3y v_(n-1) * a + v3y v_n * (1-a)) (v3z v_n)
+
   newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
                                       let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
                                       let sigVertices = RH.verticesFromSamples sigSamplesT 0 renderSettings
@@ -154,8 +167,10 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Load most recent signal from buffer (last signal in list): 
   let recentSignal = DT.getRecentSignal signalBuf 
   -- Get length of most recent signal (= number of samples per signal): 
-  signalBounds <- getBounds $ DT.signalArray recentSignal
-  let numSamples = rangeSize signalBounds
+  numSamples <- case recentSignal of 
+                     Just s  -> do signalBounds <- getBounds $ DT.signalArray s
+                                   return $ rangeSize signalBounds
+                     Nothing -> return $ SigGen.numSamples sigGen
   
   ---------------------------------------------------------------------------------------------------
   -- End handling of new signal
@@ -212,12 +227,15 @@ display contextSettingsIORef renderSettingsIORef = do
 
 -- }}} 
 
-reshape :: Gtk.Rectangle -> IO ()
-reshape allocation = do
+reshape :: IORef AC.ContextSettings -> Gtk.Rectangle -> IO ()
+reshape settingsIORef allocation = do
   let rectangleWidthHeight (Gtk.Rectangle _ _ w' h') = (w',h')
   let (w,h) = rectangleWidthHeight allocation
+  settings <- readIORef settingsIORef
+  let viewAngle = AC.viewAngle settings
+  matrixMode $= Projection
   viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
-  perspective (fromIntegral viewPerspective) (fromIntegral w / fromIntegral h) 0.1 100
+  perspective (realToFrac viewAngle) (fromIntegral w / fromIntegral h) 0.1 100
   matrixMode $= Modelview 0
   return ()
 
@@ -281,18 +299,19 @@ initComponent _ contextSettings contextObjects = do
   vertexBufIORef  <- newIORef []
   normalsBufIORef <- newIORef []
 
-  gridfont <- FTGL.createOutlineFont "FreeMono.ttf"
-  fillfont <- FTGL.createPolygonFont "FreeMono.ttf"
+  gridfont <- FTGL.createOutlineFont "ProggyClean.ttf"
+  fillfont <- FTGL.createPolygonFont "ProggyClean.ttf"
   _ <- FTGL.setFontFaceSize gridfont 36 36 
   _ <- FTGL.setFontFaceSize fillfont 36 36 
 
   gridFontIORef <- newIORef gridfont
   fillFontIORef <- newIORef fillfont
 
-  renderSettings <- newIORef RH.RenderSettings { RH.signalBuf = AC.signalBuf objects, 
+  renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = AC.signalGenerator objects, 
+                                                 RH.signalBuf = AC.signalBuf objects, 
                                                  RH.featuresBuf = AC.featuresBuf objects, 
-                                                 RH.xPosFun = (\x -> fromIntegral x / 60.0), 
-                                                 RH.zPosFun = (\z -> fromIntegral z / 15.0), 
+                                                 RH.xPosFun = (\x -> fromIntegral x / 20.0), 
+                                                 RH.zPosFun = (\z -> fromIntegral z / 5.0), 
                                                  RH.scaleFun = (\s _ _ -> s), 
                                                  RH.vertexBuf = vertexBufIORef, 
                                                  RH.normalsBuf = normalsBufIORef, 
@@ -342,7 +361,7 @@ initComponent _ contextSettings contextObjects = do
     matrixMode $= Projection
     loadIdentity
     viewport $= (Position 0 0, Size (fromIntegral canvasInitWidth) (fromIntegral canvasInitHeight))
-    perspective (fromIntegral viewPerspective) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
+    perspective (realToFrac $ AC.viewAngle settings) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
 
     matrixMode $= Modelview 0
     loadIdentity
@@ -359,7 +378,7 @@ initComponent _ contextSettings contextObjects = do
     return True
 
   -- Resize handler:
-  _ <- Gtk.onSizeAllocate canvas (reshape)
+  _ <- Gtk.onSizeAllocate canvas (reshape contextSettings)
 
   -- Add canvas (OpenGL drawing area) to GUI:
   Gtk.widgetSetSizeRequest canvas canvasInitWidth canvasInitHeight
@@ -403,5 +422,3 @@ mulColor4Value (Color4 r g b a) value = Color4 r' g' b' a'
         b' = b * value
         a' = a * value
 
-viewPerspective :: Int
-viewPerspective = 120
