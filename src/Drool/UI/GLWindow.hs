@@ -72,11 +72,6 @@ display contextSettingsIORef renderSettingsIORef = do
   let tick   = RH.tick renderSettings
   let tickMs = tick * 25
 
-  modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = (tick+1) `mod` 10000, 
-                                                           RH.xLinScale = AC.xLinScale settings, 
-                                                           RH.xLogScale = AC.xLogScale settings, 
-                                                           RH.zLinScale = AC.zLinScale settings } )
-
   let updatePerspective p = if AC.autoPerspectiveSwitch settings && tickMs >= AC.autoPerspectiveSwitchInterval settings then ( do 
                                 let nextPerspective = RH.nextPerspective p
                                 modifyIORef contextSettingsIORef ( \_ -> settings { AC.renderPerspective = nextPerspective } )
@@ -128,16 +123,13 @@ display contextSettingsIORef renderSettingsIORef = do
 
   -- Load signal buffer from context
   signalBuf   <- readIORef $ RH.signalBuf renderSettings
+  -- Load features buffer from rendering context
   featuresBuf <- readIORef $ RH.featuresBuf renderSettings
   
-  -- let signalList = DT.signalList signalBuf
-  -- let numNewSignals = length signalList
   -- Load vertex buffer from rendering context
   let vertexBufIORef = RH.vertexBuf renderSettings
   -- Load normals buffer from rendering context
   let normalsBufIORef = RH.normalsBuf renderSettings
-  -- Load features buffer from rendering context
-  -- let featuresBufIORef = RH.featuresBuf renderSettings
 
   ---------------------------------------------------------------------------------------------------
   -- Begin handling of new signal
@@ -175,13 +167,23 @@ display contextSettingsIORef renderSettingsIORef = do
                      Just s  -> do signalBounds <- getBounds $ DT.signalArray s
                                    return $ rangeSize signalBounds
                      Nothing -> return $ SigGen.numSamples sigGen
+
+  modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = (tick+1) `mod` 10000, 
+                                                           RH.xLinScale = AC.xLinScale settings, 
+                                                           RH.xLogScale = AC.xLogScale settings, 
+                                                           RH.zLinScale = AC.zLinScale settings, 
+                                                           RH.numSignals = maxNumSignals, 
+                                                           RH.numSamples = numSamples } )
   
   ---------------------------------------------------------------------------------------------------
   -- End handling of new signal
   ---------------------------------------------------------------------------------------------------
   
-  let surfaceWidth = xPosFun (numSamples-1) numSamples renderSettings
-  let surfaceDepth = zPosFun (maxNumSignals-1) maxNumSignals renderSettings
+  let surfaceWidth = xPosFun (numSamples-1) renderSettings
+  let surfaceDepth = zPosFun (maxNumSignals-1) renderSettings
+
+  fogMode $= Linear 0.0 (surfaceDepth * 2.0)
+  fogColor $= (Color4 0.0 0.0 0.0 1.0)
 
   GL.position (Light 0) $= lightPos0
   GL.position (Light 0) $= lightPos1
@@ -218,6 +220,7 @@ display contextSettingsIORef renderSettingsIORef = do
   marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
 
   preservingMatrix $ do 
+    fog $= Disabled
     let fontWidth  = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
     -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
     let fontScaling = (surfaceWidth * 1.5) / fontWidth
@@ -228,6 +231,7 @@ display contextSettingsIORef renderSettingsIORef = do
     blendFunc $= ( SrcAlpha, OneMinusSrcAlpha )
     color $ Color4 0 0 0 (0.5::GLfloat)
     FTGL.renderFont gridfont marqueeText FTGL.Front
+    fog $= Enabled
 
 -- }}} 
 
@@ -314,14 +318,16 @@ initComponent _ contextSettings contextObjects = do
   let sigGen     = AC.signalGenerator objects
   let numSamples = SigGen.numSamples sigGen
 
-  let xPosFun x n rs = (log (x'+1.0) + (x' / n' * xLogScale)) / (log n' + xLogScale) * xLinScale
-                       where xLogScale = RH.xLogScale rs
-                             xLinScale = RH.xLinScale rs
-                             n' = fromIntegral n
-                             x' = fromIntegral x
+  let xPosFun x rs = (log (x'+1.0) + (x' / n' * xLogScale)) / (log n' + xLogScale) * xLinScale
+                     where xLogScale = RH.xLogScale rs
+                           xLinScale = RH.xLinScale rs
+                           sGen = RH.signalGenerator rs
+                           n' = fromIntegral $ SigGen.numSamples sGen
+                           x' = fromIntegral x
 
-  let zPosFun z n rs = fromIntegral z / fromIntegral n * zLinScale
-                       where zLinScale = RH.zLinScale rs
+  let zPosFun z rs = fromIntegral z / n' * zLinScale
+                     where zLinScale = RH.zLinScale rs
+                           n' = fromIntegral $ RH.numSignals rs
   
   renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = sigGen, 
                                                  RH.signalBuf = AC.signalBuf objects, 
@@ -362,7 +368,8 @@ initComponent _ contextSettings contextObjects = do
     blend $= Enabled
     multisample $= Enabled
     sampleAlphaToCoverage $= Enabled
-    
+    fog $= Enabled
+
     lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
 

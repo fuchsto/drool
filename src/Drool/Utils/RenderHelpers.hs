@@ -89,9 +89,9 @@ data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator,
                                        -- IORef to signal buffer: 
                                        signalBuf :: IORef DT.SignalList, 
                                        -- maps x index to x position: 
-                                       xPosFun :: (Int -> Int -> RenderSettings -> GLfloat),
+                                       xPosFun :: (Int -> RenderSettings -> GLfloat),
                                        -- maps signal index to z position: 
-                                       zPosFun :: (Int -> Int -> RenderSettings -> GLfloat), 
+                                       zPosFun :: (Int -> RenderSettings -> GLfloat), 
                                        -- scales sample (vertex y position) according to x and z index: 
                                        scaleFun :: (SValue -> Int -> Int -> GLfloat), 
                                        -- Linear scaling of X axis
@@ -309,19 +309,17 @@ normalsFromVertices' sigs xIdx = case sigs of
 -- }}}
 
 verticesFromSamples :: [ SValue ] -> Int -> RenderSettings -> [ Vertex3 GLfloat ]
-verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx nSamples renderSettings
+verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx renderSettings
                                                                                 y = (scaleFun renderSettings) s signalIdx xIdx
-                                                                                z = (zPosFun renderSettings) signalIdx nSignals renderSettings in
+                                                                                z = (zPosFun renderSettings) signalIdx renderSettings in
                                                                             Vertex3 x y z ) [0..] samples
-                                                                              where nSamples = length samples
-                                                                                    nSignals = numSignals renderSettings
 
 -- Expects a 2-dimensional list of vertices, considering the first dimension a z-Index, 
 -- and a function mapping z-Indices to z-coordinates. 
 -- Updates z-coordinate in every vertex to (zPosFunc zIndex). 
-updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> Int -> RenderSettings -> GLfloat) -> RenderSettings -> [[ Vertex3 GLfloat ]]
+updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> (Int -> RenderSettings -> GLfloat) -> RenderSettings -> [[ Vertex3 GLfloat ]]
 updateVerticesZCoord signalsVertices zPosFunc renderSettings = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
-  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFunc (nSignals-1-z) nSignals renderSettings ) ) vertexList
+  where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zPosFunc (nSignals-1-z) renderSettings ) ) vertexList
         nSignals = length signalsVertices
 
 getViewpointFromModelView :: GLmatrix GLfloat -> IO ( Vector3 GLfloat )
@@ -502,12 +500,12 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
 
   let zCoordFun = zPosFun renderSettings
       xCoordFun = xPosFun renderSettings
-      splitZ    = case findIndex ( \z -> (zCoordFun (z+1) nSignals renderSettings) >= (v3z viewpoint) ) [0..(nSignals-1)] of 
+      splitZ    = case findIndex ( \z -> (zCoordFun (z+1) renderSettings) >= (v3z viewpoint) ) [0..(nSignals-1)] of 
                     Just idx -> nSignals-idx-1
                     Nothing  -> 0
-      splitX    = case findIndex ( \x -> (xCoordFun x nSamples renderSettings) >= (v3x viewpoint) ) [0..(nSamples-1)] of 
+      splitX    = case findIndex ( \x -> (xCoordFun x renderSettings) >= (v3x viewpoint) ) [0..(nSamples-1)] of 
                     Just idx -> idx
-                    Nothing  -> if (xCoordFun 0 nSamples renderSettings) >= (v3x viewpoint) then 0 else (nSamples-1)
+                    Nothing  -> if (xCoordFun 0 renderSettings) >= (v3x viewpoint) then 0 else (nSamples-1)
 
   let secTopLeftStartIdcs     = ( 0 :: Int, 0 :: Int)
       secTopLeftEndIdcs       = ( splitZ, splitX )

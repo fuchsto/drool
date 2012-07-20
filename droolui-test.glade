@@ -199,6 +199,26 @@
     <property name="step_increment">0.01</property>
     <property name="page_increment">0.10000000000000001</property>
   </object>
+  <object class="GtkAdjustment" id="adjXLinScale">
+    <property name="lower">1</property>
+    <property name="upper">10</property>
+    <property name="value">5</property>
+    <property name="step_increment">0.01</property>
+    <property name="page_increment">0.10000000000000001</property>
+  </object>
+  <object class="GtkAdjustment" id="adjXLogScale">
+    <property name="upper">30</property>
+    <property name="value">10</property>
+    <property name="step_increment">0.10000000000000001</property>
+    <property name="page_increment">1</property>
+  </object>
+  <object class="GtkAdjustment" id="adjZLinScale">
+    <property name="lower">1</property>
+    <property name="upper">30</property>
+    <property name="value">5</property>
+    <property name="step_increment">0.10000000000000001</property>
+    <property name="page_increment">1</property>
+  </object>
   <object class="GtkEntryBuffer" id="entrybuffer1"/>
   <object class="GtkImage" id="iconFreezeVisualizer">
     <property name="visible">True</property>
@@ -216,6 +236,11 @@
     <property name="stock">gtk-media-pause</property>
   </object>
   <object class="GtkImage" id="iconFreezeVisualizer11">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-media-pause</property>
+  </object>
+  <object class="GtkImage" id="iconFreezeVisualizer12">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-pause</property>
@@ -591,6 +616,65 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
+                      <object class="GtkHBox" id="hboxVisualizerButtons">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <object class="GtkAlignment" id="algnShowVisualizer">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="top_padding">5</property>
+                            <property name="bottom_padding">5</property>
+                            <property name="left_padding">10</property>
+                            <property name="right_padding">4</property>
+                            <child>
+                              <object class="GtkButton" id="buttonVisualizer">
+                                <property name="label" translatable="yes">Show visualizer</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="use_action_appearance">False</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkAlignment" id="algnButtonFreezeVisualizer">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="top_padding">5</property>
+                            <property name="bottom_padding">5</property>
+                            <property name="right_padding">8</property>
+                            <child>
+                              <object class="GtkButton" id="buttonFreezeVisualizer">
+                                <property name="label" translatable="yes">Freeze</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="use_action_appearance">False</property>
+                                <property name="image">iconFreezeVisualizer12</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">False</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
                       <object class="GtkHandleBox" id="handleboxViewOptions">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -607,7 +691,7 @@
                               <object class="GtkTable" id="tableViewOptions">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="n_rows">21</property>
+                                <property name="n_rows">19</property>
                                 <property name="n_columns">2</property>
                                 <property name="row_spacing">1</property>
                                 <child>
@@ -876,7 +960,7 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkHBox" id="hbox3">
+                                  <object class="GtkHBox" id="hboxIncRotation">
                                     <property name="width_request">38</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
@@ -988,8 +1072,8 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">10</property>
-                                    <property name="bottom_attach">11</property>
+                                    <property name="top_attach">11</property>
+                                    <property name="bottom_attach">12</property>
                                     <property name="y_padding">2</property>
                                   </packing>
                                 </child>
@@ -999,8 +1083,8 @@
                                     <property name="can_focus">False</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">7</property>
-                                    <property name="bottom_attach">8</property>
+                                    <property name="top_attach">8</property>
+                                    <property name="bottom_attach">9</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
@@ -1012,8 +1096,8 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">7</property>
-                                    <property name="bottom_attach">8</property>
+                                    <property name="top_attach">8</property>
+                                    <property name="bottom_attach">9</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
@@ -1023,8 +1107,8 @@
                                     <property name="can_focus">False</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">9</property>
-                                    <property name="bottom_attach">10</property>
+                                    <property name="top_attach">10</property>
+                                    <property name="bottom_attach">11</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
@@ -1036,13 +1120,13 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">9</property>
-                                    <property name="bottom_attach">10</property>
+                                    <property name="top_attach">10</property>
+                                    <property name="bottom_attach">11</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkHScale" id="FixedRotationX">
+                                  <object class="GtkHScale" id="hscaleFixedRotationX">
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="adjustment">adjFixedRotationX</property>
@@ -1055,10 +1139,9 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">11</property>
-                                    <property name="bottom_attach">12</property>
+                                    <property name="top_attach">12</property>
+                                    <property name="bottom_attach">13</property>
                                     <property name="y_options">GTK_FILL</property>
-                                    <property name="x_padding">4</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1075,10 +1158,10 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">12</property>
-                                    <property name="bottom_attach">13</property>
+                                    <property name="top_attach">13</property>
+                                    <property name="bottom_attach">14</property>
+                                    <property name="x_options">GTK_FILL</property>
                                     <property name="y_options">GTK_FILL</property>
-                                    <property name="x_padding">4</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1095,10 +1178,9 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">13</property>
-                                    <property name="bottom_attach">14</property>
+                                    <property name="top_attach">14</property>
+                                    <property name="bottom_attach">15</property>
                                     <property name="y_options">GTK_FILL</property>
-                                    <property name="x_padding">4</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1107,8 +1189,8 @@
                                     <property name="can_focus">False</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">14</property>
-                                    <property name="bottom_attach">15</property>
+                                    <property name="top_attach">15</property>
+                                    <property name="bottom_attach">16</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
@@ -1120,8 +1202,8 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">14</property>
-                                    <property name="bottom_attach">15</property>
+                                    <property name="top_attach">15</property>
+                                    <property name="bottom_attach">16</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
@@ -1130,11 +1212,12 @@
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="xalign">1</property>
+                                    <property name="xpad">3</property>
                                     <property name="label" translatable="yes">Inc. Rotation</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">10</property>
-                                    <property name="bottom_attach">11</property>
+                                    <property name="top_attach">11</property>
+                                    <property name="bottom_attach">12</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1143,95 +1226,13 @@
                                     <property name="can_focus">False</property>
                                     <property name="xalign">1</property>
                                     <property name="yalign">0</property>
+                                    <property name="xpad">3</property>
                                     <property name="label" translatable="yes">Fixed Rotation</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">11</property>
-                                    <property name="bottom_attach">14</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkHBox" id="hboxVisualizerButtons">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <child>
-                                      <object class="GtkAlignment" id="algnShowVisualizer">
-                                        <property name="visible">True</property>
-                                        <property name="can_focus">False</property>
-                                        <property name="top_padding">5</property>
-                                        <property name="bottom_padding">5</property>
-                                        <property name="left_padding">10</property>
-                                        <property name="right_padding">4</property>
-                                        <child>
-                                          <object class="GtkButton" id="buttonVisualizer">
-                                            <property name="label" translatable="yes">Show visualizer</property>
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">True</property>
-                                            <property name="receives_default">True</property>
-                                            <property name="use_action_appearance">False</property>
-                                          </object>
-                                        </child>
-                                      </object>
-                                      <packing>
-                                        <property name="expand">True</property>
-                                        <property name="fill">True</property>
-                                        <property name="position">0</property>
-                                      </packing>
-                                    </child>
-                                    <child>
-                                      <object class="GtkAlignment" id="algnButtonFreezeVisualizer">
-                                        <property name="visible">True</property>
-                                        <property name="can_focus">False</property>
-                                        <property name="top_padding">5</property>
-                                        <property name="bottom_padding">5</property>
-                                        <property name="right_padding">8</property>
-                                        <child>
-                                          <object class="GtkButton" id="buttonFreezeVisualizer">
-                                            <property name="label" translatable="yes">Freeze</property>
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">True</property>
-                                            <property name="receives_default">True</property>
-                                            <property name="use_action_appearance">False</property>
-                                            <property name="image">iconFreezeVisualizer11</property>
-                                          </object>
-                                        </child>
-                                      </object>
-                                      <packing>
-                                        <property name="expand">False</property>
-                                        <property name="fill">False</property>
-                                        <property name="position">1</property>
-                                      </packing>
-                                    </child>
-                                  </object>
-                                  <packing>
-                                    <property name="right_attach">2</property>
-                                    <property name="top_attach">20</property>
-                                    <property name="bottom_attach">21</property>
-                                    <property name="x_options">GTK_EXPAND</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkHSeparator" id="hseparator10">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                  </object>
-                                  <packing>
-                                    <property name="top_attach">18</property>
-                                    <property name="bottom_attach">19</property>
-                                    <property name="y_padding">5</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkHSeparator" id="hseparator12">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                  </object>
-                                  <packing>
-                                    <property name="left_attach">1</property>
-                                    <property name="right_attach">2</property>
-                                    <property name="top_attach">18</property>
-                                    <property name="bottom_attach">19</property>
-                                    <property name="y_padding">5</property>
+                                    <property name="top_attach">12</property>
+                                    <property name="bottom_attach">15</property>
+                                    <property name="y_padding">4</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1440,8 +1441,8 @@
                                     <property name="justify">right</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">8</property>
-                                    <property name="bottom_attach">9</property>
+                                    <property name="top_attach">9</property>
+                                    <property name="bottom_attach">10</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1541,8 +1542,8 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">8</property>
-                                    <property name="bottom_attach">9</property>
+                                    <property name="top_attach">9</property>
+                                    <property name="bottom_attach">10</property>
                                     <property name="y_padding">2</property>
                                   </packing>
                                 </child>
@@ -1551,11 +1552,12 @@
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="xalign">1</property>
+                                    <property name="xpad">3</property>
                                     <property name="label" translatable="yes">Blending</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">15</property>
-                                    <property name="bottom_attach">16</property>
+                                    <property name="top_attach">16</property>
+                                    <property name="bottom_attach">17</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1632,8 +1634,8 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">15</property>
-                                    <property name="bottom_attach">16</property>
+                                    <property name="top_attach">16</property>
+                                    <property name="bottom_attach">17</property>
                                     <property name="x_padding">2</property>
                                   </packing>
                                 </child>
@@ -1643,8 +1645,8 @@
                                     <property name="can_focus">False</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">16</property>
-                                    <property name="bottom_attach">17</property>
+                                    <property name="top_attach">17</property>
+                                    <property name="bottom_attach">18</property>
                                     <property name="y_padding">5</property>
                                   </packing>
                                 </child>
@@ -1656,38 +1658,9 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">16</property>
-                                    <property name="bottom_attach">17</property>
+                                    <property name="top_attach">17</property>
+                                    <property name="bottom_attach">18</property>
                                     <property name="y_padding">5</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel" id="labelDepthTest">
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
-                                    <property name="xalign">1</property>
-                                    <property name="label" translatable="yes">Depth Test</property>
-                                  </object>
-                                  <packing>
-                                    <property name="top_attach">17</property>
-                                    <property name="bottom_attach">18</property>
-                                  </packing>
-                                </child>
-                                <child>
-                                  <object class="GtkCheckButton" id="checkbuttonEnableDepthTest">
-                                    <property name="label" translatable="yes">Enabled</property>
-                                    <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
-                                    <property name="receives_default">False</property>
-                                    <property name="use_action_appearance">False</property>
-                                    <property name="draw_indicator">True</property>
-                                  </object>
-                                  <packing>
-                                    <property name="left_attach">1</property>
-                                    <property name="right_attach">2</property>
-                                    <property name="top_attach">17</property>
-                                    <property name="bottom_attach">18</property>
-                                    <property name="x_padding">4</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1836,15 +1809,16 @@
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="xalign">1</property>
+                                    <property name="xpad">3</property>
                                     <property name="label" translatable="yes">View</property>
                                   </object>
                                   <packing>
-                                    <property name="top_attach">19</property>
-                                    <property name="bottom_attach">20</property>
+                                    <property name="top_attach">18</property>
+                                    <property name="bottom_attach">19</property>
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkHBox" id="hbox7">
+                                  <object class="GtkHBox" id="hboxView">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="spacing">3</property>
@@ -1898,6 +1872,7 @@
                                         <property name="can_focus">True</property>
                                         <property name="adjustment">adjViewDistance</property>
                                         <property name="round_digits">1</property>
+                                        <property name="digits">2</property>
                                         <property name="value_pos">right</property>
                                       </object>
                                       <packing>
@@ -1911,8 +1886,132 @@
                                   <packing>
                                     <property name="left_attach">1</property>
                                     <property name="right_attach">2</property>
-                                    <property name="top_attach">19</property>
-                                    <property name="bottom_attach">20</property>
+                                    <property name="top_attach">18</property>
+                                    <property name="bottom_attach">19</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="labelScale">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="xalign">1</property>
+                                    <property name="xpad">3</property>
+                                    <property name="label" translatable="yes">Scale</property>
+                                  </object>
+                                  <packing>
+                                    <property name="top_attach">7</property>
+                                    <property name="bottom_attach">8</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkTable" id="tableScale">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="n_rows">3</property>
+                                    <property name="n_columns">2</property>
+                                    <child>
+                                      <object class="GtkLabel" id="labelXLinScale">
+                                        <property name="width_request">70</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">False</property>
+                                        <property name="xalign">1</property>
+                                        <property name="xpad">5</property>
+                                        <property name="label" translatable="yes">X Linear</property>
+                                      </object>
+                                      <packing>
+                                        <property name="x_options"></property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel" id="labelXLogScale">
+                                        <property name="width_request">70</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">False</property>
+                                        <property name="xalign">1</property>
+                                        <property name="xpad">5</property>
+                                        <property name="label" translatable="yes">X Log</property>
+                                      </object>
+                                      <packing>
+                                        <property name="top_attach">1</property>
+                                        <property name="bottom_attach">2</property>
+                                        <property name="x_options"></property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel" id="labelZLinScale">
+                                        <property name="width_request">70</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">False</property>
+                                        <property name="xalign">1</property>
+                                        <property name="xpad">5</property>
+                                        <property name="label" translatable="yes">Z Linear</property>
+                                      </object>
+                                      <packing>
+                                        <property name="top_attach">2</property>
+                                        <property name="bottom_attach">3</property>
+                                        <property name="x_options"></property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkHScale" id="hscaleXLin">
+                                        <property name="width_request">400</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="adjustment">adjXLinScale</property>
+                                        <property name="round_digits">1</property>
+                                        <property name="digits">2</property>
+                                        <property name="value_pos">right</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">1</property>
+                                        <property name="right_attach">2</property>
+                                        <property name="x_options"></property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkHScale" id="hscaleXLin1">
+                                        <property name="width_request">400</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="adjustment">adjXLogScale</property>
+                                        <property name="round_digits">2</property>
+                                        <property name="digits">2</property>
+                                        <property name="value_pos">right</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">1</property>
+                                        <property name="right_attach">2</property>
+                                        <property name="top_attach">1</property>
+                                        <property name="bottom_attach">2</property>
+                                        <property name="x_options"></property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkHScale" id="hscaleXLin2">
+                                        <property name="width_request">400</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="adjustment">adjZLinScale</property>
+                                        <property name="round_digits">2</property>
+                                        <property name="digits">2</property>
+                                        <property name="value_pos">right</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">1</property>
+                                        <property name="right_attach">2</property>
+                                        <property name="top_attach">2</property>
+                                        <property name="bottom_attach">3</property>
+                                        <property name="x_options"></property>
+                                      </packing>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="left_attach">1</property>
+                                    <property name="right_attach">2</property>
+                                    <property name="top_attach">7</property>
+                                    <property name="bottom_attach">8</property>
+                                    <property name="x_padding">4</property>
+                                    <property name="y_padding">7</property>
                                   </packing>
                                 </child>
                               </object>
@@ -1936,7 +2035,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">0</property>
+                        <property name="position">1</property>
                       </packing>
                     </child>
                     <child>
@@ -2197,7 +2296,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">1</property>
+                        <property name="position">2</property>
                       </packing>
                     </child>
                     <child>
@@ -2292,7 +2391,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">2</property>
+                        <property name="position">3</property>
                       </packing>
                     </child>
                     <child>
@@ -2472,7 +2571,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">3</property>
+                        <property name="position">4</property>
                       </packing>
                     </child>
                     <child>
@@ -2683,7 +2782,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">4</property>
+                        <property name="position">5</property>
                       </packing>
                     </child>
                     <child>
@@ -3074,7 +3173,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">5</property>
+                        <property name="position">6</property>
                       </packing>
                     </child>
                     <child>
@@ -3252,7 +3351,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">6</property>
+                        <property name="position">7</property>
                       </packing>
                     </child>
                     <child>
@@ -3520,7 +3619,7 @@ and it doesn't look that nice, either. </property>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">7</property>
+                        <property name="position">8</property>
                       </packing>
                     </child>
                   </object>

@@ -75,7 +75,8 @@ complexDoubleToFloat :: Complex Double -> Float
 complexDoubleToFloat cd = realToFrac(sqrt (realPart cd * realPart cd + imagPart cd * imagPart cd)) :: Float
 
 complexDoublesToFloats :: [Complex Double] -> [Float]
-complexDoublesToFloats cds = map (\x -> (complexDoubleToFloat x) / 100.0) cds
+complexDoublesToFloats cds = map (\x -> (complexDoubleToFloat x) / n) cds
+  where n = fromIntegral $ length cds
 
 listToCArray lst = createCArray (0,(length lst)-1) ( \ptr -> do { pokeArray ptr lst } )
 

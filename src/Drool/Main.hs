@@ -107,34 +107,40 @@ main = do
   soundTarget <- Pulse.simpleNew Nothing "DroolPlayback" Pulse.Play Nothing "Drool audio playback" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing Nothing
   
-  sampleChan       <- CC.newChan 
-  sampleThread     <- C.forkOS . M.forever $ do sampleState <- readIORef samplingStateIORef
-                                                cSettings   <- readIORef contextSettings
-                                                cObjects    <- readIORef contextObjects
-                                                let bufferMaxSize = AC.signalBufferSize cSettings
-                                                let siggen = AC.signalGenerator cObjects
-                                                let ampSignal s = if (AC.ampEnabled cSettings) then s * (realToFrac $ AC.signalAmpDb cSettings) else s
-                                                let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
-                                                let fftWindowSize = AC.numFFTBands cSettings
-                                                let loop = if sampleState == SamplingPaused then ( 
-                                                             C.threadDelay 10 )
-                                                           else ( do
-                                                             soundSamples <- Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
-                                                             -- TODO: Enable if playback flag is set
-                                                             Pulse.simpleWrite soundTarget soundSamples
-                                                             renderSamples <- if AC.fftEnabled cSettings then FFT.fftwFloats soundSamples else return soundSamples
-                                                             cObjects <- readIORef contextObjects
-                                                             let siggen = AC.signalGenerator cObjects
-                                                             let numChanSamples = SigGen.numSamples siggen
-                                                             -- CC.writeChan sampleChan (take numChanSamples (renderSamples)) )
-                                                             let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
-                                                             let sampleListAmp = map (\x -> ampSignal (realToFrac x) ) $ take (SigGen.numSamples siggen) renderSamples
-                                                             let features   = FE.extractSignalFeatures sampleListAmp feSettings siggen
-                                                             _ <- atomicModifyIORef signalFeaturesBuffer (\list -> ( FE.SignalFeaturesList( readjustBufferSize ((FE.signalFeaturesList list) ++ [features] ) bufferMaxSize), True ) )
-                                                             newSignal <- (newListArray (0, length sampleListAmp - 1) sampleListAmp)::IO (IOArray Int GLfloat)
-                                                             _ <- atomicModifyIORef signalBuffer (\list -> ( DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [DT.CSignal newSignal]) bufferMaxSize), True ) ) 
-                                                             return () )
-                                                loop
+  sampleChan      <- CC.newChan 
+  sampleTickIORef <- newIORef 0
+  sampleThread    <- C.forkOS . M.forever $ do sampleState <- readIORef samplingStateIORef
+                                               cSettings   <- readIORef contextSettings
+                                               cObjects    <- readIORef contextObjects
+                                               let bufferMaxSize = AC.signalBufferSize cSettings
+                                               let siggen = AC.signalGenerator cObjects
+                                               let ampSignal s = if (AC.ampEnabled cSettings) then s * (realToFrac $ AC.signalAmpDb cSettings) else s
+                                               let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
+                                               let fftWindowSize = AC.numFFTBands cSettings
+                                               let loop = ( do
+                                                            soundSamples <- Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
+                                                            -- If using a test signal, generate it: 
+                                                            sampleTick <- readIORef sampleTickIORef 
+                                                            modifyIORef sampleTickIORef (\tick -> (tick + 1) `mod` 1000)
+                                                            let testSignalSamples = take (SigGen.numSamples siggen) (SigGen.genSignal siggen sampleTick)
+                                                            -- If sampling microphone input, read it: 
+                                                            let rawSamples = if AC.signalSource cSettings == DT.Microphone then soundSamples else map (\v -> realToFrac v) testSignalSamples
+                                                            -- TODO: Enable if playback flag is set
+                                                            -- Pulse.simpleWrite soundTarget soundSamples
+                                                            Pulse.simpleWrite soundTarget rawSamples
+                                                            transformedSamples <- if AC.fftEnabled cSettings then FFT.fftwFloats rawSamples else return rawSamples
+                                                            let sigGen = AC.signalGenerator cObjects
+                                                            let numChanSamples = SigGen.numSamples sigGen
+                                                            -- CC.writeChan sampleChan (take numChanSamples (renderSamples)) )
+                                                            let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
+                                                            let amplifiedSamples = map (\x -> ampSignal $ realToFrac x) $ take (SigGen.numSamples siggen) transformedSamples
+                                                            let features   = FE.extractSignalFeatures amplifiedSamples feSettings siggen
+                                                            _ <- atomicModifyIORef signalFeaturesBuffer (\list -> ( FE.SignalFeaturesList( readjustBufferSize ((FE.signalFeaturesList list) ++ [features] ) bufferMaxSize), True ) )
+                                                            newSignal <- (newListArray (0, length amplifiedSamples - 1) amplifiedSamples)::IO (IOArray Int GLfloat)
+                                                            _ <- atomicModifyIORef signalBuffer (\list -> ( DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [DT.CSignal newSignal]) bufferMaxSize), True ) ) 
+                                                            C.threadDelay (AC.signalPushFrequency cSettings)
+                                                            return () )
+                                               loop
                                                 
   contextObjects $=! objects { AC.samplingThreadId = sampleThread }
  
@@ -143,54 +149,6 @@ main = do
       cSettings     <- readIORef contextSettings
       cObjects      <- readIORef contextObjects
       samplingState <- readIORef samplingStateIORef
-
-      -- Get active signal generator from context objects: 
-      let siggen = AC.signalGenerator cObjects
-      -- Get samples from sampling thread: 
-      sigsamples <- if samplingState == SamplingActive then CC.readChan sampleChan else return []
-      
-      -- Helper function. Pop first signal in buffer if buffer is full. 
-      let readjustBufferSize buf maxSize = if length buf > maxSize then drop (length buf - maxSize) buf else buf
-      
-      -- If using a test signal, generate it: 
-      let genSampleListTestSignal = take (SigGen.numSamples siggen) (SigGen.genSignal siggen count)
-      -- If sampling microphone input, read it: 
-      let ampSignal s = if (AC.ampEnabled cSettings) then s * (realToFrac $ AC.signalAmpDb cSettings) else s
-      let genSampleListMicrophone = map (\x -> ampSignal (realToFrac x) ) $ take (SigGen.numSamples siggen) sigsamples
-      let genSampleList = if AC.signalSource cSettings == DT.Microphone then genSampleListMicrophone else genSampleListTestSignal
-
-      let toggleSampling source state = case source of 
-                                          DT.Microphone -> if state == SamplingPaused then 
-                                                              atomicModifyIORef samplingStateIORef ( \_ -> (SamplingActive, True) ) >>= return
-                                                           else return (False)
-                                          DT.TestSignal -> if state == SamplingActive then 
-                                                              atomicModifyIORef samplingStateIORef ( \_ -> (SamplingPaused, True) ) >>= return
-                                                           else return (False)
-                                          _ -> return False 
-      _ <- toggleSampling (AC.signalSource cSettings) samplingState
-
-      -- Get max size of buffers: 
-      let bufferMaxSize = AC.signalBufferSize cSettings
-
-      -- Extract features from current signal: 
-      let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
-      let features   = FE.extractSignalFeatures genSampleList feSettings siggen
-      -- Push new features to buffer: 
-      _ <- atomicModifyIORef signalFeaturesBuffer (\list -> ( FE.SignalFeaturesList( readjustBufferSize ((FE.signalFeaturesList list) ++ [features] ) bufferMaxSize), True ) )
-
-      -- Sample list to array:
-      newSignal <- (newListArray (0, length genSampleList - 1) genSampleList)::IO (IOArray Int GLfloat)
-      
-      -- Push new signal to buffer:
-      _ <- atomicModifyIORef signalBuffer (\list -> ( DT.CSignalList( readjustBufferSize ((DT.signalList list) ++ [DT.CSignal newSignal]) bufferMaxSize), True ) )
-
-      -- Increment values of incremental rotation: 
-      let accIncRotation  = (AC.incRotationAccum cSettings) 
-      let incRotationStep = (AC.incRotation cSettings) 
-      let nextIncRotation = DT.CRotationVector { DT.rotY = (DT.rotY accIncRotation + DT.rotY incRotationStep), 
-                                                 DT.rotX = (DT.rotX accIncRotation + DT.rotX incRotationStep), 
-                                                 DT.rotZ = (DT.rotZ accIncRotation + DT.rotZ incRotationStep) } 
-      contextSettings $=! cSettings { AC.incRotationAccum = nextIncRotation }
       
       -- Start a new timeout with incremented count:
       let timeoutMs = (Conv.freqToMs $ AC.signalPushFrequency cSettings)

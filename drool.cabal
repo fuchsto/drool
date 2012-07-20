@@ -9,7 +9,7 @@ maintainer: twh.fuchs@gmail.com
 data-dir: ""
  
 executable drool
-    ghc-options: -O2 -rtsopts -threaded -ferror-spans
+    ghc-options: -O2 -rtsopts -threaded -ferror-spans -feager-blackholing
     build-depends: GLUT -any, OpenGL -any, array -any, carray -any,
                    base -any, glade -any, gtk -any,
                    gtk2hs-cast-glade -any, gtkglext -any, mtl -any, 
