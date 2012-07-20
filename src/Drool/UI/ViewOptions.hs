@@ -299,6 +299,12 @@ initComponent gtkBuilder contextSettings _ = do
     val <- Gtk.adjustmentGetValue adjZLinScale
     contextSettings $=! settings { AC.zLinScale = realToFrac val } 
   
+  checkbuttonPlayback <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonPlayback"
+  _ <- Gtk.on checkbuttonPlayback Gtk.toggled $ do 
+    val <- Gtk.toggleButtonGetActive checkbuttonPlayback
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.playbackEnabled = val }
+
   
   let updateCallback = ( do
       cSettings <- readIORef contextSettings
@@ -310,7 +316,7 @@ initComponent gtkBuilder contextSettings _ = do
       modifyIORef contextSettings (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
       return True )
 
-  updateTimer <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle 20
+  updateTimer <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle (Conv.freqToMs 25)
   
   _ <- updateSettings gtkBuilder defaultSettings
 
@@ -346,6 +352,9 @@ updateSettings gtkBuilder settings = do
   Gtk.adjustmentSetValue adjBandRange4Amp (realToFrac $ (AC.rangeAmps settings) !! 3)
   adjBandRange5Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange5Amp"
   Gtk.adjustmentSetValue adjBandRange5Amp (realToFrac $ (AC.rangeAmps settings) !! 4)
+
+  checkbuttonPlayback <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonPlayback"
+  Gtk.toggleButtonSetActive checkbuttonPlayback (AC.playbackEnabled settings)
   
   comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
   Gtk.comboBoxSetActive comboboxFeatureBassEnergyTarget (AC.featureBassEnergyTargetIdx settings)

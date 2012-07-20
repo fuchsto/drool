@@ -40,13 +40,21 @@ import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) )
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
+import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar )
+
+import Criterion.Main
+import Criterion.Config
+
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
 -- {{{
-  renderSettings <- readIORef renderSettingsIORef
-  settings       <- readIORef contextSettingsIORef
-    
+  renderSettingsOld <- readIORef renderSettingsIORef
+  settings          <- readIORef contextSettingsIORef
+
+  let samplingSem = RH.samplingSem renderSettingsOld
+  numNewSignals <- MV.swapMVar samplingSem 0
+
   matrixMode $= Projection
   loadIdentity
   perspective (realToFrac (AC.viewAngle settings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
@@ -62,20 +70,20 @@ display contextSettingsIORef renderSettingsIORef = do
       accIncRotation = AC.incRotationAccum settings
       viewDistance   = AC.viewDistance settings
       maxNumSignals  = AC.signalBufferSize settings
-      lightPos0      = RH.lightPos0 renderSettings
-      lightPos1      = RH.lightPos1 renderSettings
-      sigGen         = RH.signalGenerator renderSettings
+      lightPos0      = RH.lightPos0 renderSettingsOld
+      lightPos1      = RH.lightPos1 renderSettingsOld
+      sigGen         = RH.signalGenerator renderSettingsOld
       surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
       lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
       vPerspective   = AC.renderPerspective settings
 
-  let tick   = RH.tick renderSettings
+  let tick   = RH.tick renderSettingsOld
   let tickMs = tick * 25
 
   let updatePerspective p = if AC.autoPerspectiveSwitch settings && tickMs >= AC.autoPerspectiveSwitchInterval settings then ( do 
                                 let nextPerspective = RH.nextPerspective p
                                 modifyIORef contextSettingsIORef ( \_ -> settings { AC.renderPerspective = nextPerspective } )
-                                modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = 0 } )
+                                modifyIORef renderSettingsIORef ( \_ -> renderSettingsOld { RH.tick = 0 } )
                                 return nextPerspective )
                             else return p
   curPerspective <- updatePerspective vPerspective
@@ -122,44 +130,22 @@ display contextSettingsIORef renderSettingsIORef = do
   ---------------------------------------------------------------------------------------------------
 
   -- Load signal buffer from context
-  signalBuf   <- readIORef $ RH.signalBuf renderSettings
+  signalBuf   <- readIORef $ RH.signalBuf renderSettingsOld
   -- Load features buffer from rendering context
-  featuresBuf <- readIORef $ RH.featuresBuf renderSettings
+  featuresBuf <- readIORef $ RH.featuresBuf renderSettingsOld
   
   -- Load vertex buffer from rendering context
-  let vertexBufIORef = RH.vertexBuf renderSettings
+  let vertexBufIORef = RH.vertexBuf renderSettingsOld
   -- Load normals buffer from rendering context
-  let normalsBufIORef = RH.normalsBuf renderSettings
+  let normalsBufIORef = RH.normalsBuf renderSettingsOld
 
   ---------------------------------------------------------------------------------------------------
   -- Begin handling of new signal
   ---------------------------------------------------------------------------------------------------
 
-  let xPosFun   = RH.xPosFun renderSettings
-  let zPosFun   = RH.zPosFun renderSettings
-  let rangeAmps = AC.rangeAmps settings
-
-  let newSignals    = DT.signalList signalBuf
-  let numNewSignals = length newSignals
-  -- All signals in buffer loaded, empty signal buffer: 
-  writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
-
-  -- TODO: Add IIR-filter over vertex Y-coordinates in Z-direction here, like: 
-  -- v_n = Vertex3 (v3x v_n) (v3y v_(n-1) * a + v3y v_n * (1-a)) (v3z v_n)
-
-  newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
-                                      let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
-                                      let sigVertices = RH.verticesFromSamples sigSamplesT 0 renderSettings
-                                      return sigVertices ) newSignals
-  vBufCurr <- readIORef vertexBufIORef
-  let vBufUpdated   = newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (maxNumSignals-(length newSigVertices)))
-  let vBufZAdjusted = RH.updateVerticesZCoord vBufUpdated zPosFun renderSettings
-  modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
-  
-  nBufCurr <- readIORef normalsBufIORef
-  let nBufUpdated = updateNormalsBuffer nBufCurr (take ((length newSigVertices)+2) vBufZAdjusted) maxNumSignals
-  modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
-  
+  let newSignals = take numNewSignals $ DT.signalList signalBuf
+  let numSignals = length $ DT.signalList signalBuf
+  let numNewSignalsRead = length newSignals
   -- Load most recent signal from buffer (last signal in list): 
   let recentSignal = DT.getRecentSignal signalBuf 
   -- Get length of most recent signal (= number of samples per signal): 
@@ -168,19 +154,41 @@ display contextSettingsIORef renderSettingsIORef = do
                                    return $ rangeSize signalBounds
                      Nothing -> return $ SigGen.numSamples sigGen
 
-  modifyIORef renderSettingsIORef ( \_ -> renderSettings { RH.tick = (tick+1) `mod` 10000, 
-                                                           RH.xLinScale = AC.xLinScale settings, 
-                                                           RH.xLogScale = AC.xLogScale settings, 
-                                                           RH.zLinScale = AC.zLinScale settings, 
-                                                           RH.numSignals = maxNumSignals, 
-                                                           RH.numSamples = numSamples } )
+  modifyIORef renderSettingsIORef ( \_ -> renderSettingsOld { RH.tick = (tick+1) `mod` 10000, 
+                                                              RH.xLinScale = AC.xLinScale settings, 
+                                                              RH.xLogScale = AC.xLogScale settings, 
+                                                              RH.zLinScale = AC.zLinScale settings, 
+                                                              RH.numSignals = numSignals, 
+                                                              RH.numSamples = numSamples } )
+  renderSettings <- readIORef renderSettingsIORef
+
+  let xPosFun   = RH.xPosFun renderSettings
+  let zPosFun   = RH.zPosFun renderSettings
+  let rangeAmps = AC.rangeAmps settings
+
+  -- All signals in buffer loaded, empty signal buffer: 
+  -- writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
+
+  newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
+                                      let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
+                                      let sigVertices = RH.verticesFromSamples sigSamplesT 0 renderSettings
+                                      return sigVertices ) (reverse newSignals)
+
+  vBufCurr <- readIORef vertexBufIORef
+  let vBufUpdated     = if numNewSignalsRead > 0 then newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (numSignals-numNewSignalsRead)) else vBufCurr
+  let vBufZAdjusted   = if numNewSignalsRead > 0 then RH.updateVerticesZCoord vBufUpdated zPosFun renderSettings else vBufUpdated
+  modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
+
+  nBufCurr <- readIORef normalsBufIORef
+  let nBufUpdated = if numNewSignalsRead > 0 then updateNormalsBuffer nBufCurr (take (numNewSignalsRead+2) vBufZAdjusted) numSignals else nBufCurr
+  modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
   
   ---------------------------------------------------------------------------------------------------
   -- End handling of new signal
   ---------------------------------------------------------------------------------------------------
   
   let surfaceWidth = xPosFun (numSamples-1) renderSettings
-  let surfaceDepth = zPosFun (maxNumSignals-1) renderSettings
+  let surfaceDepth = zPosFun (numSignals-1) renderSettings
 
   fogMode $= Linear 0.0 (surfaceDepth * 2.0)
   fogColor $= (Color4 0.0 0.0 0.0 1.0)
@@ -194,8 +202,10 @@ display contextSettingsIORef renderSettingsIORef = do
   materialSpecular FrontAndBack $= mulColor4Value surfaceColor 2
   materialShininess FrontAndBack $= 30
 
-  vertexBuf  <- readIORef vertexBufIORef :: IO [[ Vertex3 GLfloat ]]
-  normalsBuf <- readIORef normalsBufIORef :: IO [[ Normal3 GLfloat ]]
+  -- vertexBuf  <- readIORef vertexBufIORef :: IO [[ Vertex3 GLfloat ]]
+  -- normalsBuf <- readIORef normalsBufIORef :: IO [[ Normal3 GLfloat ]]
+  let vertexBuf  = vBufZAdjusted
+  let normalsBuf = nBufUpdated
 
   ----------------------------------------------------------------------------------------
   -- Render scene 
@@ -205,7 +215,7 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
-  RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings
+  b <- bench "renderSurface" $ (RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings)
 
   -- Render marquee text, if any
   blendFunc $= ( One, One )
@@ -325,11 +335,13 @@ initComponent _ contextSettings contextObjects = do
                            n' = fromIntegral $ SigGen.numSamples sGen
                            x' = fromIntegral x
 
+  -- Returns Infinity for numSignals = 0
   let zPosFun z rs = fromIntegral z / n' * zLinScale
                      where zLinScale = RH.zLinScale rs
                            n' = fromIntegral $ RH.numSignals rs
   
   renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = sigGen, 
+                                                 RH.samplingSem = AC.samplingSem objects, 
                                                  RH.signalBuf = AC.signalBuf objects, 
                                                  RH.featuresBuf = AC.featuresBuf objects, 
                                                  RH.xPosFun = xPosFun, 

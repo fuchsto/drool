@@ -34,13 +34,6 @@ initComponent gtkBuilder contextSettings _ = do
 
   defaultSettings <- readIORef contextSettings
 
-  adjAmpDb <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAmpDb"
-  Gtk.adjustmentSetValue adjAmpDb (realToFrac $ AC.signalAmpDb defaultSettings)
-  _ <- Gtk.onValueChanged adjAmpDb $ do
-    val <- Gtk.adjustmentGetValue adjAmpDb
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.signalAmpDb = realToFrac val }
-
   adjNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjNumFFTBands"
   Gtk.adjustmentSetValue adjNumFFTBands (realToFrac $ AC.numFFTBands defaultSettings)
   _ <- Gtk.onValueChanged adjNumFFTBands $ do
@@ -48,12 +41,33 @@ initComponent gtkBuilder contextSettings _ = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.numFFTBands = round val }
 
+  adjIIRCoef <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIIRCoef"
+  Gtk.adjustmentSetValue adjIIRCoef (realToFrac $ AC.iirCoef defaultSettings)
+  _ <- Gtk.onValueChanged adjIIRCoef $ do
+    val <- Gtk.adjustmentGetValue adjIIRCoef
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.iirCoef = realToFrac val }
+
+  adjAmpDb <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAmpDb"
+  Gtk.adjustmentSetValue adjAmpDb (realToFrac $ AC.signalAmpDb defaultSettings)
+  _ <- Gtk.onValueChanged adjAmpDb $ do
+    val <- Gtk.adjustmentGetValue adjAmpDb
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.signalAmpDb = realToFrac val }
+
   checkbuttonUseFFT <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseFFT"
   Gtk.toggleButtonSetActive checkbuttonUseFFT (AC.fftEnabled defaultSettings)
   _ <- Gtk.on checkbuttonUseFFT Gtk.toggled $ do 
     val <- Gtk.toggleButtonGetActive checkbuttonUseFFT
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.fftEnabled = val }
+
+  checkbuttonUseIIR <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseIIR"
+  Gtk.toggleButtonSetActive checkbuttonUseIIR (AC.iirEnabled defaultSettings)
+  _ <- Gtk.on checkbuttonUseIIR Gtk.toggled $ do 
+    val <- Gtk.toggleButtonGetActive checkbuttonUseIIR
+    settings <- readIORef contextSettings
+    contextSettings $=! settings { AC.iirEnabled = val }
 
   checkbuttonUseAmp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseAmp"
   Gtk.toggleButtonSetActive checkbuttonUseAmp (AC.fftEnabled defaultSettings)

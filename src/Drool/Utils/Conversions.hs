@@ -73,6 +73,7 @@ floatsToComplexDoubles fs = (map (\x -> floatToComplexDouble x) fs)
 -- Returns magnitude of complex double as float, with magnitude = (re^2 + im^2)^0.5
 complexDoubleToFloat :: Complex Double -> Float
 complexDoubleToFloat cd = realToFrac(sqrt (realPart cd * realPart cd + imagPart cd * imagPart cd)) :: Float
+-- complexDoubleToFloat cd = realToFrac(sqrt (realPart cd * realPart cd)) :: Float
 
 complexDoublesToFloats :: [Complex Double] -> [Float]
 complexDoublesToFloats cds = map (\x -> (complexDoubleToFloat x) / n) cds

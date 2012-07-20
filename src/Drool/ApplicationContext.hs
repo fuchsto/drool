@@ -35,6 +35,7 @@ import Drool.Utils.SigGen as SigGen
 import qualified Graphics.Rendering.OpenGL as GL ( BlendingFactor(..) ) 
 import qualified Drool.Utils.Conversions as Conv ( blendModeSourceIndex, blendModeFrameBufferIndex )
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), featureTargetIndex, FeatureTarget(..) ) 
+import qualified Control.Concurrent.MVar as MV ( MVar )
 
 -- Shared settings for communication between main controller, view options
 -- and rendering. 
@@ -91,9 +92,11 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          maxBeatBand :: Int, 
                                       -- Transformation options: 
                                          fftEnabled :: Bool, 
+                                         iirEnabled :: Bool, 
                                          ampEnabled :: Bool, 
                                       -- Sample rates
                                          numFFTBands :: Int, 
+                                         iirCoef :: Float, 
                                          audioSampleRate :: Int, 
                                       -- Preferences
                                          -- Enable playback:
@@ -133,22 +136,25 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            autoPerspectiveSwitch = False, 
                                            autoPerspectiveSwitchInterval = 500, 
                                            maxBeatBand = 20, 
+                                           iirEnabled = True, 
                                            fftEnabled = True, 
                                            ampEnabled = True, 
+                                           playbackEnabled = True, 
                                            featureSignalEnergyTargetIdx = FE.featureTargetIndex FE.GlobalTarget, 
                                            featureBassEnergyTargetIdx = FE.featureTargetIndex FE.LocalTarget, 
                                            featureSignalEnergySurfaceCoeff = 0.2, 
                                            featureBassEnergySurfaceCoeff = 0.8, 
                                            featureSignalEnergyGridCoeff = 0.5, 
                                            featureBassEnergyGridCoeff = 0.5, 
-                                           audioSampleRate = 191000, 
+                                           audioSampleRate = 180000, -- 191000, 
                                            numFFTBands = 10240, 
-                                           playbackEnabled = True, 
+                                           iirCoef = 0.8, 
                                            marqueeText = "bass macht glücklich", 
                                            signalSource = DT.Microphone }
 
 -- Non-serializable context settings. 
 data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 
+                                       samplingSem :: MV.MVar Int, 
                                        signalBuf :: (IORef SignalList), 
                                        featuresBuf :: (IORef FE.SignalFeaturesList), 
                                        signalGenerator :: (SigGen.SignalGenerator) } 

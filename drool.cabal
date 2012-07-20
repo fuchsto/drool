@@ -10,11 +10,12 @@ data-dir: ""
  
 executable drool
     ghc-options: -O2 -rtsopts -threaded -ferror-spans -feager-blackholing
+                 -- -feager-blackholing
     build-depends: GLUT -any, OpenGL -any, array -any, carray -any,
                    base -any, glade -any, gtk -any,
                    gtk2hs-cast-glade -any, gtkglext -any, mtl -any, 
                    pulse-simple -any, fft -any, pure-fft -any, hmatrix -any, 
-                   FTGL -any
+                   FTGL -any, criterion -any
     main-is: Drool/Main.hs
     buildable: True
     hs-source-dirs: src
@@ -22,4 +23,5 @@ executable drool
                    Drool.ApplicationContext Drool.UI.SignalSourceOptions Drool.Types
                    Drool.UI.TransformationOptions Drool.UI.FeatureExtractionOptions
                    Drool.Utils.SigGen Drool.UI.GLWindow Drool.Utils.RenderHelpers
+                   Drool.Utils.Transformation
  
