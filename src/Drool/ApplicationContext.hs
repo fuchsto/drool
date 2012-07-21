@@ -15,6 +15,7 @@
 module Drool.ApplicationContext (
     ContextSettings(..),
     ContextObjects(..), 
+    Metrics(..), 
     defaultContextSettings, 
     saveContextSettings,
     saveContextSettingsAs, 
@@ -105,7 +106,12 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          -- Marquee text to render in visualizer: 
                                          marqueeText :: [Char], 
                                       -- Signal source options: 
-                                         signalSource :: DT.SignalSource }
+                                         signalSource :: DT.SignalSource, 
+
+                                         metrics :: Metrics }
+  deriving ( Show, Read ) 
+
+data Metrics = Metrics { latency :: Integer } -- in ms
   deriving ( Show, Read ) 
 
 defaultContextSettings :: ContextSettings
@@ -151,7 +157,8 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            numFFTBands = 10240, 
                                            iirCoef = 0.8, 
                                            marqueeText = "bass macht glücklich", 
-                                           signalSource = DT.Microphone }
+                                           signalSource = DT.Microphone, 
+                                           metrics = Metrics { latency = 0 } }
 
 -- Non-serializable context settings. 
 data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 

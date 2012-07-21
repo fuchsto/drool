@@ -305,20 +305,6 @@ initComponent gtkBuilder contextSettings _ = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.playbackEnabled = val }
 
-  
-  let updateCallback = ( do
-      cSettings <- readIORef contextSettings
-      let accIncRotation  = (AC.incRotationAccum cSettings) 
-      let incRotationStep = (AC.incRotation cSettings) 
-      let nextIncRotation = DT.CRotationVector { DT.rotY = (DT.rotY accIncRotation + DT.rotY incRotationStep), 
-                                                 DT.rotX = (DT.rotX accIncRotation + DT.rotX incRotationStep), 
-                                                 DT.rotZ = (DT.rotZ accIncRotation + DT.rotZ incRotationStep) } 
-      modifyIORef contextSettings (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
-      return True )
---  updateTimer <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle (Conv.freqToMs 50)
-  
-  _ <- updateSettings gtkBuilder defaultSettings
-
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
