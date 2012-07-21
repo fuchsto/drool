@@ -24,6 +24,7 @@ module Drool.Utils.RenderHelpers (
     scaleSamples, 
 
     vertexWithNormal, 
+    vertexWithNormalAndColor, 
     normalsFromVertices, 
     verticesFromSamples, 
     updateVerticesZCoord, 
@@ -36,12 +37,7 @@ module Drool.Utils.RenderHelpers (
     getViewpointFromModelView, 
 
     vertexSectionIndices, 
-    renderSurface, 
-
-    vxIIR, 
-    vxApplyIIR, 
-
-    updateVerticesIIR
+    renderSurface
 ) where
 
 import Debug.Trace
@@ -123,7 +119,7 @@ data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator,
                                        numSamples :: Int, 
                                        
                                        tick :: Int, 
-                                       
+
                                        fillFont :: IORef FTGL.Font, 
                                        gridFont :: IORef FTGL.Font } 
 
@@ -238,22 +234,7 @@ vx3add a b = Vertex3 x y z
   where x = vx3x a + vx3x b
         y = vx3y a + vx3y b
         z = vx3z a + vx3z b
-{-
-v3mul :: (Num a) => Vector3 a -> Vector3 a -> Vector3 a
-v3mul a b = Vector3 x y z
-  where x = v3x a * v3x b
-        y = v3y a * v3y b
-        z = v3z a * v3z b
--}
 
-{-
-n3normalize :: Normal3 GLfloat -> Normal3 GLfloat
-n3normalize n = Normal3 x y z 
-  where norm = sqrt $ ((n3x n)**2) + ((n3y n)**2) + ((n3z n)**2) :: GLfloat
-        x = (n3x n) / norm 
-        y = (n3y n) / norm
-        z = (n3z n) / norm
--}
 n3Invert :: Normal3 GLfloat -> Normal3 GLfloat
 n3Invert n = Normal3 x y z
   where x = -(n3x n)
@@ -270,6 +251,12 @@ vertexWithNormal :: (Vertex3 GLfloat, Normal3 GLfloat) -> IO ()
 vertexWithNormal (v,n) = do normal n
                             vertex v 
                             return ()
+
+vertexWithNormalAndColor :: (Vertex3 GLfloat, Normal3 GLfloat) -> Color4 GLfloat -> IO ()
+vertexWithNormalAndColor (v,n) c = do color c
+                                      normal n
+                                      vertex v 
+                                      return ()
 
 drawNormal :: (Fractional a, VertexComponent a) => ( Vertex3 a, Normal3 a ) -> IO ()
 drawNormal (v,n) = do let from = v
@@ -398,7 +385,7 @@ renderSignalSurfaceStrip :: PrimitiveMode ->
                             Int -> -- signal index
                             IO ()
 -- {{{
-renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings _ = (
+renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings sigIdx = (
   do -- Put vertices and normals in correct (interleaved) order for 
      -- rendendering: 
      let aMaxIdx array = snd $ bounds array
@@ -417,6 +404,10 @@ renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsAr
      -- slow in this case. 
      let sortedVertices = if dirX == LeftToRight then Conv.interleaveArrays vsCurr vsNext else Conv.interleaveArrays vsNext vsCurr
      let sortedNormals  = if dirX == LeftToRight then Conv.interleaveArrays nsCurr nsNext else Conv.interleaveArrays nsNext nsCurr
+  
+     let nSignals  = AC.signalBufferSize settings
+     let alphaFrom = (fromIntegral nSignals / fromIntegral sigIdx)
+     let alphaTo   = (fromIntegral nSignals / fromIntegral (sigIdx+1))
 
      fAppFun fsCurr FE.LocalTarget settings
      fAppFun fsNext FE.LocalTarget settings
@@ -428,6 +419,23 @@ renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsAr
 -- on Z-direction (BackToFront | FrontToBack). 
 -- TODO: Check if there is a performance gain when creating final drawing indices here (by
 --       depending on X-direction) instead of switching X-order in renderSignalSurfaceStrip. 
+--
+-- Example: This is a matrix of indices in the section of the surface we want to render. 
+--   
+--                x-split
+--                   |
+--     0  1  2  3  4 | x  x  x  x  x
+--    10 11 12 13 14 | x  x  x  x  x 
+--    20 21 22 23 24 | x  x  x  x  x
+--    30 31 32 33 34 | x  x  x  x  x 
+--    ---------------+-------------- <-- z-split
+--     x  x  x  x  x | x  x  x  x  x 
+--
+--    Here, start index is (0,0) and end index is (34,4). 
+--
+--    Output is list of indices in order they will be rendered: 
+--    -> [ 0, 10, 1, 11, 2, 12, 3, 13, 4, 14, 10, 20, 11, 21, ... ]
+--
 vertexSectionIndices :: DirectionX -> DirectionZ -> Int -> (Int,Int) -> (Int,Int) -> Array Int (Array Int Int)
 -- {{{
 vertexSectionIndices _ dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = listArray (0,((length list)-1)) $ map (\idcs -> listArray (0,((length idcs)-1)) idcs) list
@@ -467,8 +475,10 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
       let nSignals = rangeSize $ bounds fArray
       let sigIdcs  = if dirZ == BackToFront then [zStartIdx..zEndIdx] else [ zEndIdx-x | x <- [0..zEndIdx] ]
 
-      let vSecArray = amap ( \zArray -> amap ( \i -> vArray ! i ) zArray ) vIndexMatrixZSorted
-      let nSecArray = amap ( \zArray -> amap ( \i -> nArray ! i ) zArray ) vIndexMatrixZSorted
+      let nullVertex = Vertex3 0 0 (0::GLfloat)
+      let nullNormal = Normal3 0 0 (0::GLfloat)
+      let vSecArray = amap ( \zArray -> amap ( \i -> safeArrayAt vArray i nullVertex ) zArray ) vIndexMatrixZSorted
+      let nSecArray = amap ( \zArray -> amap ( \i -> safeArrayAt nArray i nullNormal ) zArray ) vIndexMatrixZSorted
 
       -- Render single surface strips of this section in correct Z- and X-order: 
       mapM_ ( \(sigIdx,secSigIdx) -> ( do let globalSigIdx = zEndIdx
@@ -530,7 +540,6 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
   let renderSec dX dZ sS sE   = renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
   
 --  cullFace $= if v3y viewpoint > 0 then Just Back else Just Front
---  cullFace $= Just FrontAndBack
   
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
@@ -538,19 +547,9 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
 -- }}}
 
-{-
-iir :: (Fractional a) => a -> [a] -> [a] -> a
-iir sample samples coefs = foldl (\ac (i,v) -> ac + (coefs !! i) * v) 0.0 (zip [0..num-1] (sample : (take num samples)))
-  where num = length coefs
-
--- Applies IIR filter to buffer, updating num elements in the front. 
--- Element in the front is considered the most recent signal sample. 
-applyIIR :: (Fractional a) => [a] -> [a] -> Int -> [a]
-applyIIR samples coefs num =  if num > 0 then applyIIR (headSamples ++ [iirSample] ++ tailSamples) coefs (num-1) else samples
-  where iirSample = iir (samples !! (num - 1)) tailSamples coefs
-        headSamples = take (num-1) samples
-        tailSamples = drop num samples
--}
+{- 
+-- Applying IIR filter to vertex Y-coords is not used right now as 
+-- IIR filters happen in signal transformation where they belong. 
 
 vxIIR :: (Fractional a) => Vertex3 a -> [Vertex3 a] -> [a] -> Vertex3 a
 vxIIR sample samples coefs = foldl (\ac (i,(Vertex3 x y z)) -> vx3add ac (Vertex3 x ((coefs !! i) * y) z)) (Vertex3 0.0 0.0 0.0) (zip [0..num-1] (sample : (take num samples)))
@@ -563,12 +562,6 @@ vxApplyIIR samples coefs num =  if num > 0 then vxApplyIIR (headSamples ++ [iirV
         headSamples = take (num-1) samples
         tailSamples = drop num samples
   
-{-
-vxApplyIIR :: (Fractional a) => [[ Vertex3 a ]] -> [a] -> Int -> [[ Vertex3 a ]]
-vxApplyIIR vBuf coefs num = updatedSignals ++ (drop num vBuf)
-  where updatedSignals = map (\sigIdx,sigVertices -> map (\vIdx, v ->  ) (zip [0..maxVidx] sigVertices) ) (zip [0..num-1] (take num vBuf))
--}
-
 updateSignalVerticesIIR :: [ Vertex3 GLfloat ] -> [ Vertex3 GLfloat ] -> GLfloat -> [ Vertex3 GLfloat ]
 updateSignalVerticesIIR sigVsPrev sigVs coef = zipWith ( \psv sv -> Vertex3 (vx3x sv) (vx3y sv * coef + vx3y psv * (1-coef)) (vx3z sv) ) sigVsPrev sigVs
 
@@ -582,5 +575,5 @@ updateVerticesIIR' vBuf num coef = if num > 0 then updatedSigs ++ [ ( updateSign
         lastOldSig  = (sigs !! 0) :: [ Vertex3 GLfloat ]
         sigToUpdate = (sigs !! 1) :: [ Vertex3 GLfloat ]
         updatedSigs = (updateVerticesIIR' vBuf (num-1) coef)
-
+-}
 

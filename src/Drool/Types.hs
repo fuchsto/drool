@@ -27,6 +27,7 @@ module Drool.Types (
    newSignalList,
    getSignal,
    getRecentSignal, 
+   getLastSignal, 
    getBufferSample,
    getSignalSample
 ) where
@@ -91,6 +92,11 @@ getRecentSignal :: SignalList -> Maybe Signal
 getRecentSignal signals@(CSignalList (_:_)) = Just $ sigList !! 0
   where sigList = signalList signals
 getRecentSignal (CSignalList []) = Nothing
+
+getLastSignal :: SignalList -> Maybe Signal
+getLastSignal signals@(CSignalList (_:_)) = Just $ last sigList 
+  where sigList = signalList signals
+getLastSignal (CSignalList []) = Nothing
 
 {-
 getBufferSample signalBuf time_idx sample_idx = do

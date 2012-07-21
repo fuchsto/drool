@@ -3,7 +3,9 @@
 module Drool.Utils.Transformation (
     fftFloats, 
     fftwFloats, 
-    signalIIR
+    signalIIR,
+    iir, 
+    applyIIR
 ) where 
 
 import Debug.Trace
@@ -25,14 +27,12 @@ fftFloats fs = Conv.complexDoublesToFloats $ FFT.fft (Conv.floatsToComplexDouble
 
 fftwFloats :: [Float] -> IO [Float]
 fftwFloats fs = ( do 
-  -- let numSamples = length fs
   -- [Float] to to [Double] to CArray Integer Double:
   carrDoubles <- Conv.listToCArray $ (map ( \f -> float2Double f ) fs)
   -- CArray Integer Float to CArray Integer (Complex Float), 
   -- carrCDoubles now containts the DFT result: 
   let fftCDoubles = FFTW.dftRC carrDoubles
   -- Unmarshal array to [Complex Double]: 
-  let numSamples = size fftCDoubles
   let lstCDoubles = Conv.listFromCArray fftCDoubles
   -- Convert [Complex Double] to [Float]: 
   return $ Conv.complexDoublesToFloats lstCDoubles )
@@ -59,4 +59,16 @@ signalIIR' sigList@(DT.CSignalList (_:_:_)) num coef = do let sigs        = DT.s
 signalIIR' sigList@(DT.CSignalList (_:[])) _ _ = do return sigList
 signalIIR' sigList@(DT.CSignalList []) _ _ = do return sigList
 
+
+iir :: (Fractional a) => a -> [a] -> [a] -> a
+iir sample samples coefs = foldl (\ac (i,v) -> ac + (coefs !! i) * v) 0.0 (zip [0..num-1] (sample : (take num samples)))
+  where num = length coefs
+
+-- Applies IIR filter to buffer, updating num elements in the front. 
+-- Element in the front is considered the most recent signal sample. 
+applyIIR :: (Fractional a) => [a] -> [a] -> Int -> [a]
+applyIIR samples coefs num =  if num > 0 then applyIIR (headSamples ++ [iirSample] ++ tailSamples) coefs (num-1) else samples
+  where iirSample = iir (samples !! (num - 1)) tailSamples coefs
+        headSamples = take (num-1) samples
+        tailSamples = drop num samples
 

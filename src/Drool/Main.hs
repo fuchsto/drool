@@ -114,71 +114,65 @@ main = do
   soundTarget <- Pulse.simpleNew Nothing "DroolPlayback" Pulse.Play Nothing "Drool audio playback" 
                    (Pulse.SampleSpec (Pulse.F32 Pulse.LittleEndian) (sampleRate) 1) Nothing Nothing
   
-  sampleTickIORef <- newIORef 0
-  sampleThread    <- C.forkOS . M.forever $ do cSettings   <- readIORef contextSettings
-                                               cObjects    <- readIORef contextObjects
-                                               let sigGen        = AC.signalGenerator cObjects
-                                               let numSamples    = (SigGen.numSamples sigGen)
-                                               let bufferMaxSize = AC.signalBufferSize cSettings
-                                               let ampSignal s   = if (AC.ampEnabled cSettings) then s * (realToFrac $ AC.signalAmpDb cSettings) else s
-                                               let fftWindowSize = AC.numFFTBands cSettings
-                                               let readjustBufferSize buf maxSize = if length buf > maxSize then take maxSize buf else buf
-                                               -- If sampling microphone input, read it: 
-                                               soundSamples <- Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
-                                               -- If using a test signal, generate it: 
-                                               sampleTick <- readIORef sampleTickIORef 
-                                               modifyIORef sampleTickIORef (\tick -> (tick + 1) `mod` 1000)
-                                               let testSignalSamples = take numSamples (SigGen.genSignal sigGen sampleTick)
-                                               
-                                               let rawSamples = if AC.signalSource cSettings == DT.Microphone then soundSamples else map (\v -> realToFrac v) testSignalSamples
+  sampleTickIORef    <- newIORef 0
+  sampleThread       <- C.forkOS . M.forever $ do cSettings   <- readIORef contextSettings
+                                                  cObjects    <- readIORef contextObjects
+                                                  let sigGen        = AC.signalGenerator cObjects
+                                                  let numSamples    = (SigGen.numSamples sigGen)
+                                                  let bufferMaxSize = AC.signalBufferSize cSettings
+                                                  let ampSignal s   = if (AC.ampEnabled cSettings) then s * (realToFrac $ AC.signalAmpDb cSettings) else s
+                                                  let fftWindowSize = AC.numFFTBands cSettings
+                                                  let readjustBufferSize buf maxSize = if length buf > maxSize then take maxSize buf else buf
+                                                  -- If sampling microphone input, read it: 
+                                                  soundSamples <- Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
+                                                  latency <- Pulse.simpleGetLatency soundSource
+                                                  putStrLn $ "Latency: " ++ show latency
+                                                  -- If using a test signal, generate it: 
+                                                  sampleTick <- readIORef sampleTickIORef 
+                                                  modifyIORef sampleTickIORef (\tick -> (tick + 1) `mod` 1000)
+                                                  let testSignalSamples = take numSamples (SigGen.genSignal sigGen sampleTick)
+                                                  
+                                                  let rawSamples = if AC.signalSource cSettings == DT.Microphone then soundSamples else map (\v -> realToFrac v) testSignalSamples
 
-                                               let playback = if AC.playbackEnabled cSettings then Pulse.simpleWrite soundTarget rawSamples else return ()
-                                               -- Transform: FFT
-                                               fftTransformedSamples <- if AC.fftEnabled cSettings then Trans.fftwFloats rawSamples else return rawSamples
-                                               -- Transform: Amp
-                                               let amplifiedSamples = map (\x -> ampSignal $ realToFrac x) $ take numSamples fftTransformedSamples
-                                               -- Feature Extraction: 
-                                               let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
-                                               let newFeatures = FE.extractSignalFeatures amplifiedSamples feSettings sigGen
-                                               -- Push signal: 
-                                               newSignal <- (newListArray (0, length amplifiedSamples - 1) amplifiedSamples)::IO (IOUArray Int Float)
-                                               
-                                               signalBuf <- readIORef signalBuffer
-                                               let newSignalBuf = DT.CSignalList ( readjustBufferSize ([DT.CSignal newSignal] ++ (DT.signalList signalBuf)) bufferMaxSize )
-                                               
-                                               iirFilteredSignals <- if AC.iirEnabled cSettings then Trans.signalIIR newSignalBuf 1 (realToFrac $ AC.iirCoef cSettings) else return newSignalBuf
+                                                  let playback = if AC.playbackEnabled cSettings then Pulse.simpleWrite soundTarget rawSamples else return ()
+                                                  -- Transform: FFT
+                                                  fftTransformedSamples <- if AC.fftEnabled cSettings then Trans.fftwFloats rawSamples else return rawSamples
+                                                  -- Transform: Amp
+                                                  let amplifiedSamples = map (\x -> ampSignal $ realToFrac x) $ take numSamples fftTransformedSamples
+                                                  -- Feature Extraction: 
+                                                  let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
+                                                  let newFeatures = FE.extractSignalFeatures amplifiedSamples feSettings sigGen
+                                                  -- Push signal: 
+                                                  newSignal <- (newListArray (0, length amplifiedSamples - 1) amplifiedSamples)::IO (IOUArray Int Float)
+                                                  
+                                                  signalBuf <- readIORef signalBuffer
+                                                  let newSignalBuf = DT.CSignalList ( readjustBufferSize ([DT.CSignal newSignal] ++ (DT.signalList signalBuf)) bufferMaxSize )
+                                                  
+                                                  iirFilteredSignals <- if AC.iirEnabled cSettings then Trans.signalIIR newSignalBuf 1 (realToFrac $ AC.iirCoef cSettings) else return newSignalBuf
 
-                                               let iirTransformedSignalBuf = DT.CSignalList ( DT.signalList iirFilteredSignals ) 
+                                                  let iirTransformedSignalBuf = DT.CSignalList ( DT.signalList iirFilteredSignals ) 
 
-                                               featuresBuf <- readIORef signalFeaturesBuffer
-                                               let newFeaturesBuf = FE.SignalFeaturesList ( readjustBufferSize ([newFeatures] ++ (FE.signalFeaturesList featuresBuf)) bufferMaxSize )
-                                               
-                                               _ <- atomicModifyIORef signalBuffer ( \_ -> (iirTransformedSignalBuf, True) )
-                                               _ <- atomicModifyIORef signalFeaturesBuffer ( \_ -> (newFeaturesBuf, True) )
-                                               
-                                               let samplingSem  = AC.samplingSem cObjects
-                                               let renderingSem = AC.samplingSem cObjects
+                                                  featuresBuf <- readIORef signalFeaturesBuffer
+                                                  let newFeaturesBuf = FE.SignalFeaturesList ( readjustBufferSize ([newFeatures] ++ (FE.signalFeaturesList featuresBuf)) bufferMaxSize )
+                                                  
+                                                  _ <- atomicModifyIORef signalBuffer ( \_ -> (iirTransformedSignalBuf, True) )
+                                                  _ <- atomicModifyIORef signalFeaturesBuffer ( \_ -> (newFeaturesBuf, True) )
+                                                  
+                                                  let samplingSem  = AC.samplingSem cObjects
+                                                  -- Do not wait on the MVar, only update it. The rendering thread 
+                                                  -- is waiting on it so it only renders on new signals. 
+                                                  semValue <- MV.tryTakeMVar samplingSem
+                                                  MV.tryPutMVar samplingSem ( case semValue of 
+                                                                              Nothing -> 1
+                                                                              Just v  -> (v+1) )
+   
+                                                  let timeoutMs = (Conv.freqToMs $ AC.signalPushFrequency cSettings)
+                                                  -- C.threadDelay timeoutMs
+                                                  
+                                                  _ <- playback
+                                                  return () 
 
-                                               putStrLn $ "Sampling"
-
-                                               semValue <- MV.tryTakeMVar samplingSem
-                                               MV.tryPutMVar samplingSem ( case semValue of 
-                                                                           Nothing -> 1
-                                                                           Just v  -> (v+1) )
-                                             {-
-                                               putStrLn $ "MVar put -> "
-                                               _ <- MV.putMVar samplingSem 1 -- (min 1 (length (DT.signalList iirTransformedSignalBuf))) -- (length (DT.signalList signalBuf))
-                                               
-                                               putStrLn $ "MVar take -> "
-                                               semValue <- MV.takeMVar renderingSem -- (length (DT.signalList signalBuf))
-                                               semValue <- MV.takeMVar samplingSem
-                                               _ <- MV.tryPutMVar samplingSem (min (semValue+1) (length (DT.signalList signalBuf)))
-                                             -}  
-                                               let timeoutMs = (Conv.freqToMs $ AC.signalPushFrequency cSettings)
-                                               
-                                               C.threadDelay timeoutMs
-                                               _ <- playback
-                                               return () 
+  -- transformationThread <- C.forkIO . forever $ do
                                                 
   contextObjects $=! objects { AC.samplingThreadId = sampleThread }
  

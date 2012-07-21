@@ -51,10 +51,10 @@ display contextSettingsIORef renderSettingsIORef = do
 
   let samplingSem  = RH.samplingSem renderSettingsOld
   let renderingSem = RH.renderingSem renderSettingsOld
+
+  -- Wait until there is at least one signal ready for rendering. 
   numNewSignals <- MV.takeMVar samplingSem 
   
-  putStrLn $ "GLWindow: numNewSignals: " ++ show numNewSignals
-
   matrixMode $= Projection
   loadIdentity
   perspective (realToFrac (AC.viewAngle settings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
@@ -148,13 +148,20 @@ display contextSettingsIORef renderSettingsIORef = do
   let numNewSignalsRead = length newSignals
   -- Load most recent signal from buffer (last signal in list): 
   let recentSignal = DT.getRecentSignal signalBuf 
+  let lastSignal   = DT.getLastSignal signalBuf 
   -- Get length of most recent signal (= number of samples per signal): 
-  numSamples <- case recentSignal of 
-                     Just s  -> do signalBounds <- getBounds $ DT.signalArray s
-                                   return $ rangeSize signalBounds
-                     Nothing -> return $ SigGen.numSamples sigGen
+  numSamplesCurr <- case recentSignal of 
+                         Just s  -> do signalBounds <- getBounds $ DT.signalArray s
+                                       return $ rangeSize signalBounds
+                         Nothing -> return 0 
+  numSamplesLast <- case lastSignal of 
+                         Just s  -> do signalBounds <- getBounds $ DT.signalArray s
+                                       return $ rangeSize signalBounds
+                         Nothing -> return 0 
 
-  modifyIORef renderSettingsIORef ( \_ -> renderSettingsOld { RH.tick = (tick+1) `mod` 10000, 
+  let numSamples = min numSamplesCurr numSamplesLast
+
+  modifyIORef renderSettingsIORef ( \_ -> renderSettingsOld { RH.tick = (tick+1) `mod` 1000, 
                                                               RH.xLinScale = AC.xLinScale settings, 
                                                               RH.xLogScale = AC.xLogScale settings, 
                                                               RH.zLinScale = AC.zLinScale settings, 
@@ -367,7 +374,7 @@ initComponent _ contextSettings contextObjects = do
                                                  RH.gridFont = gridFontIORef, 
                                                  RH.tick = 0, 
                                                  RH.numSignals = 0, 
-                                                 RH.numSamples = 0 } 
+                                                 RH.numSamples = numSamples } 
 
   -- Initialise some GL setting just before the canvas first gets shown
   -- (We can't initialise these things earlier since the GL resources that
@@ -394,7 +401,6 @@ initComponent _ contextSettings contextObjects = do
     lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
 
---    cullFace $= Just FrontAndBack
     colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
 
     let blendModeSource = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
