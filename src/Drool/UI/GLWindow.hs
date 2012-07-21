@@ -40,11 +40,8 @@ import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) )
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
-import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar )
-
-import Criterion.Main
-import Criterion.Config
-
+import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar, takeMVar, putMVar )
+import qualified Control.Concurrent.Chan as CC ( readChan )
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
@@ -52,8 +49,11 @@ display contextSettingsIORef renderSettingsIORef = do
   renderSettingsOld <- readIORef renderSettingsIORef
   settings          <- readIORef contextSettingsIORef
 
-  let samplingSem = RH.samplingSem renderSettingsOld
-  numNewSignals <- MV.swapMVar samplingSem 0
+  let samplingSem  = RH.samplingSem renderSettingsOld
+  let renderingSem = RH.renderingSem renderSettingsOld
+  numNewSignals <- MV.takeMVar samplingSem 
+  
+  putStrLn $ "GLWindow: numNewSignals: " ++ show numNewSignals
 
   matrixMode $= Projection
   loadIdentity
@@ -64,7 +64,7 @@ display contextSettingsIORef renderSettingsIORef = do
   matrixMode $= Modelview 0
   loadIdentity
 
-  let hScale         = (AC.scaling settings) / (100.0::GLfloat)
+  let hScale         = (AC.scaling settings) / (100.0::Float)
       surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
       fixedRotation  = AC.fixedRotation settings
       accIncRotation = AC.incRotationAccum settings
@@ -166,6 +166,13 @@ display contextSettingsIORef renderSettingsIORef = do
   let zPosFun   = RH.zPosFun renderSettings
   let rangeAmps = AC.rangeAmps settings
 
+  let accIncRotation  = (AC.incRotationAccum settings) 
+  let incRotationStep = (AC.incRotation settings) 
+  let nextIncRotation = DT.CRotationVector { DT.rotY = (DT.rotY accIncRotation + DT.rotY incRotationStep), 
+                                             DT.rotX = (DT.rotX accIncRotation + DT.rotX incRotationStep), 
+                                             DT.rotZ = (DT.rotZ accIncRotation + DT.rotZ incRotationStep) } 
+  modifyIORef contextSettingsIORef (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
+
   -- All signals in buffer loaded, empty signal buffer: 
   -- writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
 
@@ -215,7 +222,7 @@ display contextSettingsIORef renderSettingsIORef = do
   -- Resolve view point in model view coordinates: 
   viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
   
-  b <- bench "renderSurface" $ (RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings)
+  RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings
 
   -- Render marquee text, if any
   blendFunc $= ( One, One )
@@ -305,7 +312,7 @@ initComponent _ contextSettings contextObjects = do
 
   putStrLn "Initializing OpenGL viewport"
 
-  glConfig <- GtkGL.glConfigNew [GtkGL.GLModeRGBA, GtkGL.GLModeMultiSample,
+  glConfig <- GtkGL.glConfigNew [GtkGL.GLModeRGBA, GtkGL.GLModeMultiSample, GtkGL.GLModeStencil, 
                                  GtkGL.GLModeDouble, GtkGL.GLModeDepth, GtkGL.GLModeAlpha]
   _ <- GtkGL.initGL
   
@@ -342,6 +349,8 @@ initComponent _ contextSettings contextObjects = do
   
   renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = sigGen, 
                                                  RH.samplingSem = AC.samplingSem objects, 
+                                                 RH.renderingSem = AC.renderingSem objects, 
+                                                 RH.numNewSignalsChan = AC.numNewSignalsChan objects, 
                                                  RH.signalBuf = AC.signalBuf objects, 
                                                  RH.featuresBuf = AC.featuresBuf objects, 
                                                  RH.xPosFun = xPosFun, 
@@ -385,7 +394,7 @@ initComponent _ contextSettings contextObjects = do
     lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
 
-    cullFace $= Just Back
+--    cullFace $= Just FrontAndBack
     colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
 
     let blendModeSource = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
@@ -440,7 +449,7 @@ initComponent _ contextSettings contextObjects = do
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
-    Gtk.priorityDefaultIdle timeoutMs
+    Gtk.priorityHigh timeoutMs
 
   -- Remove timer for redrawing canvas when closing window:
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)

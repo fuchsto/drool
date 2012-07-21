@@ -16,9 +16,8 @@ import Drool.Types as DT ( Signal(..), SignalList(..) )
 import Drool.Utils.Conversions as Conv
 import GHC.Float
 import Data.Array.CArray ( size ) 
-import Data.Array.IO ( IOArray(..), getElems, newListArray, getBounds )
+import Data.Array.IO ( IOUArray, getElems, newListArray, getBounds )
 import Foreign.Marshal.Array ( peekArray )
-import Graphics.Rendering.OpenGL ( GLfloat )
 
 
 fftFloats :: [Float] -> [Float]
@@ -38,18 +37,18 @@ fftwFloats fs = ( do
   -- Convert [Complex Double] to [Float]: 
   return $ Conv.complexDoublesToFloats lstCDoubles )
 
-signalSampleIIR :: DT.Signal -> DT.Signal -> GLfloat -> IO (DT.Signal)
+signalSampleIIR :: DT.Signal -> DT.Signal -> Float -> IO (DT.Signal)
 signalSampleIIR sigVsPrev sigVs coef = do sigVsPrev' <- getElems $ DT.signalArray sigVsPrev
                                           sigVs'     <- getElems $ DT.signalArray sigVs
                                           aRange     <- getBounds $ DT.signalArray sigVs
-                                          filteredSignal <- (newListArray aRange $ zipWith ( \psv sv -> sv * coef + psv * (1-coef) ) sigVsPrev' sigVs') :: IO (IOArray Int GLfloat)
+                                          filteredSignal <- (newListArray aRange $ zipWith ( \psv sv -> sv * coef + psv * (1-coef) ) sigVsPrev' sigVs') :: IO (IOUArray Int Float)
                                           return (DT.CSignal filteredSignal)
 
-signalIIR :: DT.SignalList -> Int -> GLfloat -> IO (DT.SignalList)
+signalIIR :: DT.SignalList -> Int -> Float -> IO (DT.SignalList)
 signalIIR sigList num coef = do updatedSignals <- (signalIIR' sigList num coef) 
                                 return $ DT.CSignalList ((DT.signalList updatedSignals) ++ (drop num (DT.signalList sigList)))
 
-signalIIR' :: DT.SignalList -> Int -> GLfloat -> IO (DT.SignalList)
+signalIIR' :: DT.SignalList -> Int -> Float -> IO (DT.SignalList)
 signalIIR' sigList@(DT.CSignalList (_:_:_)) num coef = do let sigs        = DT.signalList sigList
                                                           let newSigs     = (reverse (take (num+1) sigs)) -- [ old, new, new, ...]
                                                           let lastOldSig  = (newSigs !! 0) :: DT.Signal

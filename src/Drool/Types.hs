@@ -17,13 +17,13 @@
 module Drool.Types (
    RotationVector(..),
    Signal(..),
-   SignalBuffer(..),
+-- SignalBuffer(..),
    SignalList(..),
    SignalSource(..),
    RenderPerspective(..),
    rvector_x, rvector_y, rvector_z,
    newSignal,
-   newSignalBuffer,
+-- newSignalBuffer,
    newSignalList,
    getSignal,
    getRecentSignal, 
@@ -37,11 +37,11 @@ import Drool.Utils.SigGen ( SValue )
 
 
 -- A signal is an array of samples (sample type is GLfloat):
-newtype Signal = CSignal { signalArray :: IOArray Int GLfloat }
+newtype Signal = CSignal { signalArray :: IOUArray Int Float }
 
 -- A signal buffer is an array of signals, signal[t] = signal_t
 -- In effect, a two-dimensional matrix over samples.
-newtype SignalBuffer = CSignalBuffer { signalBufferArray :: IOArray Int Signal }
+-- newtype SignalBuffer = CSignalBuffer { signalBufferArray :: IOArray Int Signal }
 
 -- Would perform better in case a list of Signal is too slow:
 -- newtype SignalQueue = CSignalQueue { signalQueueArray :: MFifoQOf IO Signal }
@@ -70,12 +70,14 @@ rvector_z :: (a,a,a) -> a
 rvector_z (_,_,z) = z
 
 newSignal :: IO Signal
-newSignal = fmap CSignal $ newArray(0,10) (0::GLfloat) :: IO Signal
+newSignal = fmap CSignal $ newArray(0,10) (0::Float) :: IO Signal
 
+{-
 newSignalBuffer :: Int -> IO SignalBuffer
 newSignalBuffer size = do
   blankSignal <- newSignal
   fmap CSignalBuffer $ newArray(0,size) (blankSignal) :: IO SignalBuffer
+-}
 
 newSignalList :: Int -> Signal -> [Signal]
 newSignalList size el = if size > 0 then (el::Signal) : (newSignalList (size-1) el) else []
@@ -86,7 +88,7 @@ getSignal signals time_idx = (signalList signals) !! time_idx
 
 -- Using !! here is okay as signal buffer passed is supposed to be really short (<= 3 signals).
 getRecentSignal :: SignalList -> Maybe Signal
-getRecentSignal signals@(CSignalList (_:_)) = Just $ sigList !! (length sigList - 1)
+getRecentSignal signals@(CSignalList (_:_)) = Just $ sigList !! 0
   where sigList = signalList signals
 getRecentSignal (CSignalList []) = Nothing
 
@@ -97,7 +99,7 @@ getBufferSample signalBuf time_idx sample_idx = do
   return sample
 -}
 
-getBufferSample :: SignalList -> Int -> Int -> IO GLfloat
+getBufferSample :: SignalList -> Int -> Int -> IO Float
 getBufferSample signals time_idx sample_idx = do
   let signal = getSignal signals time_idx
   sample <- readArray (signalArray signal) sample_idx

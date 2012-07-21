@@ -61,7 +61,7 @@ initComponent gtkBuilder contextSettings _ = do
   _ <- Gtk.onValueChanged scale_view_linScalingAdj $ do
     val <- Gtk.adjustmentGetValue scale_view_linScalingAdj
     settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.scaling = (realToFrac(val)::GLfloat) }
+    contextSettings $=! settings { AC.scaling = (realToFrac(val)::Float) }
 
   scale_view_gridOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjGridOpacity"
   _ <- Gtk.onValueChanged scale_view_gridOpacityAdj $ do
@@ -315,8 +315,7 @@ initComponent gtkBuilder contextSettings _ = do
                                                  DT.rotZ = (DT.rotZ accIncRotation + DT.rotZ incRotationStep) } 
       modifyIORef contextSettings (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
       return True )
-
-  updateTimer <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle (Conv.freqToMs 25)
+--  updateTimer <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle (Conv.freqToMs 50)
   
   _ <- updateSettings gtkBuilder defaultSettings
 

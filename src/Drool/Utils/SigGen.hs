@@ -29,7 +29,7 @@ module Drool.Utils.SigGen (
 import Control.Monad.State
 import Graphics.Rendering.OpenGL (GLfloat)
 
-type SValue = GLfloat
+type SValue = Float
 type TValue = Int
 
 type SignalFun = (Int -> TValue -> SValue) 

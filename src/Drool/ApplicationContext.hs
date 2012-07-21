@@ -36,6 +36,7 @@ import qualified Graphics.Rendering.OpenGL as GL ( BlendingFactor(..) )
 import qualified Drool.Utils.Conversions as Conv ( blendModeSourceIndex, blendModeFrameBufferIndex )
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), featureTargetIndex, FeatureTarget(..) ) 
 import qualified Control.Concurrent.MVar as MV ( MVar )
+import qualified Control.Concurrent.Chan as CC ( Chan )
 
 -- Shared settings for communication between main controller, view options
 -- and rendering. 
@@ -57,7 +58,7 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          surfaceColor :: Color3 GLfloat,
                                          lightColor :: Color3 GLfloat,
                                          -- Scaling and opacity: 
-                                         scaling :: GLfloat,
+                                         scaling :: Float,
                                          xLogScale :: GLfloat, 
                                          xLinScale :: GLfloat, 
                                          zLinScale :: GLfloat, 
@@ -109,8 +110,8 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
 
 defaultContextSettings :: ContextSettings
 defaultContextSettings = ContextSettings { settingsFile = Nothing, 
-                                           signalPushFrequency = 100, -- 200,
-                                           renderingFrequency = 100, -- 150,
+                                           signalPushFrequency = 200, 
+                                           renderingFrequency = 30, 
                                            signalBufferSize = 30,
                                            signalAmpDb = 1.0, 
                                            fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
@@ -155,6 +156,8 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
 -- Non-serializable context settings. 
 data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 
                                        samplingSem :: MV.MVar Int, 
+                                       numNewSignalsChan :: CC.Chan Int, 
+                                       renderingSem :: MV.MVar Int, 
                                        signalBuf :: (IORef SignalList), 
                                        featuresBuf :: (IORef FE.SignalFeaturesList), 
                                        signalGenerator :: (SigGen.SignalGenerator) } 

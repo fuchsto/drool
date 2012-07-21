@@ -86,10 +86,12 @@ import Graphics.Rendering.OpenGL (
     GLfloat )
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Control.Concurrent.MVar as MV ( MVar )
-
+import qualified Control.Concurrent.Chan as CC
 
 data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator, 
                                        samplingSem :: MV.MVar Int, 
+                                       renderingSem :: MV.MVar Int, 
+                                       numNewSignalsChan :: CC.Chan Int, 
                                        -- IORef to signal buffer: 
                                        signalBuf :: IORef DT.SignalList, 
                                        -- maps x index to x position: 
@@ -97,7 +99,7 @@ data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator,
                                        -- maps signal index to z position: 
                                        zPosFun :: (Int -> RenderSettings -> GLfloat), 
                                        -- scales sample (vertex y position) according to x and z index: 
-                                       scaleFun :: (SValue -> Int -> Int -> GLfloat), 
+                                       scaleFun :: (SValue -> Int -> Int -> SValue), 
                                        -- Linear scaling of X axis
                                        xLinScale :: GLfloat, 
                                        -- Log scaling of X axis
@@ -161,7 +163,7 @@ bandRangeAmpSamplesRec (x:xs) amps nSamples t = ampSample : (bandRangeAmpSamples
   where ampSample = (applyBandRangeAmp x t nSamples amps)
 bandRangeAmpSamplesRec [] _ _ _ = []
 
-scaleSamples :: [SValue] -> SValue -> [SValue]
+scaleSamples :: (Fractional a) => [a] -> a -> [a]
 scaleSamples samples a = map ( \s -> s * a ) samples
 
 -- {{{
@@ -313,9 +315,9 @@ normalsFromVertices' sigs xIdx = case sigs of
 -- }}}
 
 verticesFromSamples :: [ SValue ] -> Int -> RenderSettings -> [ Vertex3 GLfloat ]
-verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x = (xPosFun renderSettings) xIdx renderSettings
-                                                                                y = (scaleFun renderSettings) s signalIdx xIdx 
-                                                                                z = 0.0 in
+verticesFromSamples samples signalIdx renderSettings = zipWith ( \xIdx s -> let x  = (xPosFun renderSettings) xIdx renderSettings
+                                                                                y  = realToFrac $ (scaleFun renderSettings) s signalIdx xIdx 
+                                                                                z  = 0.0 in
                                                                                 -- z = (zPosFun renderSettings) signalIdx renderSettings in
                                                                             Vertex3 x y z ) [0..] samples
 
@@ -527,7 +529,8 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
 
   let renderSec dX dZ sS sE   = renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
   
-  cullFace $= if v3y viewpoint > 0 then Just Back else Just Front
+--  cullFace $= if v3y viewpoint > 0 then Just Back else Just Front
+--  cullFace $= Just FrontAndBack
   
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
