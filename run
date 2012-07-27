@@ -1,4 +1,4 @@
 #!/bin/bash
 
-sudo nice -n -19 ./dist/build/drool/drool +RTS -N1 -A2m -qm -K32m -H1024m 
+sudo nice -n -19 ./dist/build/drool/drool +RTS -N1 -A2m -qm -K32m 
 # sudo nice -n -19 ./dist/build/drool/drool +RTS -N1 -A2m -qm -K32m -H1024m -B -sstderr

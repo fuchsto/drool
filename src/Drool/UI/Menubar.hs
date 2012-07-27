@@ -26,6 +26,7 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 import qualified Drool.ApplicationContext as AC
 
 import qualified Drool.UI.ViewOptions as ViewOptions
+import qualified Drool.UI.TransformationOptions as TransformationOptions
 
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
 initComponent gtkBuilder contextSettings _ = do
@@ -87,6 +88,7 @@ initComponent gtkBuilder contextSettings _ = do
                              Just path -> do settings <- AC.loadContextSettings path
                                              writeIORef contextSettings settings
                                              _ <- ViewOptions.updateSettings gtkBuilder settings
+                                             _ <- TransformationOptions.updateSettings gtkBuilder settings
                                              return ()
                              Nothing -> putStrLn $ "No path given"
       _ -> putStrLn "Cancelled loading settings"

@@ -48,8 +48,6 @@ import qualified Control.Concurrent.MVar as MV ( MVar, newMVar, readMVar, tryPut
 
 import Data.Array.IO ( IOUArray )
 
-data SamplingState = SamplingPaused | SamplingActive
-  deriving ( Eq, Show ) 
 
 main :: IO()
 main = do
@@ -117,7 +115,7 @@ main = do
   
   transformationChan <- CC.newChan
 
-  sampleTickIORef    <- newIORef 0
+  sampleTickIORef <- newIORef 0
   sampleThread    <- C.forkOS . M.forever $ do cSettings   <- readIORef contextSettings
                                                cObjects    <- readIORef contextObjects
                                                let sigGen        = AC.signalGenerator cObjects
@@ -125,15 +123,15 @@ main = do
                                                let bufferMaxSize = AC.signalBufferSize cSettings
                                                let fftWindowSize = AC.numFFTBands cSettings
                                                -- If sampling microphone input, read it: 
-                                               soundSamples <- Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
+                                               let soundSamples = Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
                                                latency <- Pulse.simpleGetLatency soundSource
                                                modifyIORef contextSettings ( \s -> s { AC.metrics = (AC.metrics s) { AC.latency = latency } } )
                                                -- If using a test signal, generate it: 
                                                sampleTick <- readIORef sampleTickIORef 
-                                               modifyIORef sampleTickIORef (\tick -> (tick + 1) `mod` 1000)
+                                               modifyIORef sampleTickIORef (\tick -> tick + 1)
                                                let testSignalSamples = take numSamples (SigGen.genSignal sigGen sampleTick)
                                                
-                                               let rawSamples = if AC.signalSource cSettings == DT.Microphone then soundSamples else map (\v -> realToFrac v) testSignalSamples
+                                               rawSamples <- if AC.signalSource cSettings == DT.Microphone then soundSamples else return $ map (\v -> realToFrac v) testSignalSamples
                                                CC.writeChan transformationChan rawSamples
 
                                                let playback = if AC.playbackEnabled cSettings then Pulse.simpleWrite soundTarget rawSamples else return ()

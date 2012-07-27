@@ -13,8 +13,10 @@
 -----------------------------------------------------------------------------
 
 module Drool.Utils.Conversions (
-    gtkColorToGLColor,
-    glColorToGtkColor,
+    gtkColorToGLColor3,
+    gtkColorToGLColor4,
+    glColor3ToGtkColor,
+    glColor4ToGtkColor,
     freqToMs,
     msToFreq, 
     floatToComplexDouble, 
@@ -44,19 +46,33 @@ import Data.Array.IArray ( (!), bounds, listArray, ixmap, amap, rangeSize )
 import Data.Array.CArray ( createCArray, elems )
 import Foreign.Marshal.Array ( pokeArray, peekArray )
 import GHC.Float
+import Data.Word ( Word16 )
 
-gtkColorToGLColor :: Gtk.Color -> Color3 GLfloat
-gtkColorToGLColor (Gtk.Color r g b) = Color3 r' g' b'
+gtkColorToGLColor3 :: Gtk.Color -> Color3 GLfloat
+gtkColorToGLColor3 (Gtk.Color r g b) = Color3 r' g' b'
   where r' = ((fromIntegral r) / 65535.0) :: GLfloat
         g' = ((fromIntegral g) / 65535.0) :: GLfloat
         b' = ((fromIntegral b) / 65535.0) :: GLfloat
 
-glColorToGtkColor :: Color3 GLfloat -> Gtk.Color
-glColorToGtkColor (Color3 r g b) = Gtk.Color r' g' b'
+gtkColorToGLColor4 :: Gtk.Color -> Word16 -> Color4 GLfloat
+gtkColorToGLColor4 (Gtk.Color r g b) a = Color4 r' g' b' a'
+  where r' = ((fromIntegral r) / 65535.0) :: GLfloat
+        g' = ((fromIntegral g) / 65535.0) :: GLfloat
+        b' = ((fromIntegral b) / 65535.0) :: GLfloat
+        a' = ((fromIntegral a) / 65535.0) :: GLfloat
+
+glColor3ToGtkColor :: Color3 GLfloat -> Gtk.Color
+glColor3ToGtkColor (Color3 r g b) = Gtk.Color r' g' b'
   where r' = round(r * 65535.0)
         g' = round(g * 65535.0)
         b' = round(b * 65535.0)
 
+glColor4ToGtkColor :: Color4 GLfloat -> ( Gtk.Color, Word16 )
+glColor4ToGtkColor (Color4 r g b a) = (Gtk.Color r' g' b', a')
+  where r' = round(r * 65535.0)
+        g' = round(g * 65535.0)
+        b' = round(b * 65535.0)
+        a' = round(a * 65535.0)
 
 freqToMs :: Int -> Int
 freqToMs f = round(1000.0 / fromIntegral f)

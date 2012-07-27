@@ -25,7 +25,7 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import Graphics.Rendering.OpenGL
 
-import qualified Drool.Utils.Conversions as Conv
+import qualified Drool.UI.GtkHelpers as GH
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 
@@ -62,42 +62,6 @@ initComponent gtkBuilder contextSettings _ = do
     val <- Gtk.adjustmentGetValue scale_view_linScalingAdj
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.scaling = (realToFrac(val)::Float) }
-
-  scale_view_gridOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjGridOpacity"
-  _ <- Gtk.onValueChanged scale_view_gridOpacityAdj $ do
-    val <- Gtk.adjustmentGetValue scale_view_gridOpacityAdj
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.gridOpacity = (realToFrac(val)::GLfloat) }
-
-  scale_view_surfaceOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSurfaceOpacity"
-  _ <- Gtk.onValueChanged scale_view_surfaceOpacityAdj $ do
-    val <- Gtk.adjustmentGetValue scale_view_surfaceOpacityAdj
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.surfaceOpacity = (realToFrac(val)::GLfloat) }
-
-  colorbuttonGrid <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonGrid"
-  Gtk.colorButtonSetColor colorbuttonGrid (Conv.glColorToGtkColor $ AC.gridColor defaultSettings)
-  _ <- Gtk.onColorSet colorbuttonGrid $ do
-    gtkColor <- Gtk.colorButtonGetColor colorbuttonGrid
-    let val = Conv.gtkColorToGLColor(gtkColor)
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.gridColor = val }
-
-  colorbuttonSurface <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonSurface"
-  Gtk.colorButtonSetColor colorbuttonSurface (Conv.glColorToGtkColor $ AC.surfaceColor defaultSettings)
-  _ <- Gtk.onColorSet colorbuttonSurface $ do
-    gtkColor <- Gtk.colorButtonGetColor colorbuttonSurface
-    let val = Conv.gtkColorToGLColor(gtkColor)
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.surfaceColor = val }
-
-  colorbuttonLight <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToColorButton "colorbuttonLight"
-  Gtk.colorButtonSetColor colorbuttonLight (Conv.glColorToGtkColor $ AC.lightColor defaultSettings)
-  _ <- Gtk.onColorSet colorbuttonLight $ do
-    gtkColor <- Gtk.colorButtonGetColor colorbuttonLight
-    let val = Conv.gtkColorToGLColor(gtkColor)
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.lightColor = val }
 
   adjFixedRotationX <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationX"
   _ <- Gtk.onValueChanged adjFixedRotationX $ do
@@ -200,8 +164,6 @@ initComponent gtkBuilder contextSettings _ = do
     modeIdx <- Gtk.comboBoxGetActive comboboxBlendingFrameBuffer
     contextSettings $=! settings { AC.blendModeFrameBufferIdx = modeIdx } 
 
-  _ <- updateSettings gtkBuilder defaultSettings
-
   comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
   _ <- Gtk.on comboboxFeatureBassEnergyTarget Gtk.changed $ do 
     settings <- readIORef contextSettings
@@ -242,13 +204,6 @@ initComponent gtkBuilder contextSettings _ = do
   entryMarquee <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToEntry "entryMarqueeText"
   _ <- Gtk.onClicked buttonSetMarquee $ do 
     marqueeText <- Gtk.entryGetText entryMarquee
- {- 
-    textBuffer  <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToTextBuffer "textbufferMarquee"
-    numChars    <- Gtk.textBufferGetCharCount textBuffer
-    itBegin     <- Gtk.textBufferGetIterAtOffset textBuffer 0
-    itEnd       <- Gtk.textBufferGetIterAtOffset textBuffer numChars
-    marqueeText <- Gtk.textBufferGetText textBuffer itBegin itEnd False
- -}
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.marqueeText = marqueeText } 
 
@@ -263,83 +218,66 @@ initComponent gtkBuilder contextSettings _ = do
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.autoPerspectiveSwitch = state } 
   
-  adjAutoPerspectiveSwitchInterval <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAutoPerspectiveSwitchInterval"
-  _ <- Gtk.onValueChanged adjAutoPerspectiveSwitchInterval $ do
-    val <- Gtk.adjustmentGetValue adjAutoPerspectiveSwitchInterval
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.autoPerspectiveSwitchInterval = round val } 
+  GH.bindAdjustment "adjAutoPerspectiveSwitchInterval" gtkBuilder contextSettings (\v settings -> settings { AC.autoPerspectiveSwitchInterval = round v }) 
 
-  adjViewAngle <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewAngle"
-  _ <- Gtk.onValueChanged adjViewAngle $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjViewAngle
-    contextSettings $=! settings { AC.viewAngle = realToFrac val } 
+  GH.bindAdjustment "adjViewAngle" gtkBuilder contextSettings (\v settings -> settings { AC.viewAngle = realToFrac v }) 
+  GH.bindAdjustment "adjViewDistance" gtkBuilder contextSettings (\v settings -> settings { AC.viewDistance = realToFrac v }) 
 
-  adjViewDistance <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjViewDistance"
-  _ <- Gtk.onValueChanged adjViewDistance $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjViewDistance
-    contextSettings $=! settings { AC.viewDistance = realToFrac val } 
+  GH.bindAdjustment "adjXLinScale" gtkBuilder contextSettings (\v settings -> settings { AC.xLinScale = realToFrac v }) 
+  GH.bindAdjustment "adjXLogScale" gtkBuilder contextSettings (\v settings -> settings { AC.xLogScale = realToFrac v }) 
+  GH.bindAdjustment "adjZLinScale" gtkBuilder contextSettings (\v settings -> settings { AC.zLinScale = realToFrac v }) 
 
-  adjXLinScale <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjXLinScale"
-  _ <- Gtk.onValueChanged adjXLinScale $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjXLinScale
-    contextSettings $=! settings { AC.xLinScale = realToFrac val } 
+  GH.bindCheckButton "checkbuttonPlayback"      gtkBuilder contextSettings (\v settings -> settings { AC.playbackEnabled = v })
+  GH.bindCheckButton "checkbuttonReverseBuffer" gtkBuilder contextSettings (\v settings -> settings { AC.reverseBuffer = v })
 
-  adjXLogScale <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjXLogScale"
-  _ <- Gtk.onValueChanged adjXLogScale $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjXLogScale
-    contextSettings $=! settings { AC.xLogScale = realToFrac val } 
+  GH.bindAdjustment "adjGridOpacity"    gtkBuilder contextSettings (\v settings -> settings { AC.gridOpacity = realToFrac v })
+  GH.bindAdjustment "adjSurfaceOpacity" gtkBuilder contextSettings (\v settings -> settings { AC.surfaceOpacity = realToFrac v })
 
-  adjZLinScale <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjZLinScale"
-  _ <- Gtk.onValueChanged adjZLinScale $ do
-    settings <- readIORef contextSettings
-    val <- Gtk.adjustmentGetValue adjZLinScale
-    contextSettings $=! settings { AC.zLinScale = realToFrac val } 
-  
-  checkbuttonPlayback <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonPlayback"
-  _ <- Gtk.on checkbuttonPlayback Gtk.toggled $ do 
-    val <- Gtk.toggleButtonGetActive checkbuttonPlayback
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.playbackEnabled = val }
+  -- Materials
+  GH.bindColorAlphaButton "colorbuttonGridAmbient"     gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialAmbient = c } } ) 
+  GH.bindColorAlphaButton "colorbuttonGridDiffuse"     gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialDiffuse = c } } ) 
+  GH.bindColorAlphaButton "colorbuttonGridSpecular"    gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialSpecular = c } } ) 
+  GH.bindColorAlphaButton "colorbuttonGridEmission"    gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialEmission = c } } ) 
+  GH.bindAdjustment "adjGridShininess" gtkBuilder contextSettings (\v s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialShininess = realToFrac v } } )
+  GH.bindColorAlphaButton "colorbuttonSurfaceAmbient"  gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialAmbient = c } } ) 
+  GH.bindColorAlphaButton "colorbuttonSurfaceDiffuse"  gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialDiffuse = c } } ) 
+  GH.bindColorAlphaButton "colorbuttonSurfaceSpecular" gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialSpecular = c } } ) 
+  GH.bindColorAlphaButton "colorbuttonSurfaceEmission" gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialEmission = c } } ) 
+  GH.bindAdjustment "adjSurfaceShininess" gtkBuilder contextSettings (\v s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialShininess = realToFrac v } } )
+
+  -- Lights
+  GH.bindCheckButton "checkbuttonLight1Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light0Enabled = v })
+  GH.bindColorButton "colorbuttonLight1Ambient"  gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightAmbient = c } } ) 
+  GH.bindColorButton "colorbuttonLight1Diffuse"  gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightDiffuse = c } } ) 
+  GH.bindColorButton "colorbuttonLight1Specular" gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightSpecular = c } } ) 
+  GH.bindCheckButton "checkbuttonLight2Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light1Enabled = v })
+  GH.bindColorButton "colorbuttonLight2Ambient"  gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightAmbient = c } } ) 
+  GH.bindColorButton "colorbuttonLight2Diffuse"  gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightDiffuse = c } } ) 
+  GH.bindColorButton "colorbuttonLight2Specular" gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightSpecular = c } } ) 
+
+  _ <- updateSettings gtkBuilder defaultSettings
 
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
 updateSettings gtkBuilder settings = do 
-  scale_view_linScalingAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjLinearScaling"
-  Gtk.adjustmentSetValue scale_view_linScalingAdj (realToFrac $ AC.scaling settings)
-  scale_view_gridOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjGridOpacity"
-  Gtk.adjustmentSetValue scale_view_gridOpacityAdj (realToFrac $ AC.gridOpacity settings)
-  scale_view_surfaceOpacityAdj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjSurfaceOpacity"
-  Gtk.adjustmentSetValue scale_view_surfaceOpacityAdj (realToFrac $ AC.surfaceOpacity settings)
-  adjFixedRotationX <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationX"
-  Gtk.adjustmentSetValue adjFixedRotationX (realToFrac $ DT.rotX (AC.fixedRotation settings))
-  adjFixedRotationY <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationY"
-  Gtk.adjustmentSetValue adjFixedRotationY (realToFrac $ DT.rotY (AC.fixedRotation settings))
-  adjFixedRotationZ <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFixedRotationZ"
-  Gtk.adjustmentSetValue adjFixedRotationZ (realToFrac $ DT.rotZ (AC.fixedRotation settings))
-  adjIncRotationX <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIncRotationX"
-  Gtk.adjustmentSetValue adjIncRotationX (realToFrac $ DT.rotX (AC.incRotation settings))
-  adjIncRotationY <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIncRotationY"
-  Gtk.adjustmentSetValue adjIncRotationY (realToFrac $ DT.rotY (AC.incRotation settings))
-  adjIncRotationZ <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIncRotationZ"
-  Gtk.adjustmentSetValue adjIncRotationZ (realToFrac $ DT.rotZ (AC.incRotation settings))
-  adjBandRange1Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange1Amp"
-  Gtk.adjustmentSetValue adjBandRange1Amp (realToFrac $ (AC.rangeAmps settings) !! 0)
-  adjBandRange2Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange2Amp"
-  Gtk.adjustmentSetValue adjBandRange2Amp (realToFrac $ (AC.rangeAmps settings) !! 1)
-  adjBandRange3Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange3Amp"
-  Gtk.adjustmentSetValue adjBandRange3Amp (realToFrac $ (AC.rangeAmps settings) !! 2)
-  adjBandRange4Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange4Amp"
-  Gtk.adjustmentSetValue adjBandRange4Amp (realToFrac $ (AC.rangeAmps settings) !! 3)
-  adjBandRange5Amp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjBandRange5Amp"
-  Gtk.adjustmentSetValue adjBandRange5Amp (realToFrac $ (AC.rangeAmps settings) !! 4)
 
-  checkbuttonPlayback <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonPlayback"
-  Gtk.toggleButtonSetActive checkbuttonPlayback (AC.playbackEnabled settings)
+  GH.initAdjustment "adjLinearScaling"  gtkBuilder (realToFrac $ AC.scaling settings)
+  GH.initAdjustment "adjGridOpacity"    gtkBuilder (realToFrac $ AC.gridOpacity settings)
+  GH.initAdjustment "adjSurfaceOpacity" gtkBuilder (realToFrac $ AC.surfaceOpacity settings)
+  GH.initAdjustment "adjFixedRotationX" gtkBuilder (realToFrac $ DT.rotX $ AC.fixedRotation settings)
+  GH.initAdjustment "adjFixedRotationY" gtkBuilder (realToFrac $ DT.rotY $ AC.fixedRotation settings)
+  GH.initAdjustment "adjFixedRotationZ" gtkBuilder (realToFrac $ DT.rotZ $ AC.fixedRotation settings)
+  GH.initAdjustment "adjIncRotationX"   gtkBuilder (realToFrac $ DT.rotX $ AC.incRotation settings)
+  GH.initAdjustment "adjIncRotationY"   gtkBuilder (realToFrac $ DT.rotY $ AC.incRotation settings)
+  GH.initAdjustment "adjIncRotationZ"   gtkBuilder (realToFrac $ DT.rotZ $ AC.incRotation settings)
+  GH.initAdjustment "adjBandRange1Amp"  gtkBuilder (realToFrac $ (AC.rangeAmps settings) !! 0)
+  GH.initAdjustment "adjBandRange2Amp"  gtkBuilder (realToFrac $ (AC.rangeAmps settings) !! 1)
+  GH.initAdjustment "adjBandRange3Amp"  gtkBuilder (realToFrac $ (AC.rangeAmps settings) !! 2)
+  GH.initAdjustment "adjBandRange4Amp"  gtkBuilder (realToFrac $ (AC.rangeAmps settings) !! 3)
+  GH.initAdjustment "adjBandRange5Amp"  gtkBuilder (realToFrac $ (AC.rangeAmps settings) !! 4)
+
+  GH.initCheckButton "checkbuttonPlayback" gtkBuilder (AC.playbackEnabled settings)
   
   comboboxFeatureBassEnergyTarget <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxFeatureBassEnergyTarget"
   Gtk.comboBoxSetActive comboboxFeatureBassEnergyTarget (AC.featureBassEnergyTargetIdx settings)
@@ -353,11 +291,30 @@ updateSettings gtkBuilder settings = do
 
   adjFeatureBassEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureBassEnergySurfaceCoeff"
   Gtk.adjustmentSetValue adjFeatureBassEnergySurfaceCoeff (realToFrac $ AC.featureBassEnergySurfaceCoeff settings)
-  adjFeatureSignalEnergySurfaceCoeff <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjFeatureSignalEnergySurfaceCoeff"
-  Gtk.adjustmentSetValue adjFeatureSignalEnergySurfaceCoeff (realToFrac $ AC.featureSignalEnergySurfaceCoeff settings)
-
-  adjAutoPerspectiveSwitchInterval <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAutoPerspectiveSwitchInterval"
-  Gtk.adjustmentSetValue adjAutoPerspectiveSwitchInterval (fromIntegral $ AC.autoPerspectiveSwitchInterval settings)
+  
+  GH.initAdjustment "adjFeatureSignalEnergySurfaceCoeff" gtkBuilder (realToFrac $ AC.featureSignalEnergySurfaceCoeff settings) 
+  GH.initAdjustment "adjAutoPerspectiveSwitchInterval"   gtkBuilder (realToFrac $ AC.autoPerspectiveSwitchInterval settings) 
+  
+  GH.initColorAlphaButton "colorbuttonGridAmbient"     gtkBuilder (AC.materialAmbient $ AC.gridMaterial settings)
+  GH.initColorAlphaButton "colorbuttonGridDiffuse"     gtkBuilder (AC.materialDiffuse $ AC.gridMaterial settings)
+  GH.initColorAlphaButton "colorbuttonGridSpecular"    gtkBuilder (AC.materialSpecular $ AC.gridMaterial settings)
+  GH.initColorAlphaButton "colorbuttonGridEmission"    gtkBuilder (AC.materialEmission $ AC.gridMaterial settings)
+  GH.initAdjustment "adjGridShininess" gtkBuilder ( realToFrac $ AC.materialShininess $ AC.gridMaterial settings )
+  GH.initColorAlphaButton "colorbuttonSurfaceAmbient"  gtkBuilder (AC.materialAmbient $ AC.surfaceMaterial settings)
+  GH.initColorAlphaButton "colorbuttonSurfaceDiffuse"  gtkBuilder (AC.materialDiffuse $ AC.surfaceMaterial settings)
+  GH.initColorAlphaButton "colorbuttonSurfaceSpecular" gtkBuilder (AC.materialSpecular $ AC.surfaceMaterial settings)
+  GH.initColorAlphaButton "colorbuttonSurfaceEmission" gtkBuilder (AC.materialEmission $ AC.surfaceMaterial settings)
+  GH.initAdjustment "adjSurfaceShininess" gtkBuilder ( realToFrac $ AC.materialShininess $ AC.surfaceMaterial settings )
+  
+  GH.initCheckButton "checkbuttonLight1Enabled" gtkBuilder (AC.light0Enabled settings)
+  GH.initColorButton "colorbuttonLight1Ambient"  gtkBuilder (AC.lightAmbient $ AC.light0 settings)
+  GH.initColorButton "colorbuttonLight1Diffuse"  gtkBuilder (AC.lightDiffuse $ AC.light0 settings)
+  GH.initColorButton "colorbuttonLight1Specular" gtkBuilder (AC.lightSpecular $ AC.light0 settings)
+  
+  GH.initCheckButton "checkbuttonLight2Enabled" gtkBuilder (AC.light1Enabled settings)
+  GH.initColorButton "colorbuttonLight2Ambient"  gtkBuilder (AC.lightAmbient $ AC.light1 settings)
+  GH.initColorButton "colorbuttonLight2Diffuse"  gtkBuilder (AC.lightDiffuse $ AC.light1 settings)
+  GH.initColorButton "colorbuttonLight2Specular" gtkBuilder (AC.lightSpecular $ AC.light1 settings)
 
   return True
 

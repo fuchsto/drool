@@ -32,8 +32,6 @@ initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.Cont
 initComponent gtkBuilder contextSettings _ = do
   putStrLn "Initializing Metrics component"
 
-  defaultSettings <- readIORef contextSettings
-
   let updateCallback = ( do
       cSettings <- readIORef contextSettings
       let metrics = AC.metrics cSettings
@@ -42,6 +40,6 @@ initComponent gtkBuilder contextSettings _ = do
       Gtk.labelSetText fieldLatency $ show (AC.latency metrics) 
 
       return True )
-  updateTimer <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle (Conv.freqToMs 1)
+  _ <- Gtk.timeoutAddFull updateCallback Gtk.priorityDefaultIdle (Conv.freqToMs 1)
 
   return True

@@ -53,7 +53,7 @@ import Data.Array.IArray ( (!), bounds, IArray(..), listArray, ixmap, amap, indi
 import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
 import qualified Drool.Types as DT ( SignalList(..), RenderPerspective(..) )
-import Drool.ApplicationContext as AC ( ContextSettings(..) )
+import qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..), LightConfig(..) )
 import Drool.Utils.SigGen as SigGen ( SValue, TValue, SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 
@@ -72,13 +72,20 @@ import Graphics.Rendering.OpenGL (
     PrimitiveMode(..),
     vertex, normal, 
     color, 
+    materialEmission, 
+    materialAmbient, 
+    materialDiffuse, 
+    materialSpecular,
+    materialShininess,
     translate, 
     MatrixOrder(..), 
     getMatrixComponents, 
     GLmatrix, 
     ($=), 
     Face(..), 
-    cullFace,
+    Capability(..),
+    polygonOffsetFill, 
+    polygonOffsetLine, 
     GLfloat )
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Control.Concurrent.MVar as MV ( MVar )
@@ -117,6 +124,8 @@ data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator,
                                        numSignals :: Int, 
                                        -- Number of samples in most recent signal: 
                                        numSamples :: Int, 
+
+                                       reverseBuffer :: Bool, 
                                        
                                        tick :: Int, 
 
@@ -244,6 +253,9 @@ n3Invert n = Normal3 x y z
 color3AddAlpha :: Color3 GLfloat -> GLfloat -> Color4 GLfloat
 color3AddAlpha (Color3 r g b) a = Color4 r g b a
 
+color4MulAlpha :: Color4 GLfloat -> GLfloat -> Color4 GLfloat
+color4MulAlpha (Color4 r g b a) x = Color4 r g b (a*x)
+
 -- }}}
 
 -- Useful for mapping over a list containing tuples of (vertex, vertexNormal): 
@@ -349,8 +361,13 @@ applyFeaturesToGrid features target settings = do
                      else 0.0 
       gBaseOpacity = (AC.gridOpacity settings) / 100.0 :: GLfloat
       gOpacity     = gBaseOpacity + (lCoeff * loudness) + (bCoeff * basslevel)
-      gColor       = color3AddAlpha (AC.gridColor settings) gOpacity
-  color $ gColor
+      gMaterial    = AC.gridMaterial settings
+
+  materialAmbient   FrontAndBack $= color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
+  materialDiffuse   FrontAndBack $= color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
+  materialSpecular  FrontAndBack $= color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
+  materialEmission  FrontAndBack $= color4MulAlpha (AC.materialEmission gMaterial) gOpacity
+  materialShininess FrontAndBack $= AC.materialShininess gMaterial
 -- }}}
 
 applyFeaturesToSurface :: FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO ()
@@ -368,14 +385,19 @@ applyFeaturesToSurface features target settings = do
                      else 0.0 
       sBaseOpacity = (AC.surfaceOpacity settings) / 100.0 :: GLfloat
       sOpacity     = sBaseOpacity + (lCoeff * loudness) + (bCoeff * basslevel)
-      sColor       = color3AddAlpha (AC.surfaceColor settings) sOpacity
-  color $ sColor
+      sMaterial    = AC.surfaceMaterial settings
+  
+  materialAmbient   FrontAndBack $= color4MulAlpha (AC.materialAmbient sMaterial) sOpacity
+  materialDiffuse   FrontAndBack $= color4MulAlpha (AC.materialDiffuse sMaterial) sOpacity
+  materialSpecular  FrontAndBack $= color4MulAlpha (AC.materialSpecular sMaterial) sOpacity
+  materialEmission  FrontAndBack $= color4MulAlpha (AC.materialEmission sMaterial) sOpacity
+  materialShininess FrontAndBack $= AC.materialShininess sMaterial
 -- }}}
 
 -- Render surface as single strips (for z : for x). 
 -- Expects pairs of current and next signal data, 
 -- with signal data being vertices, normals, and signal features. 
-renderSignalSurfaceStrip :: PrimitiveMode -> 
+renderSignalSurfaceStrip :: DirectionZ -> 
                             DirectionX -> 
                             ( FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO () ) -> 
                             (Array Int (Vertex3 GLfloat), Array Int (Vertex3 GLfloat)) -> 
@@ -385,7 +407,7 @@ renderSignalSurfaceStrip :: PrimitiveMode ->
                             Int -> -- signal index
                             IO ()
 -- {{{
-renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings sigIdx = (
+renderSignalSurfaceStrip dirZ dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings sigIdx = (
   do -- Put vertices and normals in correct (interleaved) order for 
      -- rendendering: 
      let aMaxIdx array = snd $ bounds array
@@ -402,17 +424,58 @@ renderSignalSurfaceStrip mode dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsAr
      -- Bottleneck here: If splitXEnd - splitXStart gets big, so do vsCurr and vsNext! 
      -- This is why we need Arrays for interleaving, not lists. Lists are really, really 
      -- slow in this case. 
-     let sortedVertices = if dirX == LeftToRight then Conv.interleaveArrays vsCurr vsNext else Conv.interleaveArrays vsNext vsCurr
-     let sortedNormals  = if dirX == LeftToRight then Conv.interleaveArrays nsCurr nsNext else Conv.interleaveArrays nsNext nsCurr
+     let sortedVertices = Conv.interleaveArrays vsNext vsCurr 
+     let sortedNormals  = Conv.interleaveArrays nsNext nsCurr 
   
      let nSignals  = AC.signalBufferSize settings
-     let alphaFrom = (fromIntegral nSignals / fromIntegral sigIdx)
-     let alphaTo   = (fromIntegral nSignals / fromIntegral (sigIdx+1))
 
      fAppFun fsCurr FE.LocalTarget settings
      fAppFun fsNext FE.LocalTarget settings
-     renderPrimitive mode ( 
-       mapM_ vertexWithNormal (Conv.aZip sortedVertices sortedNormals) ) )
+     renderPrimitive TriangleStrip ( 
+       mapM_ vertexWithNormal (Conv.aZip sortedVertices sortedNormals) )
+  )
+-- }}}
+--
+renderSignalGridStrip :: DirectionZ -> 
+                         DirectionX -> 
+                         ( FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> IO () ) -> 
+                         (Array Int (Vertex3 GLfloat), Array Int (Vertex3 GLfloat)) -> 
+                         (Array Int (Normal3 GLfloat), Array Int (Normal3 GLfloat)) -> 
+                         (FE.SignalFeatures, FE.SignalFeatures) -> 
+                         AC.ContextSettings -> 
+                         Int -> -- signal index
+                         IO ()
+renderSignalGridStrip dirZ dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNext) (fsCurr,fsNext) settings sigIdx = (
+-- {{{     
+  do -- Put vertices and normals in correct (interleaved) order for 
+     -- rendendering: 
+     let aMaxIdx array = snd $ bounds array
+     let aMinIdx array = fst $ bounds array
+     let aMap array = ixmap (0,aMaxIdx array) (\i -> colIdcs !! i) array
+                      where colIdcs = if dirX == LeftToRight then ( 
+                                        [(aMinIdx array)..(aMaxIdx array)] ) 
+                                      else ( 
+                                        [(aMaxIdx array) - x | x <- [(aMinIdx array)..(aMaxIdx array)] ] )
+     let vsCurr = aMap vsArrCurr
+     let vsNext = aMap vsArrNext
+     let nsCurr = aMap nsArrCurr
+     let nsNext = aMap nsArrNext
+
+     fAppFun fsCurr FE.LocalTarget settings
+     fAppFun fsNext FE.LocalTarget settings
+
+     -- Lines in X-direction: 
+     renderPrimitive LineStrip (
+       mapM_ vertexWithNormal (Conv.aZip vsNext nsNext) )
+     {-
+     -- Lines in Z-direction: 
+     mapM_ (\((vc,nc),(vn,nn)) -> do renderPrimitive LineStrip ( do fAppFun fsCurr FE.LocalTarget settings
+                                                                    vertexWithNormal (vc,nc) 
+                                                                    fAppFun fsNext FE.LocalTarget settings
+                                                                    vertexWithNormal (vn,nn) ) 
+           ) ( zip (Conv.aZip vsCurr nsCurr) (Conv.aZip vsNext nsNext) )
+     -}
+  )
 -- }}}
 
 -- List of indices indicating the order in which vertices have to be drawn depending 
@@ -441,7 +504,7 @@ vertexSectionIndices :: DirectionX -> DirectionZ -> Int -> (Int,Int) -> (Int,Int
 vertexSectionIndices _ dirZ nSamples (zStartIdx,xStartIdx) (zEndIdx,xEndIdx) = listArray (0,((length list)-1)) $ map (\idcs -> listArray (0,((length idcs)-1)) idcs) list
   where absIndexBtF z x = (nSamples * z) + x 
         absIndexFtB z x = (nSamples * zEndIdx) + x - (nSamples * (z-zStartIdx))
-        list = if dirZ == BackToFront then (
+        list = if dirZ == FrontToBack then (
                   [ [ absIndexBtF zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ] )
                else (
                   [ [ absIndexFtB zIdx xIdx | xIdx <- [xStartIdx..xEndIdx] ] | zIdx <- [zStartIdx..zEndIdx] ] )
@@ -491,10 +554,11 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               vsTpl  = if dirZ == FrontToBack then (vsCurr,vsNext) else (vsNext,vsCurr)
                                               nsTpl  = if dirZ == FrontToBack then (nsCurr,nsNext) else (nsNext,nsCurr)
                                               fTpl   = if dirZ == FrontToBack then (fCurr,fNext) else (fNext,fCurr)
-                                          renderSignalSurfaceStrip TriangleStrip dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
-                                          translate $ Vector3 0 (0.01::GLfloat) 0
-                                          renderSignalSurfaceStrip LineStrip dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
-                                          translate $ Vector3 0 (-0.01::GLfloat) 0 ) ) (zip sigIdcs [0..nSecSignals])
+                                          polygonOffsetLine $= Enabled
+                                          renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
+                                          polygonOffsetLine $= Disabled
+                                          renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx )
+           ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
 -- }}}
 
@@ -527,23 +591,29 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings renderSettings = do
       splitX    = case findIndex ( \x -> (xCoordFun x renderSettings) >= (v3x viewpoint) ) [0..(nSamples-1)] of 
                     Just idx -> idx
                     Nothing  -> if (xCoordFun 0 renderSettings) >= (v3x viewpoint) then 0 else (nSamples-1)
+      -- splitZ = 15
+      -- splitX = 65
 
-  let secTopLeftStartIdcs     = ( 0 :: Int, 0 :: Int)
-      secTopLeftEndIdcs       = ( splitZ, splitX )
-      secTopRightStartIdcs    = ( 0 :: Int, splitX )
-      secTopRightEndIdcs      = ( splitZ, (nSamples-1) )
-      secBottomLeftStartIdcs  = ( splitZ, 0 :: Int )
-      secBottomLeftEndIdcs    = ( (nSignals-1), splitX )
-      secBottomRightStartIdcs = ( splitZ, splitX )
-      secBottomRightEndIdcs   = ( (nSignals-1), (nSamples-1) )
+  let secBottomLeftStartIdcs     = ( 0 :: Int, 0 :: Int)
+      secBottomLeftEndIdcs       = ( splitZ, splitX )
+      secBottomRightStartIdcs    = ( 0 :: Int, splitX )
+      secBottomRightEndIdcs      = ( splitZ, (nSamples-1) )
+      secTopLeftStartIdcs  = ( splitZ, 0 :: Int )
+      secTopLeftEndIdcs    = ( (nSignals-1), splitX )
+      secTopRightStartIdcs = ( splitZ, splitX )
+      secTopRightEndIdcs   = ( (nSignals-1), (nSamples-1) )
 
   let renderSec dX dZ sS sE   = renderSurfaceSection dX dZ vArray nArray fArray sS sE nSamples settings
   
 --  cullFace $= if v3y viewpoint > 0 then Just Back else Just Front
   
+  -- translate $ Vector3 (-0.15) 0 (0.15::GLfloat)
   renderSec LeftToRight BackToFront secTopLeftStartIdcs secTopLeftEndIdcs 
+  -- translate $ Vector3 (0.15) 0 (0.0::GLfloat)
   renderSec RightToLeft BackToFront secTopRightStartIdcs secTopRightEndIdcs 
+  -- translate $ Vector3 (-0.15) 0 (0.15::GLfloat)
   renderSec LeftToRight FrontToBack secBottomLeftStartIdcs secBottomLeftEndIdcs 
+  -- translate $ Vector3 (0.15) 0 (0.0::GLfloat)
   renderSec RightToLeft FrontToBack secBottomRightStartIdcs secBottomRightEndIdcs 
 -- }}}
 

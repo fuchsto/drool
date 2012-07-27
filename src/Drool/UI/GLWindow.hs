@@ -46,11 +46,17 @@ import qualified Control.Concurrent.Chan as CC ( readChan )
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display contextSettingsIORef renderSettingsIORef = do
 -- {{{
-  renderSettingsOld <- readIORef renderSettingsIORef
-  settings          <- readIORef contextSettingsIORef
+  renderSettingsPrev <- readIORef renderSettingsIORef
+  settings           <- readIORef contextSettingsIORef
 
-  let samplingSem  = RH.samplingSem renderSettingsOld
-  let renderingSem = RH.renderingSem renderSettingsOld
+  let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency settings)
+  let tick      = RH.tick renderSettingsPrev
+  let tickMs    = tick * timeoutMs
+
+  let renderSettingsCurr = renderSettingsPrev { RH.tick = (tick+1) `mod` 1000 }
+
+  let samplingSem  = RH.samplingSem renderSettingsCurr
+  let renderingSem = RH.renderingSem renderSettingsCurr
 
   -- Wait until there is at least one signal ready for rendering. 
   numNewSignals <- MV.takeMVar samplingSem 
@@ -70,20 +76,15 @@ display contextSettingsIORef renderSettingsIORef = do
       accIncRotation = AC.incRotationAccum settings
       viewDistance   = AC.viewDistance settings
       maxNumSignals  = AC.signalBufferSize settings
-      lightPos0      = RH.lightPos0 renderSettingsOld
-      lightPos1      = RH.lightPos1 renderSettingsOld
-      sigGen         = RH.signalGenerator renderSettingsOld
-      surfaceColor   = RH.color3AddAlpha (AC.surfaceColor settings) surfOpacity
-      lightColor     = RH.color3AddAlpha (AC.lightColor settings) 1
+      lightPos0      = RH.lightPos0 renderSettingsCurr
+      lightPos1      = RH.lightPos1 renderSettingsCurr
+      sigGen         = RH.signalGenerator renderSettingsCurr
       vPerspective   = AC.renderPerspective settings
-
-  let tick   = RH.tick renderSettingsOld
-  let tickMs = tick * 25
 
   let updatePerspective p = if AC.autoPerspectiveSwitch settings && tickMs >= AC.autoPerspectiveSwitchInterval settings then ( do 
                                 let nextPerspective = RH.nextPerspective p
                                 modifyIORef contextSettingsIORef ( \_ -> settings { AC.renderPerspective = nextPerspective } )
-                                modifyIORef renderSettingsIORef ( \_ -> renderSettingsOld { RH.tick = 0 } )
+                                modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.tick = 0 } )
                                 return nextPerspective )
                             else return p
   curPerspective <- updatePerspective vPerspective
@@ -113,31 +114,39 @@ display contextSettingsIORef renderSettingsIORef = do
       GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
       GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
 
-  GL.diffuse (Light 0) $= lightColor
-  GL.diffuse (Light 1) $= lightColor
-  GL.specular (Light 0) $= mulColor4Value lightColor 1.5
-  GL.specular (Light 1) $= mulColor4Value lightColor 1.5
-  
-  GL.rotate (DT.rotX fixedRotation) $ Vector3 1.0 0.0 0.0
+  GL.rotate (DT.rotX fixedRotation)  $ Vector3 1.0 0.0 0.0
   GL.rotate (DT.rotX accIncRotation) $ Vector3 1.0 0.0 0.0
-  GL.rotate (DT.rotY fixedRotation) $ Vector3 0.0 1.0 0.0
+  GL.rotate (DT.rotY fixedRotation)  $ Vector3 0.0 1.0 0.0
   GL.rotate (DT.rotY accIncRotation) $ Vector3 0.0 1.0 0.0
-  GL.rotate (DT.rotZ fixedRotation) $ Vector3 0.0 0.0 1.0
+  GL.rotate (DT.rotZ fixedRotation)  $ Vector3 0.0 0.0 1.0
   GL.rotate (DT.rotZ accIncRotation) $ Vector3 0.0 0.0 1.0
 
   ---------------------------------------------------------------------------------------------------
   -- End of perspective transformations
   ---------------------------------------------------------------------------------------------------
 
+  -- Lighting
+  let light0 = AC.light0 settings
+  light (Light 0) $= if AC.light0Enabled settings then Enabled else Disabled
+  GL.ambient  (Light 0) $= AC.lightAmbient light0
+  GL.diffuse  (Light 0) $= AC.lightDiffuse light0
+  GL.specular (Light 0) $= AC.lightSpecular light0
+  
+  let light1 = AC.light1 settings
+  light (Light 1) $= if AC.light1Enabled settings then Enabled else Disabled
+  GL.ambient  (Light 1) $= AC.lightAmbient light1
+  GL.diffuse  (Light 1) $= AC.lightDiffuse light1
+  GL.specular (Light 1) $= AC.lightSpecular light1
+
   -- Load signal buffer from context
-  signalBuf   <- readIORef $ RH.signalBuf renderSettingsOld
+  signalBuf   <- readIORef $ RH.signalBuf renderSettingsCurr
   -- Load features buffer from rendering context
-  featuresBuf <- readIORef $ RH.featuresBuf renderSettingsOld
+  featuresBuf <- readIORef $ RH.featuresBuf renderSettingsCurr
   
   -- Load vertex buffer from rendering context
-  let vertexBufIORef = RH.vertexBuf renderSettingsOld
+  let vertexBufIORef = RH.vertexBuf renderSettingsCurr
   -- Load normals buffer from rendering context
-  let normalsBufIORef = RH.normalsBuf renderSettingsOld
+  let normalsBufIORef = RH.normalsBuf renderSettingsCurr
 
   ---------------------------------------------------------------------------------------------------
   -- Begin handling of new signal
@@ -161,12 +170,11 @@ display contextSettingsIORef renderSettingsIORef = do
 
   let numSamples = min numSamplesCurr numSamplesLast
 
-  modifyIORef renderSettingsIORef ( \_ -> renderSettingsOld { RH.tick = (tick+1) `mod` 1000, 
-                                                              RH.xLinScale = AC.xLinScale settings, 
-                                                              RH.xLogScale = AC.xLogScale settings, 
-                                                              RH.zLinScale = AC.zLinScale settings, 
-                                                              RH.numSignals = numSignals, 
-                                                              RH.numSamples = numSamples } )
+  modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.xLinScale = AC.xLinScale settings, 
+                                                               RH.xLogScale = AC.xLogScale settings, 
+                                                               RH.zLinScale = AC.zLinScale settings, 
+                                                               RH.numSignals = numSignals, 
+                                                               RH.numSamples = numSamples } )
   renderSettings <- readIORef renderSettingsIORef
 
   let xPosFun   = RH.xPosFun renderSettings
@@ -213,13 +221,8 @@ display contextSettingsIORef renderSettingsIORef = do
   GL.translate $ Vector3 (-0.5 * surfaceWidth) 0 0
   GL.translate $ Vector3 0 0 (-0.5 * surfaceDepth)
   
-  materialSpecular FrontAndBack $= mulColor4Value surfaceColor 2
-  materialShininess FrontAndBack $= 30
-
-  -- vertexBuf  <- readIORef vertexBufIORef :: IO [[ Vertex3 GLfloat ]]
-  -- normalsBuf <- readIORef normalsBufIORef :: IO [[ Normal3 GLfloat ]]
-  let vertexBuf  = vBufZAdjusted
-  let normalsBuf = nBufUpdated
+  let vertexBuf  = vBufZAdjusted 
+  let normalsBuf = nBufUpdated 
 
   ----------------------------------------------------------------------------------------
   -- Render scene 
@@ -233,10 +236,7 @@ display contextSettingsIORef renderSettingsIORef = do
 
   -- Render marquee text, if any
   blendFunc $= ( One, One )
-  colorMaterial $= Just (Front, AmbientAndDiffuse)
-  materialAmbient Front $= mulColor4Value surfaceColor 2
-  materialSpecular Front $= mulColor4Value surfaceColor 4
-  materialShininess Front $= 30
+  -- colorMaterial $= Just (Front, AmbientAndDiffuse)
   let marqueeText = AC.marqueeText settings
   gridfont <- readIORef $ RH.gridFont renderSettings
   fillfont <- readIORef $ RH.fillFont renderSettings
@@ -245,14 +245,14 @@ display contextSettingsIORef renderSettingsIORef = do
 
   preservingMatrix $ do 
     fog $= Disabled
-    let fontWidth  = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
+    let fontWidth = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
     -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
     let fontScaling = (surfaceWidth * 1.5) / fontWidth
+    colorMaterial $= Just (Front, Ambient) 
+    color $ AC.materialAmbient (AC.surfaceMaterial settings)
     GL.scale fontScaling fontScaling (0 :: GLfloat)
     translate $ Vector3 (-0.5 * fontWidth + 0.5 * surfaceWidth / fontScaling) (0.7 / fontScaling) (-4.5 :: GLfloat)
-    color $ mulColor4Value surfaceColor 4
     FTGL.renderFont fillfont marqueeText FTGL.Front
-    blendFunc $= ( SrcAlpha, OneMinusSrcAlpha )
     color $ Color4 0 0 0 (0.5::GLfloat)
     FTGL.renderFont gridfont marqueeText FTGL.Front
     fog $= Enabled
@@ -373,6 +373,7 @@ initComponent _ contextSettings contextObjects = do
                                                  RH.fillFont = fillFontIORef,
                                                  RH.gridFont = gridFontIORef, 
                                                  RH.tick = 0, 
+                                                 RH.reverseBuffer = AC.reverseBuffer settings, 
                                                  RH.numSignals = 0, 
                                                  RH.numSamples = numSamples } 
 
@@ -387,7 +388,7 @@ initComponent _ contextSettings contextObjects = do
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
     shadeModel $= Smooth
     depthFunc $= Just Less
-    polygonSmooth $= Enabled
+    -- polygonSmooth $= Enabled
     lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
@@ -397,6 +398,8 @@ initComponent _ contextSettings contextObjects = do
     multisample $= Enabled
     sampleAlphaToCoverage $= Enabled
     fog $= Enabled
+
+    polygonOffset $= (1.0,1.0)
 
     lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
@@ -455,7 +458,8 @@ initComponent _ contextSettings contextObjects = do
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
-    Gtk.priorityHigh timeoutMs
+ -- Gtk.priorityHigh timeoutMs
+    Gtk.priorityDefaultIdle timeoutMs
 
   -- Remove timer for redrawing canvas when closing window:
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)

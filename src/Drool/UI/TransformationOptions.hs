@@ -15,16 +15,16 @@
 {-# OPTIONS -O2 -Wall #-}
 
 module Drool.UI.TransformationOptions (
-  initComponent
+  initComponent, 
+  updateSettings
 ) where
 
 import Data.IORef
 
-import Graphics.Rendering.OpenGL ( ($=!) )
-import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
-
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.UI.GtkHelpers as GH
+
 
 -- Initializes GUI component for transformation options.
 -- Expects a GtkBuilder instance and default context settings. 
@@ -34,46 +34,27 @@ initComponent gtkBuilder contextSettings _ = do
 
   defaultSettings <- readIORef contextSettings
 
-  adjNumFFTBands <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjNumFFTBands"
-  Gtk.adjustmentSetValue adjNumFFTBands (realToFrac $ AC.numFFTBands defaultSettings)
-  _ <- Gtk.onValueChanged adjNumFFTBands $ do
-    val <- Gtk.adjustmentGetValue adjNumFFTBands
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.numFFTBands = round val }
+  GH.bindAdjustment "adjNumFFTBands" gtkBuilder contextSettings (\v settings -> settings { AC.numFFTBands = round v }) 
+  GH.bindAdjustment "adjIIRCoef"     gtkBuilder contextSettings (\v settings -> settings { AC.iirCoef = realToFrac v }) 
+  GH.bindAdjustment "adjAmpDb"       gtkBuilder contextSettings (\v settings -> settings { AC.signalAmpDb = realToFrac v })
 
-  adjIIRCoef <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjIIRCoef"
-  Gtk.adjustmentSetValue adjIIRCoef (realToFrac $ AC.iirCoef defaultSettings)
-  _ <- Gtk.onValueChanged adjIIRCoef $ do
-    val <- Gtk.adjustmentGetValue adjIIRCoef
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.iirCoef = realToFrac val }
+  GH.bindCheckButton "checkbuttonUseFFT" gtkBuilder contextSettings (\v settings -> settings { AC.fftEnabled = v })
+  GH.bindCheckButton "checkbuttonUseIIR" gtkBuilder contextSettings (\v settings -> settings { AC.iirEnabled = v })
+  GH.bindCheckButton "checkbuttonUseAmp" gtkBuilder contextSettings (\v settings -> settings { AC.ampEnabled = v })
 
-  adjAmpDb <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment "adjAmpDb"
-  Gtk.adjustmentSetValue adjAmpDb (realToFrac $ AC.signalAmpDb defaultSettings)
-  _ <- Gtk.onValueChanged adjAmpDb $ do
-    val <- Gtk.adjustmentGetValue adjAmpDb
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.signalAmpDb = realToFrac val }
-
-  checkbuttonUseFFT <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseFFT"
-  Gtk.toggleButtonSetActive checkbuttonUseFFT (AC.fftEnabled defaultSettings)
-  _ <- Gtk.on checkbuttonUseFFT Gtk.toggled $ do 
-    val <- Gtk.toggleButtonGetActive checkbuttonUseFFT
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.fftEnabled = val }
-
-  checkbuttonUseIIR <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseIIR"
-  Gtk.toggleButtonSetActive checkbuttonUseIIR (AC.iirEnabled defaultSettings)
-  _ <- Gtk.on checkbuttonUseIIR Gtk.toggled $ do 
-    val <- Gtk.toggleButtonGetActive checkbuttonUseIIR
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.iirEnabled = val }
-
-  checkbuttonUseAmp <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton "checkbuttonUseAmp"
-  Gtk.toggleButtonSetActive checkbuttonUseAmp (AC.fftEnabled defaultSettings)
-  _ <- Gtk.on checkbuttonUseAmp Gtk.toggled $ do 
-    val <- Gtk.toggleButtonGetActive checkbuttonUseAmp
-    settings <- readIORef contextSettings
-    contextSettings $=! settings { AC.ampEnabled = val }
+  _ <- updateSettings gtkBuilder defaultSettings
 
   return True
+
+updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
+updateSettings gtkBuilder settings = do 
+  GH.initAdjustment "adjNumFFTBands" gtkBuilder (realToFrac $ AC.numFFTBands settings)
+  GH.initAdjustment "adjIIRCoef"     gtkBuilder (realToFrac $ AC.iirCoef settings)
+  GH.initAdjustment "adjAmpDb"       gtkBuilder (realToFrac $ AC.signalAmpDb settings)
+
+  GH.initCheckButton "checkbuttonUseFFT" gtkBuilder (AC.fftEnabled settings)
+  GH.initCheckButton "checkbuttonUseIIR" gtkBuilder (AC.fftEnabled settings)
+  GH.initCheckButton "checkbuttonUseAmp" gtkBuilder (AC.fftEnabled settings)
+  
+  return True
+
