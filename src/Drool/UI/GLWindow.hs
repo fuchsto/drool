@@ -43,55 +43,92 @@ import qualified Drool.ApplicationContext as AC
 import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar, takeMVar, putMVar )
 import qualified Control.Concurrent.Chan as CC ( readChan )
 
-display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
-display contextSettingsIORef renderSettingsIORef = do
--- {{{
-  renderSettingsPrev <- readIORef renderSettingsIORef
-  settings           <- readIORef contextSettingsIORef
+import qualified Drool.UI.Visual as Visual
+import qualified Drool.UI.Visuals.FFTSurface as VisualFFTSurface
 
-  let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency settings)
+
+display :: (Visual.Visual v) => IORef v -> IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
+display visualIORef contextSettingsIORef renderSettingsIORef = do
+-- {{{
+--  renderSettingsPrev <- readIORef renderSettingsIORef
+  contextSettings    <- readIORef contextSettingsIORef
+  renderSettingsPrev <- readIORef renderSettingsIORef
+
+  let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency contextSettings)
   let tick      = RH.tick renderSettingsPrev
   let tickMs    = tick * timeoutMs
 
   let renderSettingsCurr = renderSettingsPrev { RH.tick = (tick+1) `mod` 1000 }
 
   let samplingSem  = RH.samplingSem renderSettingsCurr
-  let renderingSem = RH.renderingSem renderSettingsCurr
+
+  signalBuf   <- readIORef (RH.signalBuf renderSettingsCurr)
 
   -- Wait until there is at least one signal ready for rendering. 
-  numNewSignals <- MV.takeMVar samplingSem 
+  nNewSignals <- MV.takeMVar samplingSem 
+  
+  -- Load most recent signal from buffer (last signal in list): 
+  let recentSignal = DT.getRecentSignal signalBuf 
+  let lastSignal   = DT.getLastSignal signalBuf 
+  -- Get length of most recent signal (= number of samples per signal): 
+  numSamplesCurr <- case recentSignal of 
+                         Just s  -> do signalBounds <- getBounds $ DT.signalArray s
+                                       return $ rangeSize signalBounds
+                         Nothing -> return 0 
+  numSamplesLast <- case lastSignal of 
+                         Just s  -> do signalBounds <- getBounds $ DT.signalArray s
+                                       return $ rangeSize signalBounds
+                         Nothing -> return 0 
+
+  let nSamples = min numSamplesCurr numSamplesLast
+  let nSignals = length $ DT.signalList signalBuf
+
+  modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.numSignals = nSignals, 
+                                                               RH.numSamples = nSamples } )
+  renderSettings <- readIORef renderSettingsIORef
+  
+  let renderSettings' = renderSettings { RH.numNewSignals = nNewSignals }
+  
+  let accIncRotation  = (AC.incRotationAccum contextSettings) 
+  let incRotationStep = (AC.incRotation contextSettings) 
+  let nextIncRotation = DT.CRotationVector { DT.rotY = (DT.rotY accIncRotation + DT.rotY incRotationStep), 
+                                             DT.rotX = (DT.rotX accIncRotation + DT.rotX incRotationStep), 
+                                             DT.rotZ = (DT.rotZ accIncRotation + DT.rotZ incRotationStep) } 
+  modifyIORef contextSettingsIORef (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
+  
+  -- Push new signal(s) to visual: 
+  visualUpdated <- VisualFFTSurface.pushSignal visualIORef contextSettings renderSettings' tick
   
   matrixMode $= Projection
   loadIdentity
-  perspective (realToFrac (AC.viewAngle settings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
+  perspective (realToFrac (AC.viewAngle contextSettings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
 
   clear [ColorBuffer, DepthBuffer]
   
   matrixMode $= Modelview 0
   loadIdentity
 
-  let hScale         = (AC.scaling settings) / (100.0::Float)
-      surfOpacity    = (AC.surfaceOpacity settings) / (100.0::GLfloat)
-      fixedRotation  = AC.fixedRotation settings
-      accIncRotation = AC.incRotationAccum settings
-      viewDistance   = AC.viewDistance settings
-      maxNumSignals  = AC.signalBufferSize settings
+  let hScale         = (AC.scaling contextSettings) / (100.0::Float)
+      surfOpacity    = (AC.surfaceOpacity contextSettings) / (100.0::GLfloat)
+      fixedRotation  = AC.fixedRotation contextSettings
+      accIncRotation = AC.incRotationAccum contextSettings
+      viewDistance   = AC.viewDistance contextSettings
+      maxNumSignals  = AC.signalBufferSize contextSettings
       lightPos0      = RH.lightPos0 renderSettingsCurr
       lightPos1      = RH.lightPos1 renderSettingsCurr
-      sigGen         = RH.signalGenerator renderSettingsCurr
-      vPerspective   = AC.renderPerspective settings
+      vPerspective   = AC.renderPerspective contextSettings
 
-  let updatePerspective p = if AC.autoPerspectiveSwitch settings && tickMs >= AC.autoPerspectiveSwitchInterval settings then ( do 
+  let updatePerspective p = if AC.autoPerspectiveSwitch contextSettings && tickMs >= AC.autoPerspectiveSwitchInterval contextSettings then ( do 
                                 let nextPerspective = RH.nextPerspective p
-                                modifyIORef contextSettingsIORef ( \_ -> settings { AC.renderPerspective = nextPerspective } )
+                                modifyIORef contextSettingsIORef ( \_ -> contextSettings { AC.renderPerspective = nextPerspective } )
                                 modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.tick = 0 } )
                                 return nextPerspective )
                             else return p
   curPerspective <- updatePerspective vPerspective
 
 
-  let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
-  let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx settings
+  let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx contextSettings
+  let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx contextSettings
   
   blendFunc $= (blendModeSource, blendModeFrameBuffer)
   
@@ -126,136 +163,30 @@ display contextSettingsIORef renderSettingsIORef = do
   ---------------------------------------------------------------------------------------------------
 
   -- Lighting
-  let light0 = AC.light0 settings
-  light (Light 0) $= if AC.light0Enabled settings then Enabled else Disabled
+  let light0 = AC.light0 contextSettings
+  light (Light 0) $= if AC.light0Enabled contextSettings then Enabled else Disabled
   GL.ambient  (Light 0) $= AC.lightAmbient light0
   GL.diffuse  (Light 0) $= AC.lightDiffuse light0
   GL.specular (Light 0) $= AC.lightSpecular light0
   
-  let light1 = AC.light1 settings
-  light (Light 1) $= if AC.light1Enabled settings then Enabled else Disabled
+  let light1 = AC.light1 contextSettings
+  light (Light 1) $= if AC.light1Enabled contextSettings then Enabled else Disabled
   GL.ambient  (Light 1) $= AC.lightAmbient light1
   GL.diffuse  (Light 1) $= AC.lightDiffuse light1
   GL.specular (Light 1) $= AC.lightSpecular light1
 
-  -- Load signal buffer from context
-  signalBuf   <- readIORef $ RH.signalBuf renderSettingsCurr
-  -- Load features buffer from rendering context
-  featuresBuf <- readIORef $ RH.featuresBuf renderSettingsCurr
+  let (visWidth,visHeight,visDepth) = VisualFFTSurface.dimensions visualUpdated
   
-  -- Load vertex buffer from rendering context
-  let vertexBufIORef = RH.vertexBuf renderSettingsCurr
-  -- Load normals buffer from rendering context
-  let normalsBufIORef = RH.normalsBuf renderSettingsCurr
-
-  ---------------------------------------------------------------------------------------------------
-  -- Begin handling of new signal
-  ---------------------------------------------------------------------------------------------------
-
-  let newSignals = take numNewSignals $ DT.signalList signalBuf
-  let numSignals = length $ DT.signalList signalBuf
-  let numNewSignalsRead = length newSignals
-  -- Load most recent signal from buffer (last signal in list): 
-  let recentSignal = DT.getRecentSignal signalBuf 
-  let lastSignal   = DT.getLastSignal signalBuf 
-  -- Get length of most recent signal (= number of samples per signal): 
-  numSamplesCurr <- case recentSignal of 
-                         Just s  -> do signalBounds <- getBounds $ DT.signalArray s
-                                       return $ rangeSize signalBounds
-                         Nothing -> return 0 
-  numSamplesLast <- case lastSignal of 
-                         Just s  -> do signalBounds <- getBounds $ DT.signalArray s
-                                       return $ rangeSize signalBounds
-                         Nothing -> return 0 
-
-  let numSamples = min numSamplesCurr numSamplesLast
-
-  modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.xLinScale = AC.xLinScale settings, 
-                                                               RH.xLogScale = AC.xLogScale settings, 
-                                                               RH.zLinScale = AC.zLinScale settings, 
-                                                               RH.numSignals = numSignals, 
-                                                               RH.numSamples = numSamples } )
-  renderSettings <- readIORef renderSettingsIORef
-
-  let xPosFun   = RH.xPosFun renderSettings
-  let zPosFun   = RH.zPosFun renderSettings
-  let rangeAmps = AC.rangeAmps settings
-
-  let accIncRotation  = (AC.incRotationAccum settings) 
-  let incRotationStep = (AC.incRotation settings) 
-  let nextIncRotation = DT.CRotationVector { DT.rotY = (DT.rotY accIncRotation + DT.rotY incRotationStep), 
-                                             DT.rotX = (DT.rotX accIncRotation + DT.rotX incRotationStep), 
-                                             DT.rotZ = (DT.rotZ accIncRotation + DT.rotZ incRotationStep) } 
-  modifyIORef contextSettingsIORef (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
-
-  -- All signals in buffer loaded, empty signal buffer: 
-  -- writeIORef (RH.signalBuf renderSettings) (DT.CSignalList []) 
-
-  newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
-                                      let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
-                                      let sigVertices = RH.verticesFromSamples sigSamplesT 0 renderSettings
-                                      return sigVertices ) (reverse newSignals)
-
-  vBufCurr <- readIORef vertexBufIORef
-  let vBufUpdated     = if numNewSignalsRead > 0 then newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (numSignals-numNewSignalsRead)) else vBufCurr
-  let vBufZAdjusted   = if numNewSignalsRead > 0 then RH.updateVerticesZCoord vBufUpdated zPosFun renderSettings else vBufUpdated
-  modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
-
-  nBufCurr <- readIORef normalsBufIORef
-  let nBufUpdated = if numNewSignalsRead > 0 then updateNormalsBuffer nBufCurr (take (numNewSignalsRead+2) vBufZAdjusted) numSignals else nBufCurr
-  modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
-  
-  ---------------------------------------------------------------------------------------------------
-  -- End handling of new signal
-  ---------------------------------------------------------------------------------------------------
-  
-  let surfaceWidth = xPosFun (numSamples-1) renderSettings
-  let surfaceDepth = zPosFun (numSignals-1) renderSettings
-
-  fogMode $= Linear 0.0 (surfaceDepth * 2.0)
+  fogMode $= Linear 0.0 (visDepth * 2.0)
   fogColor $= (Color4 0.0 0.0 0.0 1.0)
 
   GL.position (Light 0) $= lightPos0
   GL.position (Light 0) $= lightPos1
 
-  GL.translate $ Vector3 (-0.5 * surfaceWidth) 0 0
-  GL.translate $ Vector3 0 0 (-0.5 * surfaceDepth)
+  GL.translate $ Vector3 (-0.5 * visWidth) 0 0
+  GL.translate $ Vector3 0 0 (-0.5 * visDepth)
   
-  let vertexBuf  = vBufZAdjusted 
-  let normalsBuf = nBufUpdated 
-
-  ----------------------------------------------------------------------------------------
-  -- Render scene 
-  ----------------------------------------------------------------------------------------
-  -- Get inverse of model view matrix: 
-  glModelViewMatrix <- GL.get (matrix (Just (Modelview 0))) :: IO (GLmatrix GLfloat)
-  -- Resolve view point in model view coordinates: 
-  viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
-  
-  RH.renderSurface vertexBuf normalsBuf (FE.signalFeaturesList featuresBuf) viewpoint numSamples settings renderSettings
-
-  -- Render marquee text, if any
-  blendFunc $= ( One, One )
-  -- colorMaterial $= Just (Front, AmbientAndDiffuse)
-  let marqueeText = AC.marqueeText settings
-  gridfont <- readIORef $ RH.gridFont renderSettings
-  fillfont <- readIORef $ RH.fillFont renderSettings
-
-  marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
-
-  preservingMatrix $ do 
-    fog $= Disabled
-    let fontWidth = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
-    -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
-    let fontScaling = (surfaceWidth * 1.5) / fontWidth
-    colorMaterial $= Just (Front, Ambient) 
-    color $ AC.materialAmbient (AC.surfaceMaterial settings)
-    GL.scale fontScaling fontScaling (0 :: GLfloat)
-    translate $ Vector3 (-0.5 * fontWidth + 0.5 * surfaceWidth / fontScaling) (0.7 / fontScaling) (-4.5 :: GLfloat)
-    FTGL.renderFont fillfont marqueeText FTGL.Front
-    color $ Color4 0 0 0 (0.5::GLfloat)
-    FTGL.renderFont gridfont marqueeText FTGL.Front
-    fog $= Enabled
+  VisualFFTSurface.render visualUpdated
 
 -- }}} 
 
@@ -271,46 +202,9 @@ reshape settingsIORef allocation = do
   matrixMode $= Modelview 0
   return ()
 
--- Expects current normals buffer, list of signals as vertices and maximum number of signals in buffers. 
--- For every signal in the second argument, a list of normal vectors is appended to the given 
--- normals buffer. 
--- Returns updated normals buffer. 
-updateNormalsBuffer :: [[ Normal3 GLfloat ]] -> [[ Vertex3 GLfloat ]] -> Int -> [[ Normal3 GLfloat ]] 
--- {{{
-updateNormalsBuffer nBuf vBuf@(_:_:_:_) numSignals = case vBuf of 
-  (_:_:_:_) -> updateNormalsBuffer updatedNormalsBuf (tail vBuf) numSignals
-               where 
-               -- Drop first and last element of nBuf. 
-               -- Last element has incomplete normals and will be replaced by element 
-               -- with correct normals. This happens in any case. 
-               -- Drop first element if max buffer size is exceeded. 
-                 adjNormalsBuf = take (numSignals-2) (Conv.adjustBufferSize nBuf (numSignals-1))
-                 vBufLen = length vBuf
-               
-               -- Take 3 most recent signals from vertex buffer. 
-               -- Last element in signal buffer is most recent signal: 
-                 sigCurrIdx  = 0
-                 sigPrev1Idx = if length vBuf > 1 then 1 else sigCurrIdx
-                 sigPrev2Idx = if length vBuf > 2 then 2 else sigPrev1Idx
-                 
-                 sigCurr  = if vBufLen > 0 then (vBuf !! sigCurrIdx)  else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
-                 sigPrev1 = if vBufLen > 0 then (vBuf !! sigPrev1Idx) else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
-                 sigPrev2 = if vBufLen > 0 then (vBuf !! sigPrev2Idx) else [Vertex3 0.0 0.0 0.0] :: [Vertex3 GLfloat]
-               
-               -- Normal vector for current signal is incomplete: 
-                 verticesAndNormalsCurr = RH.normalsFromVertices [sigPrev1,sigCurr,[]] 
-               -- Normal vector for prev signal is complete: 
-                 verticesAndNormalsPrev = RH.normalsFromVertices [sigPrev2,sigPrev1,sigCurr] 
-
-                 updatedNormalsBuf = verticesAndNormalsCurr : verticesAndNormalsPrev : adjNormalsBuf 
-  _ -> []
--- }}}
-
-updateNormalsBuffer nBuf _ _ = nBuf
-
 -- Component init interface for main UI. 
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO ()
-initComponent _ contextSettings contextObjects = do
+initComponent _ contextSettingsIORef contextObjectsIORef = do
 -- {{{
   window <- Gtk.windowNew
 
@@ -324,58 +218,27 @@ initComponent _ contextSettings contextObjects = do
   _ <- GtkGL.initGL
   
   canvas <- GtkGL.glDrawingAreaNew glConfig
+
+  cObjects   <- readIORef contextObjectsIORef
+  cSettings  <- readIORef contextSettingsIORef  
+  let sigGen = AC.signalGenerator cObjects
   
-  settings <- readIORef contextSettings
-  objects  <- readIORef contextObjects
+  let renderSettings = RH.RenderSettings { RH.signalGenerator   = sigGen, 
+                                           RH.samplingSem       = AC.samplingSem cObjects, 
+                                           RH.numNewSignalsChan = AC.numNewSignalsChan cObjects, 
+                                           RH.signalBuf         = AC.signalBuf cObjects, 
+                                           RH.featuresBuf       = AC.featuresBuf cObjects, 
+                                           RH.lightPos0         = (Vertex4 (-1.0) 3.0 (-2.0) 0.0), 
+                                           RH.lightPos1         = (Vertex4 1.0 3.0 2.0 0.0), 
+                                           RH.numSignals        = 0, 
+                                           RH.numNewSignals     = 0, 
+                                           RH.numSamples        = SigGen.numSamples sigGen, 
+                                           RH.tick              = 0 }
   
-  vertexBufIORef  <- newIORef []
-  normalsBufIORef <- newIORef []
+  renderSettingsIORef <- newIORef renderSettings
 
-  gridfont <- FTGL.createOutlineFont "ProggyClean.ttf"
-  fillfont <- FTGL.createPolygonFont "ProggyClean.ttf"
-  _ <- FTGL.setFontFaceSize gridfont 36 36 
-  _ <- FTGL.setFontFaceSize fillfont 36 36 
-
-  gridFontIORef <- newIORef gridfont
-  fillFontIORef <- newIORef fillfont
-
-  let sigGen     = AC.signalGenerator objects
-  let numSamples = SigGen.numSamples sigGen
-
-  let xPosFun x rs = (log (x'+1.0) + (x' / n' * xLogScale)) / (log n' + xLogScale) * xLinScale
-                     where xLogScale = RH.xLogScale rs
-                           xLinScale = RH.xLinScale rs
-                           sGen = RH.signalGenerator rs
-                           n' = fromIntegral $ SigGen.numSamples sGen
-                           x' = fromIntegral x
-
-  -- Returns Infinity for numSignals = 0
-  let zPosFun z rs = fromIntegral z / n' * zLinScale
-                     where zLinScale = RH.zLinScale rs
-                           n' = fromIntegral $ RH.numSignals rs
-  
-  renderSettings <- newIORef RH.RenderSettings { RH.signalGenerator = sigGen, 
-                                                 RH.samplingSem = AC.samplingSem objects, 
-                                                 RH.renderingSem = AC.renderingSem objects, 
-                                                 RH.numNewSignalsChan = AC.numNewSignalsChan objects, 
-                                                 RH.signalBuf = AC.signalBuf objects, 
-                                                 RH.featuresBuf = AC.featuresBuf objects, 
-                                                 RH.xPosFun = xPosFun, 
-                                                 RH.zPosFun = zPosFun, 
-                                                 RH.xLinScale = AC.xLinScale settings, 
-                                                 RH.xLogScale = AC.xLogScale settings, 
-                                                 RH.zLinScale = AC.zLinScale settings,
-                                                 RH.scaleFun = (\s _ _ -> s), 
-                                                 RH.vertexBuf = vertexBufIORef, 
-                                                 RH.normalsBuf = normalsBufIORef, 
-                                                 RH.lightPos0 = (Vertex4 (-1.0) 3.0 (-2.0) 0.0), 
-                                                 RH.lightPos1 = (Vertex4 (1.0) 3.0 (2.0) 0.0), 
-                                                 RH.fillFont = fillFontIORef,
-                                                 RH.gridFont = gridFontIORef, 
-                                                 RH.tick = 0, 
-                                                 RH.reverseBuffer = AC.reverseBuffer settings, 
-                                                 RH.numSignals = 0, 
-                                                 RH.numSamples = numSamples } 
+  newVisual <- (VisualFFTSurface.newVisual cSettings cObjects renderSettings) :: IO (VisualFFTSurface.FFTSurface)
+  visualIORef <- newIORef newVisual
 
   -- Initialise some GL setting just before the canvas first gets shown
   -- (We can't initialise these things earlier since the GL resources that
@@ -383,6 +246,9 @@ initComponent _ contextSettings contextObjects = do
 
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
     -- {{{ 
+
+    -- TODO: Most of this initialization does not belong here! (-> initComponent)
+
     -- depthMask $= Disabled
     -- dither $= Enabled
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
@@ -406,8 +272,8 @@ initComponent _ contextSettings contextObjects = do
 
     colorMaterial $= Just (FrontAndBack, AmbientAndDiffuse)
 
-    let blendModeSource = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx settings
-    let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx settings
+    let blendModeSource = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx cSettings
+    let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx cSettings
     blendFunc $= (blendModeSource, blendModeFrameBuffer)
     
     hint PerspectiveCorrection $= Nicest
@@ -417,7 +283,7 @@ initComponent _ contextSettings contextObjects = do
     matrixMode $= Projection
     loadIdentity
     viewport $= (Position 0 0, Size (fromIntegral canvasInitWidth) (fromIntegral canvasInitHeight))
-    perspective (realToFrac $ AC.viewAngle settings) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
+    perspective (realToFrac $ AC.viewAngle cSettings) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
 
     matrixMode $= Modelview 0
     loadIdentity
@@ -429,12 +295,12 @@ initComponent _ contextSettings contextObjects = do
   _ <- Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
       GL.clear [GL.DepthBuffer, GL.ColorBuffer]
-      display contextSettings renderSettings
+      display visualIORef contextSettingsIORef renderSettingsIORef
       GtkGL.glDrawableSwapBuffers glwindow
     return True
 
   -- Resize handler:
-  _ <- Gtk.onSizeAllocate canvas (reshape contextSettings)
+  _ <- Gtk.onSizeAllocate canvas (reshape contextSettingsIORef)
 
   -- Add canvas (OpenGL drawing area) to GUI:
   Gtk.widgetSetSizeRequest canvas canvasInitWidth canvasInitHeight
@@ -453,7 +319,7 @@ initComponent _ contextSettings contextObjects = do
     liftIO $ Gtk.windowUnfullscreen window
     liftIO $ Gtk.windowSetKeepAbove window False
 
-  let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency settings)
+  let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency cSettings)
   -- Redraw canvas according to rendering frequency:
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
