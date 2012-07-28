@@ -43,11 +43,10 @@ import qualified Drool.ApplicationContext as AC
 import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar, takeMVar, putMVar )
 import qualified Control.Concurrent.Chan as CC ( readChan )
 
-import qualified Drool.UI.Visual as Visual
-import qualified Drool.UI.Visuals.FFTSurface as VisualFFTSurface
+import qualified Drool.UI.Visuals as Visuals
 
 
-display :: (Visual.Visual v) => IORef v -> IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
+display :: (Visuals.Visual v) => IORef v -> IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
 display visualIORef contextSettingsIORef renderSettingsIORef = do
 -- {{{
 --  renderSettingsPrev <- readIORef renderSettingsIORef
@@ -97,7 +96,7 @@ display visualIORef contextSettingsIORef renderSettingsIORef = do
   modifyIORef contextSettingsIORef (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
   
   -- Push new signal(s) to visual: 
-  visualUpdated <- VisualFFTSurface.pushSignal visualIORef contextSettings renderSettings' tick
+  visualUpdated <- Visuals.pushSignal visualIORef contextSettings renderSettings' tick
   
   matrixMode $= Projection
   loadIdentity
@@ -175,9 +174,9 @@ display visualIORef contextSettingsIORef renderSettingsIORef = do
   GL.diffuse  (Light 1) $= AC.lightDiffuse light1
   GL.specular (Light 1) $= AC.lightSpecular light1
 
-  let (visWidth,visHeight,visDepth) = VisualFFTSurface.dimensions visualUpdated
+  let (visWidth,visHeight,visDepth) = Visuals.dimensions visualUpdated
   
-  fogMode $= Linear 0.0 (visDepth * 2.0)
+  fogMode $= Linear 0.0 (visDepth * 20.0)
   fogColor $= (Color4 0.0 0.0 0.0 1.0)
 
   GL.position (Light 0) $= lightPos0
@@ -186,7 +185,7 @@ display visualIORef contextSettingsIORef renderSettingsIORef = do
   GL.translate $ Vector3 (-0.5 * visWidth) 0 0
   GL.translate $ Vector3 0 0 (-0.5 * visDepth)
   
-  VisualFFTSurface.render visualUpdated
+  Visuals.render visualUpdated
 
 -- }}} 
 
@@ -237,7 +236,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   
   renderSettingsIORef <- newIORef renderSettings
 
-  newVisual <- (VisualFFTSurface.newVisual cSettings cObjects renderSettings) :: IO (VisualFFTSurface.FFTSurface)
+  newVisual <- (Visuals.newVisual cSettings cObjects renderSettings) :: IO (Visuals.FFTSurface)
   visualIORef <- newIORef newVisual
 
   -- Initialise some GL setting just before the canvas first gets shown

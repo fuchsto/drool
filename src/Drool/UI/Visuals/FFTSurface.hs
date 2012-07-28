@@ -15,16 +15,16 @@
 {-# OPTIONS -O2 -Wall #-}
 
 module Drool.UI.Visuals.FFTSurface (
-    FFTSurface, -- do not export constructor to enforce usage of newVisual
+    FFTSurface, -- hidden type constructor
     newVisual, 
     dimensions, 
     render, 
     pushSignal
 ) where
 
-import Debug.Trace
-
-import Drool.UI.Visual as Visual
+-- Imports
+-- {{{
+import Drool.UI.Visuals.Visual as Visual
 
 import Drool.Utils.RenderHelpers as RH hiding ( reverseBuffer, numSamples )
 import qualified Drool.Utils.RenderHelpers as RH ( numSamples )
@@ -82,6 +82,7 @@ import Graphics.Rendering.OpenGL as GL (
     matrix, 
     GLfloat )
 import qualified Graphics.Rendering.FTGL as FTGL
+-- }}}
 
 -- Settings for current visual, excluding those independent from 
 -- visual used: 
@@ -130,7 +131,7 @@ instance Visual FFTSurface where
                             where xLog = xLogScale visual
                                   xLin = xLinScale visual
                                   sGen = signalGenerator (renderSettings visual)
-                                  n' = fromIntegral $ SigGen.numSamples sGen -- TODO: Shouldn't this be  numSamples (renderSettings visual)  ?
+                                  n' = fromIntegral $ RH.numSamples (renderSettings visual) -- SigGen.numSamples sGen 
                                   x' = fromIntegral x
 
     -- Returns Infinity for numSignals = 0
@@ -139,22 +140,19 @@ instance Visual FFTSurface where
                                   n'   = fromIntegral nSig
                                   nSig = RH.numSignals (renderSettings visual)
 
-    let sigGen   = RH.signalGenerator rSettings
-    let nSamples = SigGen.numSamples sigGen
-    
-    let settings = FFTSurface { xPosFun = xPosFunc, 
-                                zPosFun = zPosFunc, 
-                                xLinScale = AC.xLinScale cSettings, 
-                                xLogScale = AC.xLogScale cSettings, 
-                                zLinScale = AC.zLinScale cSettings,
-                                scaleFun = (\s _ _ -> s), 
-                                vertexBuf = vertexBufIORef, 
-                                normalsBuf = normalsBufIORef, 
-                                reverseBuffer = AC.reverseBuffer cSettings, 
-                                fillFont = fillFontIORef,
-                                gridFont = gridFontIORef, 
+    let settings = FFTSurface { xPosFun         = xPosFunc, 
+                                zPosFun         = zPosFunc, 
+                                scaleFun        = (\s _ _ -> s), 
+                                xLinScale       = AC.xLinScale cSettings, 
+                                xLogScale       = AC.xLogScale cSettings, 
+                                zLinScale       = AC.zLinScale cSettings,
+                                vertexBuf       = vertexBufIORef, 
+                                normalsBuf      = normalsBufIORef, 
+                                reverseBuffer   = AC.reverseBuffer cSettings, 
+                                fillFont        = fillFontIORef,
+                                gridFont        = gridFontIORef, 
                                 contextSettings = cSettings, 
-                                renderSettings = rSettings }
+                                renderSettings  = rSettings }
     return settings
   -- }}}
 
@@ -263,7 +261,7 @@ instance Visual FFTSurface where
       color $ Color4 0 0 0 (0.5::GLfloat)
       FTGL.renderFont gridfont marqueeText FTGL.Front
       fog $= Enabled
-
+  -- }}}
 
 -- Helper functions: 
 

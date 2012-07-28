@@ -155,7 +155,7 @@ main = do
                                                let amplifiedSamples = map (\x -> ampSignal $ realToFrac x) $ take numSamples fftTransformedSamples
                                                -- Feature Extraction: 
                                                let feSettings = FE.FeatureExtractionSettings { FE.maxBeatBand = (AC.maxBeatBand cSettings) }
-                                               let newFeatures = FE.extractSignalFeatures amplifiedSamples feSettings sigGen
+                                               -- let newFeatures = FE.extractSignalFeatures amplifiedSamples feSettings sigGen
                                                -- Push signal: 
                                                newSignal <- (newListArray (0, length amplifiedSamples - 1) amplifiedSamples)::IO (IOUArray Int Float)
                                                
@@ -165,6 +165,8 @@ main = do
                                                iirFilteredSignals <- if AC.iirEnabled cSettings 
                                                                      then Trans.signalIIR newSignalBuf 1 (realToFrac $ AC.iirCoef cSettings) 
                                                                      else return newSignalBuf
+                                               latestIIRSignal <- getElems $ DT.signalArray (head (DT.signalList iirFilteredSignals))
+                                               let newFeatures = FE.extractSignalFeatures latestIIRSignal feSettings sigGen
 
                                                let iirTransformedSignalBuf = DT.CSignalList ( DT.signalList iirFilteredSignals ) 
 

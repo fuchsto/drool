@@ -14,8 +14,8 @@
 
 {-# OPTIONS -O2 -Wall #-}
 
-module Drool.UI.Visual (
-    Visual(..)
+module Drool.UI.Visuals.Visual (
+    Visual(..), 
 ) where
 
 import Data.IORef (IORef)
@@ -29,6 +29,3 @@ class Visual v where
   pushSignal :: IORef v -> ContextSettings -> RenderSettings -> Int -> IO (v)
   render :: v -> IO ()
 
-
-  
-  
