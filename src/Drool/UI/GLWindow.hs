@@ -246,14 +246,12 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   _ <- Gtk.onRealize canvas $ GtkGL.withGLDrawingArea canvas $ \_ -> do
     -- {{{ 
 
-    -- TODO: Most of this initialization does not belong here! (-> initComponent)
-
     -- depthMask $= Disabled
     -- dither $= Enabled
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
     shadeModel $= Smooth
     depthFunc $= Just Less
-    -- polygonSmooth $= Enabled
+    polygonSmooth $= Enabled
     lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
@@ -263,8 +261,6 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     multisample $= Enabled
     sampleAlphaToCoverage $= Enabled
     fog $= Enabled
-
-    polygonOffset $= (1.0,1.0)
 
     lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
@@ -293,7 +289,6 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   -- OnShow handler for GL canvas:
   _ <- Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
-      GL.clear [GL.DepthBuffer, GL.ColorBuffer]
       display visualIORef contextSettingsIORef renderSettingsIORef
       GtkGL.glDrawableSwapBuffers glwindow
     return True

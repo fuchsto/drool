@@ -18,6 +18,8 @@ module Drool.UI.GtkHelpers (
   bindAdjustment, 
   initAdjustment, 
 
+  bindButton, 
+
   bindCheckButton,
   initCheckButton, 
 
@@ -51,6 +53,13 @@ initAdjustment elemId gtkBuilder value = do
   adj <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToAdjustment elemId
   Gtk.adjustmentSetValue adj value
   
+bindButton :: [Char] -> GtkBuilder.Builder -> IORef AC.ContextSettings -> (AC.ContextSettings -> IO ()) -> IO ()
+bindButton elemId gtkBuilder contextSettings command = do
+  button <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton elemId
+  _ <- Gtk.onClicked button $ do 
+    settings <- readIORef contextSettings
+    command settings
+  return ()
 
 bindCheckButton :: [Char] -> GtkBuilder.Builder -> IORef AC.ContextSettings -> (Bool -> AC.ContextSettings -> AC.ContextSettings) -> IO ()
 bindCheckButton elemId gtkBuilder contextSettings updateFun = do 

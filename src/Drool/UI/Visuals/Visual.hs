@@ -20,7 +20,7 @@ module Drool.UI.Visuals.Visual (
 
 import Data.IORef (IORef)
 import Graphics.Rendering.OpenGL ( GLfloat )
-import Drool.ApplicationContext ( ContextSettings, ContextObjects )
+import {-# SOURCE #-} Drool.ApplicationContext ( ContextSettings, ContextObjects )
 import Drool.Utils.RenderHelpers ( RenderSettings )
 
 class Visual v where 

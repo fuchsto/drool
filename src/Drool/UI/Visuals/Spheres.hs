@@ -28,7 +28,7 @@ import Drool.UI.Visuals.Visual as Visual
 
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import qualified Drool.Utils.RenderHelpers as RH ( RenderSettings(..), color4MulAlpha )
-import qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..) )
+import {-# SOURCE #-} qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..) )
 import qualified Drool.Utils.SigGen as SigGen ( SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 

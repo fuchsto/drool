@@ -37,7 +37,7 @@ import Data.Array.IO ( getElems )
 import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
 import qualified Drool.Types as DT ( Signal(..), SignalList(..), RenderPerspective(..), getRecentSignal, getLastSignal, RotationVector(..) )
-import qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..) )
+import {-# SOURCE #-} qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..) )
 import qualified Drool.Utils.SigGen as SigGen ( SValue, SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 
@@ -80,6 +80,10 @@ import Graphics.Rendering.OpenGL as GL (
     fog, 
     scale, 
     matrix, 
+    polygonOffset, 
+    polygonOffsetLine, 
+    polygonOffsetFill, 
+    PolygonMode(..), 
     GLfloat )
 import qualified Graphics.Rendering.FTGL as FTGL
 -- }}}
@@ -532,10 +536,15 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               vsTpl  = if dirZ == FrontToBack then (vsCurr,vsNext) else (vsNext,vsCurr)
                                               nsTpl  = if dirZ == FrontToBack then (nsCurr,nsNext) else (nsNext,nsCurr)
                                               fTpl   = if dirZ == FrontToBack then (fCurr,fNext) else (fNext,fCurr)
+                                          polygonOffset $= (1.0,1.0)
                                           polygonOffsetLine $= Enabled
                                           renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
                                           polygonOffsetLine $= Disabled
-                                          renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx )
+                                          
+                                          polygonOffset $= (1.0,-1.0)
+                                          polygonOffsetFill $= Enabled
+                                          renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
+                                          polygonOffsetFill $= Disabled )
            ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
 -- }}}

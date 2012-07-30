@@ -41,13 +41,11 @@ import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), f
 import qualified Control.Concurrent.MVar as MV ( MVar )
 import qualified Control.Concurrent.Chan as CC ( Chan )
 
-import Drool.UI.Visuals
-
 -- Shared settings for communication between main controller, view options
 -- and rendering. 
 -- This record is serializable so it can be saved to a settings file. 
 data ContextSettings = ContextSettings { settingsFile :: Maybe String, 
-
+                                         
                                       -- Signal Buffer Options: 
                                          signalPushFrequency :: Int,  -- Maximum frequency signals are pushed to rendering 
                                          renderingFrequency :: Int, -- Maximum frequency of GL rendering loop
@@ -119,85 +117,20 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          signalSource :: DT.SignalSource, 
 
                                          metrics :: Metrics }
-  deriving ( Show, Read ) 
 
 data MaterialConfig = MaterialConfig { materialAmbient :: Color4 GLfloat, 
                                        materialDiffuse :: Color4 GLfloat, 
                                        materialSpecular :: Color4 GLfloat, 
                                        materialEmission :: Color4 GLfloat, 
                                        materialShininess :: GLfloat }
-  deriving ( Show, Read ) 
 
 data LightConfig = LightConfig { lightAmbient :: Color4 GLfloat, 
                                  lightDiffuse :: Color4 GLfloat, 
                                  lightSpecular :: Color4 GLfloat } 
-  deriving ( Show, Read ) 
-                             
 
 data Metrics = Metrics { latency :: Integer } -- in ms
-  deriving ( Show, Read ) 
 
 defaultContextSettings :: ContextSettings
-defaultContextSettings = ContextSettings { settingsFile = Nothing, 
-                                           signalPushFrequency = 200, 
-                                           renderingFrequency = 30, 
-                                           signalBufferSize = 30,
-                                           signalAmpDb = 1.0, 
-                                           fixedRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                                           incRotation = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                                           incRotationAccum = DT.CRotationVector { DT.rotX = 0.0::GLfloat, DT.rotY = 0.0::GLfloat, DT.rotZ = 0.0::GLfloat },
-                                           scaling = 24,
-                                           xLogScale = 15.0, 
-                                           xLinScale = 5.0, 
-                                           zLinScale = 5.0, 
-                                           viewAngle = 121.0, 
-                                           viewDistance = -2.1, 
-                                           blendModeSourceIdx = Conv.blendModeSourceIndex SrcAlpha, 
-                                           blendModeFrameBufferIdx = Conv.blendModeFrameBufferIndex OneMinusSrcAlpha, 
-                                           useNormals = True, 
-                                           normalsScale = 10.0, 
-                                           rangeAmps = [ 0.56, 1.0, 1.33, 1.61, 1.66 ], 
-                                           gridOpacity = 1.0,
-                                           surfaceOpacity = 90.0,
-																					 light0Enabled = True,
-                                           light0 = LightConfig { lightAmbient  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightDiffuse  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightSpecular = Color4 0.074 0.94 0.69 1.0 }, 
-																					 light1Enabled = True,
-                                           light1 = LightConfig { lightAmbient  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightDiffuse  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightSpecular = Color4 0.074 0.94 0.69 1.0 }, 
-                                           surfaceMaterial = MaterialConfig { materialEmission  = Color4 0.0  0.0  0.0 0.0, 
-                                                                              materialAmbient   = Color4 0.02 0.34 1.0 1.0, 
-                                                                              materialDiffuse   = Color4 0.02 0.68 1.0 1.0, 
-                                                                              materialSpecular  = Color4 0.48 1.0  1.0 1.0, 
-                                                                              materialShininess = 30.0 },
-                                           gridMaterial = MaterialConfig { materialEmission  = Color4 0.0  0.0  0.0  0.0, 
-                                                                           materialAmbient   = Color4 0.03 0.04 0.01 1.0, 
-                                                                           materialDiffuse   = Color4 0.11 0.16 0.08 1.0, 
-                                                                           materialSpecular  = Color4 0.11 0.16 0.08 1.0, 
-                                                                           materialShininess = 30.0 },
-                                           renderPerspective = DT.Front,
-                                           autoPerspectiveSwitch = False, 
-                                           autoPerspectiveSwitchInterval = 500, 
-                                           reverseBuffer = False, 
-                                           maxBeatBand = 20, 
-                                           iirEnabled = True, 
-                                           fftEnabled = True, 
-                                           ampEnabled = True, 
-                                           playbackEnabled = True, 
-                                           featureSignalEnergyTargetIdx = FE.featureTargetIndex FE.GlobalTarget, 
-                                           featureBassEnergyTargetIdx = FE.featureTargetIndex FE.LocalTarget, 
-                                           featureSignalEnergySurfaceCoeff = 0.2, 
-                                           featureBassEnergySurfaceCoeff = 0.8, 
-                                           featureSignalEnergyGridCoeff = 0.5, 
-                                           featureBassEnergyGridCoeff = 0.5, 
-                                           audioSampleRate = 191000, 
-                                           numFFTBands = 10240, 
-                                           iirCoef = 0.8, 
-                                           marqueeText = "-D-R-O-O-L-", 
-                                           signalSource = DT.Microphone, 
-                                           metrics = Metrics { latency = 0 } }
 
 -- Non-serializable context settings. 
 data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 
@@ -209,26 +142,8 @@ data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId,
                                        signalGenerator :: (SigGen.SignalGenerator) } 
 
 saveContextSettingsAs :: ContextSettings -> String -> IO Bool
-saveContextSettingsAs settings filepath = saveContextSettings (settings { settingsFile = Just filepath })
 
 saveContextSettings :: ContextSettings -> IO Bool
-saveContextSettings settings = do
-  case settingsFile settings of 
-    Just filepath -> do 
-      let serSettings = show settings
-      handle <- SIO.openFile filepath SIO.WriteMode
-      SIO.hPutStrLn handle serSettings
-      SIO.hClose handle
-      return True
-    Nothing -> do 
-      putStrLn "Cannot save settings without settings file path"
-      return False
 
 loadContextSettings :: String -> IO ContextSettings 
-loadContextSettings filepath = do 
-  handle <- SIO.openFile filepath SIO.ReadMode
-  serSettings <- SIO.hGetLine handle
-  let settings = read serSettings :: ContextSettings
-  return settings
-
 

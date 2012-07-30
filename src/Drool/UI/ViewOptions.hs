@@ -25,14 +25,16 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import Graphics.Rendering.OpenGL
 
-import qualified Drool.UI.GtkHelpers as GH
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
+
+import qualified Drool.UI.GtkHelpers as GH
+import qualified Drool.UI.Dialogs.FFTSurfaceDialog as FFTSurfaceDialog
 
 -- Initializes GUI component for view options.
 -- Expects a GtkBuilder instance and default context settings. 
 initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
-initComponent gtkBuilder contextSettings _ = do
+initComponent gtkBuilder contextSettings contextObjects = do
   putStrLn "Initializing ViewOptions component"
 
   defaultSettings <- readIORef contextSettings
@@ -230,21 +232,6 @@ initComponent gtkBuilder contextSettings _ = do
   GH.bindCheckButton "checkbuttonPlayback"      gtkBuilder contextSettings (\v settings -> settings { AC.playbackEnabled = v })
   GH.bindCheckButton "checkbuttonReverseBuffer" gtkBuilder contextSettings (\v settings -> settings { AC.reverseBuffer = v })
 
-  GH.bindAdjustment "adjGridOpacity"    gtkBuilder contextSettings (\v settings -> settings { AC.gridOpacity = realToFrac v })
-  GH.bindAdjustment "adjSurfaceOpacity" gtkBuilder contextSettings (\v settings -> settings { AC.surfaceOpacity = realToFrac v })
-
-  -- Materials
-  GH.bindColorAlphaButton "colorbuttonGridAmbient"     gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialAmbient = c } } ) 
-  GH.bindColorAlphaButton "colorbuttonGridDiffuse"     gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialDiffuse = c } } ) 
-  GH.bindColorAlphaButton "colorbuttonGridSpecular"    gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialSpecular = c } } ) 
-  GH.bindColorAlphaButton "colorbuttonGridEmission"    gtkBuilder contextSettings (\c s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialEmission = c } } ) 
-  GH.bindAdjustment "adjGridShininess" gtkBuilder contextSettings (\v s -> s { AC.gridMaterial = (AC.gridMaterial s) { AC.materialShininess = realToFrac v } } )
-  GH.bindColorAlphaButton "colorbuttonSurfaceAmbient"  gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialAmbient = c } } ) 
-  GH.bindColorAlphaButton "colorbuttonSurfaceDiffuse"  gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialDiffuse = c } } ) 
-  GH.bindColorAlphaButton "colorbuttonSurfaceSpecular" gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialSpecular = c } } ) 
-  GH.bindColorAlphaButton "colorbuttonSurfaceEmission" gtkBuilder contextSettings (\c s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialEmission = c } } ) 
-  GH.bindAdjustment "adjSurfaceShininess" gtkBuilder contextSettings (\v s -> s { AC.surfaceMaterial = (AC.surfaceMaterial s) { AC.materialShininess = realToFrac v } } )
-
   -- Lights
   GH.bindCheckButton "checkbuttonLight1Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light0Enabled = v })
   GH.bindColorButton "colorbuttonLight1Ambient"  gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightAmbient = c } } ) 
@@ -255,16 +242,17 @@ initComponent gtkBuilder contextSettings _ = do
   GH.bindColorButton "colorbuttonLight2Diffuse"  gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightDiffuse = c } } ) 
   GH.bindColorButton "colorbuttonLight2Specular" gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightSpecular = c } } ) 
 
-  _ <- updateSettings gtkBuilder defaultSettings
-
+  GH.bindButton "buttonVisualModelEdit" gtkBuilder contextSettings ( \_ -> do _ <- FFTSurfaceDialog.initComponent gtkBuilder 
+                                                                                                                  contextSettings 
+                                                                                                                  contextObjects 
+                                                                              return () )
+  
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool
 updateSettings gtkBuilder settings = do 
 
   GH.initAdjustment "adjLinearScaling"  gtkBuilder (realToFrac $ AC.scaling settings)
-  GH.initAdjustment "adjGridOpacity"    gtkBuilder (realToFrac $ AC.gridOpacity settings)
-  GH.initAdjustment "adjSurfaceOpacity" gtkBuilder (realToFrac $ AC.surfaceOpacity settings)
   GH.initAdjustment "adjFixedRotationX" gtkBuilder (realToFrac $ DT.rotX $ AC.fixedRotation settings)
   GH.initAdjustment "adjFixedRotationY" gtkBuilder (realToFrac $ DT.rotY $ AC.fixedRotation settings)
   GH.initAdjustment "adjFixedRotationZ" gtkBuilder (realToFrac $ DT.rotZ $ AC.fixedRotation settings)
@@ -294,17 +282,6 @@ updateSettings gtkBuilder settings = do
   
   GH.initAdjustment "adjFeatureSignalEnergySurfaceCoeff" gtkBuilder (realToFrac $ AC.featureSignalEnergySurfaceCoeff settings) 
   GH.initAdjustment "adjAutoPerspectiveSwitchInterval"   gtkBuilder (realToFrac $ AC.autoPerspectiveSwitchInterval settings) 
-  
-  GH.initColorAlphaButton "colorbuttonGridAmbient"     gtkBuilder (AC.materialAmbient $ AC.gridMaterial settings)
-  GH.initColorAlphaButton "colorbuttonGridDiffuse"     gtkBuilder (AC.materialDiffuse $ AC.gridMaterial settings)
-  GH.initColorAlphaButton "colorbuttonGridSpecular"    gtkBuilder (AC.materialSpecular $ AC.gridMaterial settings)
-  GH.initColorAlphaButton "colorbuttonGridEmission"    gtkBuilder (AC.materialEmission $ AC.gridMaterial settings)
-  GH.initAdjustment "adjGridShininess" gtkBuilder ( realToFrac $ AC.materialShininess $ AC.gridMaterial settings )
-  GH.initColorAlphaButton "colorbuttonSurfaceAmbient"  gtkBuilder (AC.materialAmbient $ AC.surfaceMaterial settings)
-  GH.initColorAlphaButton "colorbuttonSurfaceDiffuse"  gtkBuilder (AC.materialDiffuse $ AC.surfaceMaterial settings)
-  GH.initColorAlphaButton "colorbuttonSurfaceSpecular" gtkBuilder (AC.materialSpecular $ AC.surfaceMaterial settings)
-  GH.initColorAlphaButton "colorbuttonSurfaceEmission" gtkBuilder (AC.materialEmission $ AC.surfaceMaterial settings)
-  GH.initAdjustment "adjSurfaceShininess" gtkBuilder ( realToFrac $ AC.materialShininess $ AC.surfaceMaterial settings )
   
   GH.initCheckButton "checkbuttonLight1Enabled" gtkBuilder (AC.light0Enabled settings)
   GH.initColorButton "colorbuttonLight1Ambient"  gtkBuilder (AC.lightAmbient $ AC.light0 settings)
