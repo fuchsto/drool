@@ -30,6 +30,7 @@ import qualified Drool.Utils.SigGen as SigGen
 import qualified Drool.Utils.Transformation as Trans
 import qualified Drool.Utils.FeatureExtraction as FE
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.ContextObjects as AC
 
 import qualified Drool.UI.Menubar as Menubar
 import qualified Drool.UI.ViewOptions as ViewOptions
@@ -39,6 +40,7 @@ import qualified Drool.UI.SignalBufferOptions as SignalBufferOptions
 import qualified Drool.UI.SignalSourceOptions as SignalSourceOptions
 import qualified Drool.UI.Metrics as Metrics
 import qualified Drool.UI.GLWindow as GLWindow
+import qualified Drool.UI.Visuals as Visuals
 
 import qualified Sound.Pulse.Simple as Pulse
 import qualified Control.Monad as M
@@ -72,14 +74,20 @@ main = do
   numNewSignalsChan <- CC.newChan 
 
   contextSettings <- newIORef ( AC.defaultContextSettings )
-  contextObjects <- newIORef (
-    AC.ContextObjects { AC.samplingThreadId  = undefined, 
-                        AC.samplingSem       = initSamplingSem, 
-                        AC.numNewSignalsChan = numNewSignalsChan, 
-                        AC.renderingSem      = initRenderingSem, 
-                        AC.signalBuf         = signalBuffer,
-                        AC.featuresBuf       = signalFeaturesBuffer, 
-                        AC.signalGenerator   = defaultSiggen } ) 
+
+  -- Load a concrete visual definition (e.g. Visual FFTSurface): 
+  let visualDef   = Visuals.FFTSurfaceVisual $ Visuals.createFFTSurfaceVisual contextSettings
+  visualDefIORef <- newIORef visualDef
+  contextObjects  <- newIORef (
+    AC.ContextObjects { AC.samplingThreadId        = undefined, 
+                        AC.samplingSem             = initSamplingSem, 
+                        AC.numNewSignalsChan       = numNewSignalsChan, 
+                        AC.renderingSem            = initRenderingSem, 
+                        AC.signalBuf               = signalBuffer,
+                        AC.featuresBuf             = signalFeaturesBuffer, 
+                        AC.signalGenerator         = defaultSiggen, 
+                        AC.visualDefinition        = visualDefIORef, 
+                        AC.visualDefinitionChanged = True } ) 
 
   -- Load UI configuration from GtkBuilder file:
   builder <- GtkBuilder.builderNew

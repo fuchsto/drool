@@ -15,7 +15,8 @@
 {-# OPTIONS -O2 -Wall #-}
 
 module Drool.UI.Visuals (
-    VisualComponent(..), 
+    VisualDefinition(..), 
+    VisualState(..), 
     module Drool.UI.Visuals.Visual, 
     module Drool.UI.Visuals.FFTSurface, 
     module Drool.UI.Visuals.Spheres
@@ -25,12 +26,13 @@ import Drool.UI.Visuals.Visual
 import Drool.UI.Visuals.FFTSurface
 import Drool.UI.Visuals.Spheres
 
-data VisualComponent = FFTSurfaceVisual FFTSurface | SpheresVisual Spheres
+data VisualDefinition = FFTSurfaceVisual { fftSurface :: Visual FFTSurface } | SpheresVisual { spheres :: Visual Spheres }
+data VisualState      = FFTSurfaceState FFTSurface | SpheresState Spheres
 
 {- 
 Function record approach using currying. This effectively achieves the same 
 interface behaviour, but without the Visual type class. 
-Currently, it is: 
+Using a type class, it used to be: 
 
   class Visual v where 
     newVisual :: ContextSettings -> ContextObjects -> RenderSettings -> IO (v)
@@ -38,15 +40,16 @@ Currently, it is:
     pushSignal :: IORef v -> ContextSettings -> RenderSettings -> Int -> IO (v)
     render :: v -> IO ()
 
-Using a record of functions: 
+  data VisualComponent = FFTSurfaceVisual FFTSurface | SpheresVisual Spheres
+
+Now, using a record of functions: 
 
   data Visual = Visual { newVisual :: RenderSettings -> IO (v)
                          dimensions :: (GLfloat,GLfloat,GLfloat)
-                         pushSignal :: RenderSettings -> Int -> IO (v)
+                         update :: RenderSettings -> Int -> IO (v)
                          render :: IO () }
 
 and in the implemenation modules, e.g. FFTSurface: 
-  NOTE: contextSettings and contextObjects have to be passed as IORefs in this case. 
 
   makeVisual :: Visual
   makeVisual contextSettingsIORef contextObjectsIORef = Visual { newVisual  = fftSurfaceNewVisual contextSettingsIORef contextObjectsIORef, -- curried: renderSettings -> IO (v) 

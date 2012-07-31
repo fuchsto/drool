@@ -20,12 +20,20 @@ module Drool.UI.Visuals.Visual (
 
 import Data.IORef (IORef)
 import Graphics.Rendering.OpenGL ( GLfloat )
-import {-# SOURCE #-} Drool.ApplicationContext ( ContextSettings, ContextObjects )
 import Drool.Utils.RenderHelpers ( RenderSettings )
 
+{-
 class Visual v where 
   newVisual :: ContextSettings -> ContextObjects -> RenderSettings -> IO (v)
   dimensions :: v -> (GLfloat,GLfloat,GLfloat)
   pushSignal :: IORef v -> ContextSettings -> RenderSettings -> Int -> IO (v)
   render :: v -> IO ()
+-}
+
+data Visual v = Visual { newVisual :: RenderSettings -> IO (v), 
+                         dimensions :: v -> (GLfloat,GLfloat,GLfloat), 
+                         update :: RenderSettings -> IORef v -> Int -> IO (v), 
+                         render :: v -> IO () }
+
+
 

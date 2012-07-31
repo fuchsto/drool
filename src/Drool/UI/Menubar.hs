@@ -24,6 +24,7 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.ContextObjects as AC
 
 import qualified Drool.UI.ViewOptions as ViewOptions
 import qualified Drool.UI.TransformationOptions as TransformationOptions

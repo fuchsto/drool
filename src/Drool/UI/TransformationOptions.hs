@@ -23,12 +23,13 @@ import Data.IORef
 
 import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.ContextObjects as CO
 import qualified Drool.UI.GtkHelpers as GH
 
 
 -- Initializes GUI component for transformation options.
 -- Expects a GtkBuilder instance and default context settings. 
-initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef CO.ContextObjects -> IO Bool
 initComponent gtkBuilder contextSettings _ = do
   putStrLn "Initializing TransformationOptions component"
 

@@ -26,8 +26,9 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import qualified Drool.UI.GtkHelpers as GH
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.ContextObjects as CO
 
-initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.ContextObjects -> IO Bool
+initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef CO.ContextObjects -> IO Bool
 initComponent gtkBuilder contextSettings _ = do
   putStrLn "Initializing FFTSurface dialog component"
 

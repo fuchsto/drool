@@ -14,7 +14,6 @@
 
 module Drool.ApplicationContext (
     ContextSettings(..),
-    ContextObjects(..), 
     Metrics(..), 
     MaterialConfig(..), 
     LightConfig(..), 
@@ -40,8 +39,6 @@ import qualified Drool.Utils.Conversions as Conv ( blendModeSourceIndex, blendMo
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), featureTargetIndex, FeatureTarget(..) ) 
 import qualified Control.Concurrent.MVar as MV ( MVar )
 import qualified Control.Concurrent.Chan as CC ( Chan )
-
-import Drool.UI.Visuals
 
 -- Shared settings for communication between main controller, view options
 -- and rendering. 
@@ -199,15 +196,6 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            signalSource = DT.Microphone, 
                                            metrics = Metrics { latency = 0 } }
 
--- Non-serializable context settings. 
-data ContextObjects = ContextObjects { samplingThreadId :: CC.ThreadId, 
-                                       samplingSem :: MV.MVar Int, 
-                                       numNewSignalsChan :: CC.Chan Int, 
-                                       renderingSem :: MV.MVar Int, 
-                                       signalBuf :: (IORef SignalList), 
-                                       featuresBuf :: (IORef FE.SignalFeaturesList), 
-                                       signalGenerator :: (SigGen.SignalGenerator) } 
-
 saveContextSettingsAs :: ContextSettings -> String -> IO Bool
 saveContextSettingsAs settings filepath = saveContextSettings (settings { settingsFile = Just filepath })
 
@@ -230,5 +218,4 @@ loadContextSettings filepath = do
   serSettings <- SIO.hGetLine handle
   let settings = read serSettings :: ContextSettings
   return settings
-
 

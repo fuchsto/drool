@@ -25,7 +25,8 @@ import qualified Graphics.UI.Gtk.Builder as GtkBuilder
 
 import Graphics.Rendering.OpenGL
 
-import qualified Drool.ApplicationContext as AC ( ContextSettings(..), ContextObjects(..) )
+import qualified Drool.ApplicationContext as AC ( ContextSettings(..) )
+import qualified Drool.ContextObjects as AC
 import qualified Drool.Utils.SigGen as SigGen
 import qualified Drool.Types as DT
 

@@ -16,10 +16,11 @@
 
 module Drool.UI.Visuals.FFTSurface (
     FFTSurface, -- hidden type constructor
-    newVisual, 
-    dimensions, 
-    render, 
-    pushSignal
+    createFFTSurfaceVisual, 
+    fftSurfaceNew, 
+    fftSurfaceDimensions, 
+    fftSurfaceRender, 
+    fftSurfaceUpdate
 ) where
 
 -- Imports
@@ -37,7 +38,7 @@ import Data.Array.IO ( getElems )
 import Data.Ix ( rangeSize )
 import Data.List ( findIndex )
 import qualified Drool.Types as DT ( Signal(..), SignalList(..), RenderPerspective(..), getRecentSignal, getLastSignal, RotationVector(..) )
-import {-# SOURCE #-} qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..) )
+import qualified Drool.ApplicationContext as AC ( ContextSettings(..), MaterialConfig(..) )
 import qualified Drool.Utils.SigGen as SigGen ( SValue, SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 
@@ -116,156 +117,172 @@ data FFTSurface = FFTSurface { -- maps x index to x position:
                                contextSettings :: AC.ContextSettings, 
                                renderSettings :: RH.RenderSettings }
 
-instance Visual FFTSurface where 
+-- Hook Visual interface function definitions to concrete implementations: 
+createFFTSurfaceVisual :: IORef AC.ContextSettings -> Visual FFTSurface
+createFFTSurfaceVisual contextSettingsIORef = Visual { -- curried: RenderSettings -> IO (FFTSurface) 
+                                                       newVisual  = fftSurfaceNew contextSettingsIORef, 
+                                                       -- curried: FFTSurface
+                                                       dimensions = fftSurfaceDimensions, 
+                                                       -- curried: RenderSettings -> IORef FFTSurface -> Int -> IO (FFTSurface)
+                                                       update     = fftSurfaceUpdate contextSettingsIORef, 
+                                                       -- curried: FFTSurface 
+                                                       render     = fftSurfaceRender } 
 
-  newVisual cSettings cObjects rSettings = do
-  -- {{{
-    vertexBufIORef  <- newIORef []
-    normalsBufIORef <- newIORef []
+fftSurfaceNew :: IORef AC.ContextSettings -> RH.RenderSettings -> IO (FFTSurface)
+-- {{{
+fftSurfaceNew cSettingsIORef rSettings = do
+  vertexBufIORef  <- newIORef []
+  normalsBufIORef <- newIORef []
 
-    gridfont <- FTGL.createOutlineFont "ProggyClean.ttf"
-    fillfont <- FTGL.createPolygonFont "ProggyClean.ttf"
-    _ <- FTGL.setFontFaceSize gridfont 36 36 
-    _ <- FTGL.setFontFaceSize fillfont 36 36 
+  cSettings <- readIORef cSettingsIORef 
 
-    gridFontIORef <- newIORef gridfont
-    fillFontIORef <- newIORef fillfont
+  gridfont <- FTGL.createOutlineFont "ProggyClean.ttf"
+  fillfont <- FTGL.createPolygonFont "ProggyClean.ttf"
+  _ <- FTGL.setFontFaceSize gridfont 36 36 
+  _ <- FTGL.setFontFaceSize fillfont 36 36 
 
-    let xPosFunc x visual = (log (x'+1.0) + (x' / n' * xLog)) / (log n' + xLog) * xLin
-                            where xLog = xLogScale visual
-                                  xLin = xLinScale visual
-                                  sGen = signalGenerator (renderSettings visual)
-                                  n' = fromIntegral $ RH.numSamples (renderSettings visual) -- SigGen.numSamples sGen 
-                                  x' = fromIntegral x
+  gridFontIORef <- newIORef gridfont
+  fillFontIORef <- newIORef fillfont
 
-    -- Returns Infinity for numSignals = 0
-    let zPosFunc z visual = fromIntegral z / n' * zLin
-                            where zLin = zLinScale visual
-                                  n'   = fromIntegral nSig
-                                  nSig = RH.numSignals (renderSettings visual)
+  let xPosFunc x visual = (log (x'+1.0) + (x' / n' * xLog)) / (log n' + xLog) * xLin
+                          where xLog = xLogScale visual
+                                xLin = xLinScale visual
+                                sGen = signalGenerator (renderSettings visual)
+                                n' = fromIntegral $ RH.numSamples (renderSettings visual) -- SigGen.numSamples sGen 
+                                x' = fromIntegral x
 
-    let settings = FFTSurface { xPosFun         = xPosFunc, 
-                                zPosFun         = zPosFunc, 
-                                scaleFun        = (\s _ _ -> s), 
-                                xLinScale       = AC.xLinScale cSettings, 
-                                xLogScale       = AC.xLogScale cSettings, 
-                                zLinScale       = AC.zLinScale cSettings,
-                                vertexBuf       = vertexBufIORef, 
-                                normalsBuf      = normalsBufIORef, 
-                                reverseBuffer   = AC.reverseBuffer cSettings, 
-                                fillFont        = fillFontIORef,
-                                gridFont        = gridFontIORef, 
-                                contextSettings = cSettings, 
-                                renderSettings  = rSettings }
-    return settings
-  -- }}}
+  -- Returns Infinity for numSignals = 0
+  let zPosFunc z visual = fromIntegral z / n' * zLin
+                          where zLin = zLinScale visual
+                                n'   = fromIntegral nSig
+                                nSig = RH.numSignals (renderSettings visual)
 
-  dimensions visual = (width,height,depth)
-  -- {{{
-    where width  = (xPosFun visual) (nSamples-1) visual
-          depth  = (zPosFun visual) (nSignals-1) visual
-          height = 2.0
-          nSamples = RH.numSamples $ renderSettings visual
-          nSignals = RH.numSignals $ renderSettings visual
-  -- }}}
+  let settings = FFTSurface { xPosFun         = xPosFunc, 
+                              zPosFun         = zPosFunc, 
+                              scaleFun        = (\s _ _ -> s), 
+                              xLinScale       = AC.xLinScale cSettings, 
+                              xLogScale       = AC.xLogScale cSettings, 
+                              zLinScale       = AC.zLinScale cSettings,
+                              vertexBuf       = vertexBufIORef, 
+                              normalsBuf      = normalsBufIORef, 
+                              reverseBuffer   = AC.reverseBuffer cSettings, 
+                              fillFont        = fillFontIORef,
+                              gridFont        = gridFontIORef, 
+                              contextSettings = cSettings, 
+                              renderSettings  = rSettings }
+  return settings
+-- }}}
 
-  pushSignal visualIORef cSettings rSettings t = do
-  -- {{{  
+fftSurfaceDimensions :: FFTSurface -> (GLfloat,GLfloat,GLfloat)
+-- {{{
+fftSurfaceDimensions visual = (width,height,depth)
+  where width  = (xPosFun visual) (nSamples-1) visual
+        depth  = (zPosFun visual) (nSignals-1) visual
+        height = 2.0
+        nSamples = RH.numSamples $ renderSettings visual
+        nSignals = RH.numSignals $ renderSettings visual
+-- }}}
 
-    -- Load current visual: 
-    visualPrev <- readIORef visualIORef 
-    let visual = visualPrev { xLinScale = AC.xLinScale cSettings, 
-                              xLogScale = AC.xLogScale cSettings, 
-                              zLinScale = AC.zLinScale cSettings }
-    -- Update visual settings from application context: 
-    modifyIORef visualIORef ( \_ -> visual )
+fftSurfaceUpdate :: IORef AC.ContextSettings -> RH.RenderSettings -> IORef FFTSurface -> Int -> IO (FFTSurface)
+-- {{{  
+fftSurfaceUpdate cSettingsIORef rSettings visualIORef t = do
+  cSettings <- readIORef cSettingsIORef
 
-    let signalBufIORef = RH.signalBuf rSettings
-        hScale         = (AC.scaling cSettings) / (100.0::Float)
-        surfOpacity    = (AC.surfaceOpacity cSettings) / (100.0::GLfloat)
-        maxNumSignals  = AC.signalBufferSize cSettings
-        sigGen         = RH.signalGenerator rSettings
+  -- Load current visual: 
+  visualPrev <- readIORef visualIORef 
+  let visual = visualPrev { xLinScale = AC.xLinScale cSettings, 
+                            xLogScale = AC.xLogScale cSettings, 
+                            zLinScale = AC.zLinScale cSettings }
+  -- Update visual settings from application context: 
+  modifyIORef visualIORef ( \_ -> visual )
 
-    sigBuf <- readIORef signalBufIORef
-    
-    -- Load vertex buffer from rendering context
-    let vertexBufIORef = vertexBuf visual
-    -- Load normals buffer from rendering context
-    let normalsBufIORef = normalsBuf visual
+  let signalBufIORef = RH.signalBuf rSettings
+      hScale         = (AC.scaling cSettings) / (100.0::Float)
+      surfOpacity    = (AC.surfaceOpacity cSettings) / (100.0::GLfloat)
+      maxNumSignals  = AC.signalBufferSize cSettings
+      sigGen         = RH.signalGenerator rSettings
 
-    let nNewSignals = RH.numNewSignals rSettings
-    let newSignals  = take nNewSignals $ DT.signalList sigBuf
-    let nSignals    = RH.numSignals rSettings
-    let numNewSignalsRead = length newSignals
+  sigBuf <- readIORef signalBufIORef
+  
+  -- Load vertex buffer from rendering context
+  let vertexBufIORef = vertexBuf visual
+  -- Load normals buffer from rendering context
+  let normalsBufIORef = normalsBuf visual
 
-    let rangeAmps = AC.rangeAmps cSettings
+  let nNewSignals = RH.numNewSignals rSettings
+  let newSignals  = take nNewSignals $ DT.signalList sigBuf
+  let nSignals    = RH.numSignals rSettings
+  let numNewSignalsRead = length newSignals
 
-    newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
-                                        let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
-                                        let sigVertices = verticesFromSamples sigSamplesT 0 visual
-                                        return sigVertices ) (reverse newSignals)
+  let rangeAmps = AC.rangeAmps cSettings
 
-    vBufCurr <- readIORef vertexBufIORef
-    let vBufUpdated     = if numNewSignalsRead > 0 then newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (nSignals-numNewSignalsRead)) else vBufCurr
-    let vBufZAdjusted   = if numNewSignalsRead > 0 then updateVerticesZCoord vBufUpdated visual else vBufUpdated
-    modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
+  newSigVertices <- mapM ( \sig -> do sigSamples <- getElems $ DT.signalArray sig
+                                      let sigSamplesT = RH.bandRangeAmpSamples (RH.scaleSamples sigSamples hScale) rangeAmps
+                                      let sigVertices = verticesFromSamples sigSamplesT 0 visual
+                                      return sigVertices ) (reverse newSignals)
 
-    nBufCurr <- readIORef normalsBufIORef
-    let nBufUpdated = if numNewSignalsRead > 0 then updateNormalsBuffer nBufCurr (take (numNewSignalsRead+2) vBufZAdjusted) nSignals else nBufCurr
-    modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
+  vBufCurr <- readIORef vertexBufIORef
+  let vBufUpdated     = if numNewSignalsRead > 0 then newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (nSignals-numNewSignalsRead)) else vBufCurr
+  let vBufZAdjusted   = if numNewSignalsRead > 0 then updateVerticesZCoord vBufUpdated visual else vBufUpdated
+  modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
 
-    modifyIORef visualIORef (\vis -> vis { renderSettings  = rSettings, 
-                                           contextSettings = cSettings })
-    
-    return visual
-  -- }}}
+  nBufCurr <- readIORef normalsBufIORef
+  let nBufUpdated = if numNewSignalsRead > 0 then updateNormalsBuffer nBufCurr (take (numNewSignalsRead+2) vBufZAdjusted) nSignals else nBufCurr
+  modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
 
-  render visual = do 
-  -- {{{    
-    let rSettings = renderSettings visual
-    let cSettings = contextSettings visual
+  modifyIORef visualIORef (\vis -> vis { renderSettings  = rSettings, 
+                                         contextSettings = cSettings })
+  
+  return visual
+-- }}}
 
-    vBuf <- readIORef $ vertexBuf visual
-    nBuf <- readIORef $ normalsBuf visual
-    fBuf <- readIORef $ RH.featuresBuf rSettings
+fftSurfaceRender :: FFTSurface -> IO ()
+-- {{{    
+fftSurfaceRender visual = do 
+  let rSettings = renderSettings visual
+  let cSettings = contextSettings visual
 
-    let nSamples     = RH.numSamples rSettings
-        nSignals     = RH.numSignals rSettings
-        xPosFunc     = xPosFun visual
-        zPosFunc     = zPosFun visual
-        surfaceWidth = xPosFunc (nSamples-1) visual
-        surfaceDepth = zPosFunc (nSignals-1) visual
-    
-    -- Get inverse of model view matrix: 
-    glModelViewMatrix <- GL.get (matrix (Just (Modelview 0))) :: IO (GLmatrix GLfloat)
-    -- Resolve view point in model view coordinates: 
-    viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
+  vBuf <- readIORef $ vertexBuf visual
+  nBuf <- readIORef $ normalsBuf visual
+  fBuf <- readIORef $ RH.featuresBuf rSettings
 
-    renderSurface vBuf nBuf (FE.signalFeaturesList fBuf) viewpoint nSamples cSettings visual
+  let nSamples     = RH.numSamples rSettings
+      nSignals     = RH.numSignals rSettings
+      xPosFunc     = xPosFun visual
+      zPosFunc     = zPosFun visual
+      surfaceWidth = xPosFunc (nSamples-1) visual
+      surfaceDepth = zPosFunc (nSignals-1) visual
+  
+  -- Get inverse of model view matrix: 
+  glModelViewMatrix <- GL.get (matrix (Just (Modelview 0))) :: IO (GLmatrix GLfloat)
+  -- Resolve view point in model view coordinates: 
+  viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
 
-    -- Render marquee text, if any
-    blendFunc $= ( One, One )
-    -- colorMaterial $= Just (Front, AmbientAndDiffuse)
-    let marqueeText = AC.marqueeText cSettings
-    gridfont <- readIORef $ gridFont visual
-    fillfont <- readIORef $ fillFont visual
+  renderSurface vBuf nBuf (FE.signalFeaturesList fBuf) viewpoint nSamples cSettings visual
 
-    marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
+  -- Render marquee text, if any
+  blendFunc $= ( One, One )
+  -- colorMaterial $= Just (Front, AmbientAndDiffuse)
+  let marqueeText = AC.marqueeText cSettings
+  gridfont <- readIORef $ gridFont visual
+  fillfont <- readIORef $ fillFont visual
 
-    preservingMatrix $ do 
-      fog $= Disabled
-      let fontWidth = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
-      -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
-      let fontScaling = (surfaceWidth * 1.5) / fontWidth
-      colorMaterial $= Just (Front, Ambient) 
-      color $ AC.materialAmbient (AC.surfaceMaterial cSettings)
-      GL.scale fontScaling fontScaling (0 :: GLfloat)
-      translate $ Vector3 (-0.5 * fontWidth + 0.5 * surfaceWidth / fontScaling) (0.7 / fontScaling) (-4.5 :: GLfloat)
-      FTGL.renderFont fillfont marqueeText FTGL.Front
-      color $ Color4 0 0 0 (0.5::GLfloat)
-      FTGL.renderFont gridfont marqueeText FTGL.Front
-      fog $= Enabled
-  -- }}}
+  marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
+
+  preservingMatrix $ do 
+    fog $= Disabled
+    let fontWidth = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
+    -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
+    let fontScaling = (surfaceWidth * 1.5) / fontWidth
+    colorMaterial $= Just (Front, Ambient) 
+    color $ AC.materialAmbient (AC.surfaceMaterial cSettings)
+    GL.scale fontScaling fontScaling (0 :: GLfloat)
+    translate $ Vector3 (-0.5 * fontWidth + 0.5 * surfaceWidth / fontScaling) (0.7 / fontScaling) (-4.5 :: GLfloat)
+    FTGL.renderFont fillfont marqueeText FTGL.Front
+    color $ Color4 0 0 0 (0.5::GLfloat)
+    FTGL.renderFont gridfont marqueeText FTGL.Front
+    fog $= Enabled
+-- }}}
 
 -- Helper functions: 
 

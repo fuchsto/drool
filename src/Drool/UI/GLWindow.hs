@@ -39,6 +39,7 @@ import qualified Drool.Utils.RenderHelpers as RH
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) )
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.ContextObjects as AC
 
 import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar, takeMVar, putMVar )
 import qualified Control.Concurrent.Chan as CC ( readChan )
@@ -46,12 +47,15 @@ import qualified Control.Concurrent.Chan as CC ( readChan )
 import qualified Drool.UI.Visuals as Visuals
 
 
-display :: (Visuals.Visual v) => IORef v -> IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
-display visualIORef contextSettingsIORef renderSettingsIORef = do
+display :: IORef (Visuals.Visual v) -> IORef v -> IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
+display visualDefIORef visualIORef contextSettingsIORef renderSettingsIORef = do
 -- {{{
 --  renderSettingsPrev <- readIORef renderSettingsIORef
   contextSettings    <- readIORef contextSettingsIORef
   renderSettingsPrev <- readIORef renderSettingsIORef
+
+  visualDef <- readIORef visualDefIORef -- e.g. Visual FFTSurface
+  visual    <- readIORef visualIORef    -- e.g. FFTSurface
 
   let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency contextSettings)
   let tick      = RH.tick renderSettingsPrev
@@ -96,7 +100,7 @@ display visualIORef contextSettingsIORef renderSettingsIORef = do
   modifyIORef contextSettingsIORef (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
   
   -- Push new signal(s) to visual: 
-  visualUpdated <- Visuals.pushSignal visualIORef contextSettings renderSettings' tick
+  visualUpdated <- (Visuals.update visualDef) renderSettings' visualIORef tick
   
   matrixMode $= Projection
   loadIdentity
@@ -174,7 +178,7 @@ display visualIORef contextSettingsIORef renderSettingsIORef = do
   GL.diffuse  (Light 1) $= AC.lightDiffuse light1
   GL.specular (Light 1) $= AC.lightSpecular light1
 
-  let (visWidth,visHeight,visDepth) = Visuals.dimensions visualUpdated
+  let (visWidth,visHeight,visDepth) = (Visuals.dimensions visualDef) visualUpdated
   
   fogMode $= Linear 0.0 (visDepth * 20.0)
   fogColor $= (Color4 0.0 0.0 0.0 1.0)
@@ -185,7 +189,7 @@ display visualIORef contextSettingsIORef renderSettingsIORef = do
   GL.translate $ Vector3 (-0.5 * visWidth) 0 0
   GL.translate $ Vector3 0 0 (-0.5 * visDepth)
   
-  Visuals.render visualUpdated
+  (Visuals.render visualDef) visualUpdated
 
 -- }}} 
 
@@ -236,8 +240,14 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   
   renderSettingsIORef <- newIORef renderSettings
 
-  newVisual <- (Visuals.newVisual cSettings cObjects renderSettings) :: IO (Visuals.FFTSurface)
-  visualIORef <- newIORef newVisual
+  -- Load a concrete visual definition (e.g. Visual FFTSurface): 
+  -- let visualDefIORef = AC.visualDefinition cObjects
+  -- visualDef <- readIORef visualDefIORef
+  let visualDef = Visuals.createFFTSurfaceVisual contextSettingsIORef
+  visualDefIORef <- newIORef visualDef
+  -- Create a new concrete visual state by using the definition's newVisual function:
+  visualInitState  <- (Visuals.newVisual visualDef) renderSettings
+  visualStateIORef <- newIORef visualInitState
 
   -- Initialise some GL setting just before the canvas first gets shown
   -- (We can't initialise these things earlier since the GL resources that
@@ -289,7 +299,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   -- OnShow handler for GL canvas:
   _ <- Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
-      display visualIORef contextSettingsIORef renderSettingsIORef
+      display visualDefIORef visualStateIORef contextSettingsIORef renderSettingsIORef
       GtkGL.glDrawableSwapBuffers glwindow
     return True
 

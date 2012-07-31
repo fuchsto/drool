@@ -27,9 +27,12 @@ import Graphics.Rendering.OpenGL
 
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
+import qualified Drool.ContextObjects as AC
 
 import qualified Drool.UI.GtkHelpers as GH
 import qualified Drool.UI.Dialogs.FFTSurfaceDialog as FFTSurfaceDialog
+
+import qualified Drool.UI.Visuals as Visuals
 
 -- Initializes GUI component for view options.
 -- Expects a GtkBuilder instance and default context settings. 
@@ -41,11 +44,18 @@ initComponent gtkBuilder contextSettings contextObjects = do
 
   button_view_perspectiveTop <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveTop"
   _ <- Gtk.onClicked button_view_perspectiveTop $ do
+    
+--   cObjects <- readIORef contextObjects
+--   let visualDefIORef = AC.visualDefinition cObjects
+--   modifyIORef visualDefIORef ( \_  -> Visuals.createFFTSurfaceVisual contextSettings )
+--   modifyIORef contextObjects ( \co -> co { AC.visualDefinitionChanged = True } )
+
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.renderPerspective = DT.Top }
 
   button_view_perspectiveFront <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveFront"
   _ <- Gtk.onClicked button_view_perspectiveFront $ do
+
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.renderPerspective = DT.Front }
 
