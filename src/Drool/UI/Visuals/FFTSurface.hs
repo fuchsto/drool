@@ -179,7 +179,7 @@ newFFTSurface cSettingsIORef = do
                               fillFont        = fillFontIORef,
                               gridFont        = gridFontIORef, 
                               contextSettings = cSettings, 
-                              renderSettings  = (trace ("reading RS") $ undefined) }
+                              renderSettings  = undefined }
   return settings
 -- }}}
 
@@ -237,7 +237,11 @@ fftSurfaceUpdate cSettingsIORef visualIORef rSettings t = do
                                       return sigVertices ) (reverse newSignals)
 
   vBufCurr <- readIORef vertexBufIORef
-  let vBufUpdated     = if numNewSignalsRead > 0 then newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (nSignals-numNewSignalsRead)) else vBufCurr
+  let vBufUpdated     = if numNewSignalsRead > 0 then 
+                           if False && AC.reverseBuffer cSettings 
+                           then (Conv.adjustBufferSize vBufCurr (nSignals-numNewSignalsRead)) ++ newSigVertices 
+                           else newSigVertices ++ (Conv.adjustBufferSizeBack vBufCurr (nSignals-numNewSignalsRead)) 
+                        else vBufCurr
   let vBufZAdjusted   = if numNewSignalsRead > 0 then updateVerticesZCoord vBufUpdated visual else vBufUpdated
   modifyIORef vertexBufIORef ( \_ -> vBufZAdjusted )
 
@@ -313,13 +317,13 @@ data DirectionZ = FrontToBack | BackToFront
 updateNormalsBuffer :: [[ Normal3 GLfloat ]] -> [[ Vertex3 GLfloat ]] -> Int -> [[ Normal3 GLfloat ]] 
 -- {{{
 updateNormalsBuffer nBuf vBuf@(_:_:_:_) nSignals = case vBuf of 
-  (_:_:_:_) -> updateNormalsBuffer updatedNormalsBuf (tail vBuf) nSignals
+  (_:_:_:_) -> updateNormalsBuffer updatedNormalsBuf (tail vBuf) nSignals 
                where 
                -- Drop first and last element of nBuf. 
                -- Last element has incomplete normals and will be replaced by element 
                -- with correct normals. This happens in any case. 
                -- Drop first element if max buffer size is exceeded. 
-                 adjNormalsBuf = take (nSignals-2) (Conv.adjustBufferSize nBuf (nSignals-1))
+                 adjNormalsBuf = take (nSignals-2) (Conv.adjustBufferSize nBuf (nSignals-1)) 
                  vBufLen = length vBuf
                
                -- Take 3 most recent signals from vertex buffer. 
@@ -367,10 +371,10 @@ applyFeaturesToGrid features target settings = do
       basslevel    = realToFrac $ FE.bassEnergy features 
       lTarget      = FE.featureTargetFromIndex $ AC.featureSignalEnergyTargetIdx settings
       bTarget      = FE.featureTargetFromIndex $ AC.featureBassEnergyTargetIdx settings
-      lCoeff       = if lTarget == target || target == FE.GlobalAndLocalTarget then (
+      lCoeff       = if lTarget == target || lTarget == FE.GlobalAndLocalTarget then (
                         realToFrac $ AC.featureSignalEnergyGridCoeff settings )
                      else 0.0
-      bCoeff       = if bTarget == target || target == FE.GlobalAndLocalTarget then (
+      bCoeff       = if bTarget == target || bTarget == FE.GlobalAndLocalTarget then (
                         realToFrac $ AC.featureBassEnergyGridCoeff settings )
                      else 0.0 
       gBaseOpacity = (AC.gridOpacity settings) / 100.0 :: GLfloat
@@ -391,10 +395,10 @@ applyFeaturesToSurface features target settings = do
       basslevel    = realToFrac $ FE.bassEnergy features 
       lTarget      = FE.featureTargetFromIndex $ AC.featureSignalEnergyTargetIdx settings
       bTarget      = FE.featureTargetFromIndex $ AC.featureBassEnergyTargetIdx settings
-      lCoeff       = if lTarget == target || target == FE.GlobalAndLocalTarget then (
+      lCoeff       = if lTarget == target || lTarget == FE.GlobalAndLocalTarget then (
                         realToFrac $ AC.featureSignalEnergySurfaceCoeff settings )
                      else 0.0
-      bCoeff       = if bTarget == target || target == FE.GlobalAndLocalTarget then (
+      bCoeff       = if bTarget == target || bTarget == FE.GlobalAndLocalTarget then (
                         realToFrac $ AC.featureBassEnergySurfaceCoeff settings )
                      else 0.0 
       sBaseOpacity = (AC.surfaceOpacity settings) / 100.0 :: GLfloat
@@ -478,9 +482,11 @@ renderSignalGridStrip dirZ dirX fAppFun (vsArrCurr,vsArrNext) (nsArrCurr,nsArrNe
      fAppFun fsCurr FE.LocalTarget settings
      fAppFun fsNext FE.LocalTarget settings
 
+     let gridStripVertices = if dirX == RightToLeft then (Conv.aZip vsNext nsNext) else reverse $ (Conv.aZip vsNext nsNext)
+
      -- Lines in X-direction: 
      renderPrimitive LineStrip (
-       mapM_ vertexWithNormal (Conv.aZip vsNext nsNext) )
+       mapM_ vertexWithNormal gridStripVertices )
      {-
      -- Lines in Z-direction: 
      mapM_ (\((vc,nc),(vn,nn)) -> do renderPrimitive LineStrip ( do fAppFun fsCurr FE.LocalTarget settings
@@ -550,7 +556,7 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
       
       let safeArrayAt xs idx fallback = if idx >= 0 && rangeSize (bounds xs) > idx then xs ! idx else fallback
       let nSignals = rangeSize $ bounds fArray
-      let sigIdcs  = if dirZ == BackToFront then [zStartIdx..zEndIdx] else [ zEndIdx-x | x <- [0..zEndIdx] ]
+      let sigIdcs  = if dirZ == FrontToBack then [zStartIdx..zEndIdx] else [ zEndIdx-x | x <- [0..zEndIdx] ]
 
       let nullVertex = Vertex3 0 0 (0::GLfloat)
       let nullNormal = Normal3 0 0 (0::GLfloat)
@@ -563,21 +569,21 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               vsNext = safeArrayAt vSecArray (secSigIdx+1) vsCurr
                                               nsCurr = safeArrayAt nSecArray secSigIdx (listArray (0,-1) [])
                                               nsNext = safeArrayAt nSecArray (secSigIdx+1) nsCurr
-                                              fCurr  = safeArrayAt fArray sigIdx FE.emptyFeatures
-                                              fNext  = safeArrayAt fArray sigIdx fCurr
+                                              fIdx   = sigIdx
+                                              fCurr  = safeArrayAt fArray fIdx FE.emptyFeatures
+                                              fNext  = safeArrayAt fArray fIdx fCurr
                                               vsTpl  = if dirZ == FrontToBack then (vsCurr,vsNext) else (vsNext,vsCurr)
                                               nsTpl  = if dirZ == FrontToBack then (nsCurr,nsNext) else (nsNext,nsCurr)
                                               fTpl   = if dirZ == FrontToBack then (fCurr,fNext) else (fNext,fCurr)
-                                          let renderSec = 
-                                                if dirZ == FrontToBack 
-                                                then do translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
-                                                        renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
-                                                        translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat) 
-                                                        renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
-                                                else do renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
-                                                        translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
-                                                        renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
-                                                        translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat) 
+                                          let renderGS  = do translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
+                                                             renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
+                                                             translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat)
+                                          let renderSS  = do renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
+                                          let renderSec = if dirZ == FrontToBack
+                                                          then do renderSS
+                                                                  renderGS
+                                                          else do renderGS
+                                                                  renderSS
                                           renderSec )
            ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
@@ -600,9 +606,10 @@ renderSurface vBuf nBuf fBuf viewpoint nSamples settings visual = do
       fBufMaxIdx = (length fBuf) - 1
       flatVBuf   = (concat vBuf)
       flatNBuf   = (concat nBuf)
+      fBuf'      = if AC.reverseBuffer settings then reverse fBuf else fBuf
       vArray     = listArray (0,vBufMaxIdx) flatVBuf
       nArray     = listArray (0,nBufMaxIdx) flatNBuf
-      fArray     = listArray (0,fBufMaxIdx) fBuf
+      fArray     = listArray (0,fBufMaxIdx) fBuf'
 
   let zCoordFun = zPosFun visual
       xCoordFun = xPosFun visual

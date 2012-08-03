@@ -58,13 +58,10 @@ data Spheres = Spheres { contextSettings :: AC.ContextSettings,
 instance VState Spheres where 
   vsRenderSettings = renderSettings
 
--- Hook Visual interface function definitions to concrete implementations: 
+-- Hook Visual state IORef to concrete implementations: 
 newSpheresVisual :: IORef AC.ContextSettings -> IORef Spheres -> Visual
-newSpheresVisual contextSettingsIORef stateIORef = Visual { -- curried: Spheres
-                                                            dimensions = spheresDimensions stateIORef, 
-                                                            -- curried: RenderSettings -> IORef Spheres -> Int -> IO (Spheres)
+newSpheresVisual contextSettingsIORef stateIORef = Visual { dimensions = spheresDimensions stateIORef, 
                                                             update     = spheresUpdate contextSettingsIORef stateIORef, 
-                                                            -- curried: Spheres 
                                                             render     = spheresRender stateIORef }
 
 
@@ -110,10 +107,10 @@ spheresUpdate cSettingsIORef visualIORef rSettings t = do
       basslevel    = realToFrac $ FE.bassEnergy features 
       lTarget      = FE.featureTargetFromIndex $ AC.featureSignalEnergyTargetIdx cSettings
       bTarget      = FE.featureTargetFromIndex $ AC.featureBassEnergyTargetIdx cSettings
-      lCoeff       = if lTarget == target || target == FE.GlobalAndLocalTarget then (
+      lCoeff       = if lTarget == target || lTarget == FE.GlobalAndLocalTarget then (
                         realToFrac $ AC.featureSignalEnergyGridCoeff cSettings )
                      else 0.0
-      bCoeff       = if bTarget == target || target == FE.GlobalAndLocalTarget then (
+      bCoeff       = if bTarget == target || bTarget == FE.GlobalAndLocalTarget then (
                         realToFrac $ AC.featureBassEnergyGridCoeff cSettings )
                      else 0.0 
   let gBaseOpacity = (AC.gridOpacity cSettings) / 100.0 :: GLfloat
@@ -153,18 +150,18 @@ spheresRender visualIORef = do
       sMaterial = surfaceMaterial visual
       sOpacity  = surfaceOpacity visual
 
-  materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
-  materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
-  materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
-  materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
-  materialShininess FrontAndBack $= AC.materialShininess gMaterial
-  renderObject Wireframe (Sphere' (r * 1.01) 40 40)
-
   materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient sMaterial) sOpacity
   materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse sMaterial) sOpacity
   materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular sMaterial) sOpacity
   materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission sMaterial) sOpacity
   materialShininess FrontAndBack $= AC.materialShininess sMaterial
   renderObject Solid (Sphere' r 50 50)
+
+  materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
+  materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
+  materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
+  materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
+  materialShininess FrontAndBack $= AC.materialShininess gMaterial
+  renderObject Wireframe (Sphere' (r * 1.01) 40 40)
 -- }}}
 

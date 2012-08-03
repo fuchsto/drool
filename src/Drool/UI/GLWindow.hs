@@ -36,7 +36,7 @@ import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 import qualified Drool.Utils.SigGen as SigGen ( SignalGenerator(..) )
 import qualified Drool.Utils.Conversions as Conv
 import qualified Drool.Utils.RenderHelpers as RH
-import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..) )
+import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), FeatureTarget(..) )
 import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 import qualified Drool.ContextObjects as AC
@@ -65,6 +65,9 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   let samplingSem  = RH.samplingSem renderSettingsCurr
 
   signalBuf   <- readIORef (RH.signalBuf renderSettingsCurr)
+  featuresBuf <- readIORef (RH.featuresBuf renderSettingsCurr)
+
+  let featuresCurr = head (FE.signalFeaturesList featuresBuf)
 
   -- Wait until there is at least one signal ready for rendering. 
   nNewSignals <- MV.takeMVar samplingSem 
@@ -165,18 +168,21 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   -- End of perspective transformations
   ---------------------------------------------------------------------------------------------------
 
+  let lightCoef = lCoeff + bCoeff 
+        where (lCoeff,bCoeff) = RH.featuresToIntensity featuresCurr FE.GlobalTarget contextSettings
+
   -- Lighting
   let light0 = AC.light0 contextSettings
   light (Light 0) $= if AC.light0Enabled contextSettings then Enabled else Disabled
-  GL.ambient  (Light 0) $= AC.lightAmbient light0
-  GL.diffuse  (Light 0) $= AC.lightDiffuse light0
-  GL.specular (Light 0) $= AC.lightSpecular light0
+  GL.ambient  (Light 0) $= RH.color4MulValue (AC.lightAmbient light0)  lightCoef
+  GL.diffuse  (Light 0) $= RH.color4MulValue (AC.lightDiffuse light0)  lightCoef
+  GL.specular (Light 0) $= RH.color4MulValue (AC.lightSpecular light0) lightCoef
   
   let light1 = AC.light1 contextSettings
   light (Light 1) $= if AC.light1Enabled contextSettings then Enabled else Disabled
-  GL.ambient  (Light 1) $= AC.lightAmbient light1
-  GL.diffuse  (Light 1) $= AC.lightDiffuse light1
-  GL.specular (Light 1) $= AC.lightSpecular light1
+  GL.ambient  (Light 1) $= RH.color4MulValue (AC.lightAmbient light1)  lightCoef
+  GL.diffuse  (Light 1) $= RH.color4MulValue (AC.lightDiffuse light1)  lightCoef
+  GL.specular (Light 1) $= RH.color4MulValue (AC.lightSpecular light1) lightCoef
 
   (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
   
@@ -257,7 +263,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     shadeModel $= Smooth
     depthFunc $= Just Less
     -- polygonSmooth $= Enabled
-    lineSmooth $= Enabled
+    -- lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
     light (Light 1) $= Enabled
@@ -278,7 +284,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     
     hint PerspectiveCorrection $= Nicest
     -- hint PolygonSmooth $= Nicest
-    hint LineSmooth $= Nicest
+    -- hint LineSmooth $= Nicest
 
     matrixMode $= Projection
     loadIdentity

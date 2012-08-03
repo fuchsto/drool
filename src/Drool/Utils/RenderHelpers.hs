@@ -27,6 +27,8 @@ module Drool.Utils.RenderHelpers (
     drawNormal, 
     color3AddAlpha, 
     color4MulAlpha, 
+    color3MulValue, 
+    color4MulValue, 
 
     vertexToVector, 
     vx4ToVx3, 
@@ -39,8 +41,13 @@ module Drool.Utils.RenderHelpers (
     vx3z, 
 
     getViewpointFromModelView, 
+    featuresToIntensity
 ) where
 
+import Debug.Trace
+
+-- Imports
+-- {{{ 
 import Data.IORef ( IORef )
 
 import Data.Packed.Matrix as HM ( (><), Matrix )
@@ -54,6 +61,7 @@ import Drool.Utils.FeatureExtraction as FE (
     emptyFeatures, 
     FeatureTarget(..), featureTargetFromIndex )
 import Drool.Utils.Conversions as Conv ( interleaveArrays, aZip ) 
+import Drool.ApplicationContext as AC ( ContextSettings(..) )
 import Graphics.Rendering.OpenGL ( 
     Vector3 (..), 
     Vertex3 (..), 
@@ -84,6 +92,7 @@ import Graphics.Rendering.OpenGL (
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Control.Concurrent.MVar as MV ( MVar )
 import qualified Control.Concurrent.Chan as CC
+-- }}}
 
 -- Settings rendering independent from visual used: 
 data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator, 
@@ -228,6 +237,12 @@ color3AddAlpha (Color3 r g b) a = Color4 r g b a
 color4MulAlpha :: Color4 GLfloat -> GLfloat -> Color4 GLfloat
 color4MulAlpha (Color4 r g b a) x = Color4 r g b (a*x)
 
+color4MulValue :: Color4 GLfloat -> GLfloat -> Color4 GLfloat
+color4MulValue (Color4 r g b a) x = Color4 (r*x) (g*x) (b*x) a
+
+color3MulValue :: Color3 GLfloat -> GLfloat -> Color3 GLfloat
+color3MulValue (Color3 r g b) x = Color3 (r*x) (g*x) (b*x) 
+
 -- }}}
 
 -- Useful for mapping over a list containing tuples of (vertex, vertexNormal): 
@@ -302,4 +317,17 @@ getViewpointFromModelView mvMatrix = do
                           (realToFrac $ viewPointModelView !! 2) :: Vector3 GLfloat
   return viewPoint
 -- }}}
+
+featuresToIntensity :: FE.SignalFeatures -> FE.FeatureTarget -> AC.ContextSettings -> (GLfloat,GLfloat)
+featuresToIntensity features target cSettings = (lCoeff, bCoeff)
+  where loudness     = realToFrac $ FE.totalEnergy features
+        basslevel    = realToFrac $ FE.bassEnergy features 
+        lTarget      = FE.featureTargetFromIndex $ AC.featureSignalEnergyTargetIdx cSettings
+        bTarget      = FE.featureTargetFromIndex $ AC.featureBassEnergyTargetIdx cSettings
+        lCoeff       = if lTarget == target || lTarget == FE.GlobalAndLocalTarget then (
+                          realToFrac $ (AC.featureSignalEnergySurfaceCoeff cSettings) * loudness )
+                       else 0.0
+        bCoeff       = if bTarget == target || bTarget == FE.GlobalAndLocalTarget then (
+                          realToFrac $ (AC.featureBassEnergySurfaceCoeff cSettings) * basslevel )
+                       else 0.0 
 
