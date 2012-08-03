@@ -16,6 +16,7 @@
 
 module Drool.UI.Visuals.Visual (
     Visual(..), 
+    VState(..)
 ) where
 
 import Data.IORef (IORef)
@@ -30,10 +31,13 @@ class Visual v where
   render :: v -> IO ()
 -}
 
+class VState vs where
+  vsRenderSettings :: vs -> RenderSettings
+
 data Visual v = Visual { newVisual :: RenderSettings -> IO (v), 
-                         dimensions :: v -> (GLfloat,GLfloat,GLfloat), 
-                         update :: RenderSettings -> IORef v -> Int -> IO (v), 
-                         render :: v -> IO () }
+                dimensions :: v -> (GLfloat,GLfloat,GLfloat), 
+                update :: RenderSettings -> IORef v -> Int -> IO (v), 
+                render :: v -> IO () }
 
 
 

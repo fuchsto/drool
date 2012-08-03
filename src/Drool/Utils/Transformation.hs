@@ -1,7 +1,6 @@
 
 
 module Drool.Utils.Transformation (
-    fftFloats, 
     fftwFloats, 
     signalIIR,
     iir, 
@@ -11,7 +10,7 @@ module Drool.Utils.Transformation (
 import Debug.Trace
 
 import Drool.Utils.Conversions as Conv
-import Numeric.FFT as FFT
+-- import Numeric.FFT as FFT
 
 import Math.FFT as FFTW
 import Drool.Types as DT ( Signal(..), SignalList(..) )
@@ -21,9 +20,10 @@ import Data.Array.CArray ( size )
 import Data.Array.IO ( IOUArray, getElems, newListArray, getBounds )
 import Foreign.Marshal.Array ( peekArray )
 
-
+{-
 fftFloats :: [Float] -> [Float]
 fftFloats fs = Conv.complexDoublesToFloats $ FFT.fft (Conv.floatsToComplexDoubles fs)
+-}
 
 fftwFloats :: [Float] -> IO [Float]
 fftwFloats fs = ( do 

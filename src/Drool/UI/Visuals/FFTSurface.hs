@@ -117,6 +117,9 @@ data FFTSurface = FFTSurface { -- maps x index to x position:
                                contextSettings :: AC.ContextSettings, 
                                renderSettings :: RH.RenderSettings }
 
+instance VState FFTSurface where 
+  vsRenderSettings = renderSettings
+
 -- Hook Visual interface function definitions to concrete implementations: 
 createFFTSurfaceVisual :: IORef AC.ContextSettings -> Visual FFTSurface
 createFFTSurfaceVisual contextSettingsIORef = Visual { -- curried: RenderSettings -> IO (FFTSurface) 
@@ -553,15 +556,10 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               vsTpl  = if dirZ == FrontToBack then (vsCurr,vsNext) else (vsNext,vsCurr)
                                               nsTpl  = if dirZ == FrontToBack then (nsCurr,nsNext) else (nsNext,nsCurr)
                                               fTpl   = if dirZ == FrontToBack then (fCurr,fNext) else (fNext,fCurr)
-                                          polygonOffset $= (1.0,1.0)
-                                          polygonOffsetLine $= Enabled
+                                          translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
                                           renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
-                                          polygonOffsetLine $= Disabled
-                                          
-                                          polygonOffset $= (1.0,-1.0)
-                                          polygonOffsetFill $= Enabled
-                                          renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
-                                          polygonOffsetFill $= Disabled )
+                                          translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat) 
+                                          renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx )
            ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
 -- }}}

@@ -59,6 +59,9 @@ data Spheres = Spheres { contextSettings :: AC.ContextSettings,
                          radius          :: GLfloat, 
                          numSamples      :: Int }
 
+instance VState Spheres where 
+  vsRenderSettings = renderSettings
+
 -- Hook Visual interface function definitions to concrete implementations: 
 createSpheresVisual :: IORef AC.ContextSettings -> Visual Spheres
 createSpheresVisual contextSettingsIORef = Visual { -- curried: RenderSettings -> IO (Spheres) 

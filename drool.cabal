@@ -14,8 +14,8 @@ executable drool
     build-depends: GLUT -any, OpenGL -any, array -any, carray -any,
                    base -any, glade -any, gtk -any,
                    gtk2hs-cast-glade -any, gtkglext -any, mtl -any, 
-                   pulse-simple -any, fft -any, pure-fft -any, hmatrix -any, 
-                   FTGL -any, criterion -any
+                   pulse-simple -any, fft -any, hmatrix -any, 
+                   FTGL -any
     main-is: Drool/Main.hs
     buildable: True
     hs-source-dirs: src

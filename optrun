@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo nice -n -19 optirun ./dist/build/drool/drool +RTS -N3 -A2m -qm -K32m 

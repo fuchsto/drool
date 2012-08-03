@@ -244,6 +244,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   -- let visualDefIORef = AC.visualDefinition cObjects
   -- visualDef <- readIORef visualDefIORef
   let visualDef = Visuals.createFFTSurfaceVisual contextSettingsIORef
+
   visualDefIORef <- newIORef visualDef
   -- Create a new concrete visual state by using the definition's newVisual function:
   visualInitState  <- (Visuals.newVisual visualDef) renderSettings
@@ -261,7 +262,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     normalize $= Enabled -- Automatically normaliye normal vectors to (-1.0,1.0)
     shadeModel $= Smooth
     depthFunc $= Just Less
-    polygonSmooth $= Enabled
+    -- polygonSmooth $= Enabled
     lineSmooth $= Enabled
     lighting $= Enabled
     light (Light 0) $= Enabled
@@ -282,7 +283,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     blendFunc $= (blendModeSource, blendModeFrameBuffer)
     
     hint PerspectiveCorrection $= Nicest
-    hint PolygonSmooth $= Nicest
+    -- hint PolygonSmooth $= Nicest
     hint LineSmooth $= Nicest
 
     matrixMode $= Projection
