@@ -75,18 +75,20 @@ main = do
 
   contextSettings <- newIORef ( AC.defaultContextSettings )
 
+  visualInitState      <- Visuals.newFFTSurface contextSettings 
+  visualInitStateIORef <- newIORef visualInitState
+  visualIORef <- newIORef $ Visuals.newFFTSurfaceVisual contextSettings visualInitStateIORef
+
   -- Load a concrete visual definition (e.g. Visual FFTSurface): 
-  let visualDef   = Visuals.FFTSurfaceVisual $ Visuals.createFFTSurfaceVisual contextSettings
-  visualDefIORef <- newIORef visualDef
   contextObjects  <- newIORef (
-    AC.ContextObjects { AC.samplingThreadId        = undefined, 
+    AC.ContextObjects { AC.visual                  = visualIORef, 
+                        AC.samplingThreadId        = undefined, 
                         AC.samplingSem             = initSamplingSem, 
                         AC.numNewSignalsChan       = numNewSignalsChan, 
                         AC.renderingSem            = initRenderingSem, 
                         AC.signalBuf               = signalBuffer,
                         AC.featuresBuf             = signalFeaturesBuffer, 
                         AC.signalGenerator         = defaultSiggen, 
-                        AC.visualDefinition        = visualDefIORef, 
                         AC.visualDefinitionChanged = True } ) 
 
   -- Load UI configuration from GtkBuilder file:

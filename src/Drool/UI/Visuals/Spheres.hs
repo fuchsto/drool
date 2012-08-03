@@ -16,11 +16,8 @@
 
 module Drool.UI.Visuals.Spheres (
     Spheres, -- hidden type constructor
-    createSpheresVisual, 
-    spheresNew, 
-    spheresDimensions, 
-    spheresRender, 
-    spheresUpdate
+    newSpheresVisual, 
+    newSpheres
 ) where
 
 -- Imports
@@ -36,7 +33,6 @@ import Drool.Utils.FeatureExtraction as FE (
     FeatureTarget(..), featureTargetFromIndex )
 
 import Graphics.UI.GLUT ( Object(Sphere'), renderObject, Flavour(..) )
-import qualified Graphics.UI.GLUT as GLUT ( initialize )
 import Graphics.Rendering.OpenGL as GL ( 
     ($=), 
     GLfloat, 
@@ -63,49 +59,44 @@ instance VState Spheres where
   vsRenderSettings = renderSettings
 
 -- Hook Visual interface function definitions to concrete implementations: 
-createSpheresVisual :: IORef AC.ContextSettings -> Visual Spheres
-createSpheresVisual contextSettingsIORef = Visual { -- curried: RenderSettings -> IO (Spheres) 
-                                                    newVisual  = spheresNew contextSettingsIORef, 
-                                                    -- curried: Spheres
-                                                    dimensions = spheresDimensions, 
-                                                    -- curried: RenderSettings -> IORef Spheres -> Int -> IO (Spheres)
-                                                    update     = spheresUpdate contextSettingsIORef, 
-                                                    -- curried: Spheres 
-                                                    render     = spheresRender }
+newSpheresVisual :: IORef AC.ContextSettings -> IORef Spheres -> Visual
+newSpheresVisual contextSettingsIORef stateIORef = Visual { -- curried: Spheres
+                                                            dimensions = spheresDimensions stateIORef, 
+                                                            -- curried: RenderSettings -> IORef Spheres -> Int -> IO (Spheres)
+                                                            update     = spheresUpdate contextSettingsIORef stateIORef, 
+                                                            -- curried: Spheres 
+                                                            render     = spheresRender stateIORef }
 
-spheresNew :: IORef AC.ContextSettings -> RH.RenderSettings -> IO (Spheres)
+
+newSpheres :: IORef AC.ContextSettings -> IO (Spheres)
 -- {{{
-spheresNew cSettingsIORef rSettings = do
+newSpheres cSettingsIORef = do
   cSettings <- readIORef cSettingsIORef
-  
-  _ <- GLUT.initialize "spheres" []
-
-  let sigGen   = RH.signalGenerator rSettings
-  let nSamples = SigGen.numSamples sigGen
-  
   let settings = Spheres { contextSettings = cSettings, 
-                           renderSettings  = rSettings, 
+                           renderSettings  = undefined, 
                            gridMaterial    = undefined, 
                            surfaceMaterial = undefined,
                            gridOpacity     = undefined, 
                            surfaceOpacity  = undefined, 
                            radius          = 1, 
-                           numSamples      = nSamples }
+                           numSamples      = 0 }
   return settings
 -- }}}
 
-spheresDimensions :: Spheres -> (GLfloat,GLfloat,GLfloat)
+spheresDimensions :: IORef Spheres -> IO (GLfloat,GLfloat,GLfloat)
 -- {{{
-spheresDimensions visual = (width,height,depth)
-  where width  = r * 2.0
-        height = r * 2.0
-        depth  = r * 2.0
-        r      = radius visual
+spheresDimensions visualIORef = do
+  visual <- readIORef $ visualIORef
+  let width  = r * 2.0
+      height = r * 2.0
+      depth  = r * 2.0
+      r      = radius visual
+  return (width,height,depth)
 -- }}}
 
-spheresUpdate :: IORef AC.ContextSettings -> RH.RenderSettings -> IORef Spheres -> Int -> IO (Spheres)
+spheresUpdate :: IORef AC.ContextSettings -> IORef Spheres -> RH.RenderSettings -> Int -> IO ()
 -- {{{
-spheresUpdate cSettingsIORef rSettings visualIORef t = do
+spheresUpdate cSettingsIORef visualIORef rSettings t = do
   cSettings <- readIORef cSettingsIORef
 
   visualPrev <- readIORef visualIORef 
@@ -135,21 +126,27 @@ spheresUpdate cSettingsIORef rSettings visualIORef t = do
 
   let newRadius    = realToFrac $ 0.3 + (lCoeff * loudness) + (bCoeff * basslevel) 
 
+  let sigGen   = RH.signalGenerator rSettings
+  let nSamples = SigGen.numSamples sigGen
+  
   let visual = visualPrev { renderSettings  = rSettings, 
                             contextSettings = cSettings, 
                             gridMaterial    = gMaterial, 
                             surfaceMaterial = sMaterial,
                             gridOpacity     = gOpacity, 
                             surfaceOpacity  = sOpacity, 
-                            radius          = newRadius } 
+                            radius          = newRadius, 
+                            numSamples      = nSamples } 
 
   modifyIORef visualIORef ( \_ -> visual )
-  return visual
+  return ()
 -- }}}
 
-spheresRender :: Spheres -> IO ()
+spheresRender :: IORef Spheres -> IO ()
 -- {{{
-spheresRender visual = do 
+spheresRender visualIORef = do 
+  visual <- readIORef visualIORef
+  
   let r         = realToFrac $ radius visual
       gMaterial = gridMaterial visual
       gOpacity  = gridOpacity visual
@@ -170,3 +167,4 @@ spheresRender visual = do
   materialShininess FrontAndBack $= AC.materialShininess sMaterial
   renderObject Solid (Sphere' r 50 50)
 -- }}}
+

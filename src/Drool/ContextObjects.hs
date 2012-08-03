@@ -21,12 +21,12 @@ import qualified Control.Concurrent.MVar as MV ( MVar )
 import qualified Control.Concurrent.Chan as CC ( Chan )
 import qualified Control.Concurrent as CC ( ThreadId ) 
 import Drool.Types as DT ( SignalList ) 
-import Drool.UI.Visuals ( VisualDefinition )
 import Drool.Utils.SigGen as SigGen ( SignalGenerator ) 
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList ) 
+import Drool.UI.Visuals
 
 -- Non-serializable context settings. 
-data ContextObjects = ContextObjects { visualDefinition :: IORef VisualDefinition, 
+data ContextObjects = ContextObjects { visual :: IORef Visual, 
                                        visualDefinitionChanged :: Bool, 
                                        samplingThreadId :: CC.ThreadId, 
                                        samplingSem :: MV.MVar Int, 

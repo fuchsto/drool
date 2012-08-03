@@ -16,12 +16,11 @@
 
 module Drool.UI.Visuals.FFTSurface (
     FFTSurface, -- hidden type constructor
-    createFFTSurfaceVisual, 
-    fftSurfaceNew, 
-    fftSurfaceDimensions, 
-    fftSurfaceRender, 
-    fftSurfaceUpdate
+    newFFTSurfaceVisual, 
+    newFFTSurface 
 ) where
+
+import Debug.Trace
 
 -- Imports
 -- {{{
@@ -120,20 +119,28 @@ data FFTSurface = FFTSurface { -- maps x index to x position:
 instance VState FFTSurface where 
   vsRenderSettings = renderSettings
 
--- Hook Visual interface function definitions to concrete implementations: 
-createFFTSurfaceVisual :: IORef AC.ContextSettings -> Visual FFTSurface
-createFFTSurfaceVisual contextSettingsIORef = Visual { -- curried: RenderSettings -> IO (FFTSurface) 
-                                                       newVisual  = fftSurfaceNew contextSettingsIORef, 
-                                                       -- curried: FFTSurface
-                                                       dimensions = fftSurfaceDimensions, 
-                                                       -- curried: RenderSettings -> IORef FFTSurface -> Int -> IO (FFTSurface)
-                                                       update     = fftSurfaceUpdate contextSettingsIORef, 
-                                                       -- curried: FFTSurface 
-                                                       render     = fftSurfaceRender } 
+-- Hook Visual interface function definitions to concrete implementations. 
+-- Usage: 
+--   
+--   visualInitState <- newFFTSurface cSettingsIORef renderSettings
+--   let visual = newFFTSurfaceVisual cSettingsIORef visualInitState
+--   ...
+--   let dims = dimensions visual
+--   update visual
+--   render visual
+--  
+newFFTSurfaceVisual :: IORef AC.ContextSettings -> IORef FFTSurface -> Visual 
+newFFTSurfaceVisual contextSettingsIORef stateIORef = Visual { -- curried: FFTSurface
+                                                               dimensions    = fftSurfaceDimensions stateIORef, 
+                                                               -- curried: RenderSettings -> IORef FFTSurface -> Int -> IO (FFTSurface)
+                                                               update        = fftSurfaceUpdate contextSettingsIORef stateIORef, 
+                                                               -- curried: FFTSurface 
+                                                               render        = fftSurfaceRender stateIORef }
 
-fftSurfaceNew :: IORef AC.ContextSettings -> RH.RenderSettings -> IO (FFTSurface)
+
+newFFTSurface :: IORef AC.ContextSettings -> IO (FFTSurface)
 -- {{{
-fftSurfaceNew cSettingsIORef rSettings = do
+newFFTSurface cSettingsIORef = do
   vertexBufIORef  <- newIORef []
   normalsBufIORef <- newIORef []
 
@@ -172,28 +179,33 @@ fftSurfaceNew cSettingsIORef rSettings = do
                               fillFont        = fillFontIORef,
                               gridFont        = gridFontIORef, 
                               contextSettings = cSettings, 
-                              renderSettings  = rSettings }
+                              renderSettings  = (trace ("reading RS") $ undefined) }
   return settings
 -- }}}
 
-fftSurfaceDimensions :: FFTSurface -> (GLfloat,GLfloat,GLfloat)
+fftSurfaceDimensions :: IORef FFTSurface -> IO (GLfloat,GLfloat,GLfloat)
 -- {{{
-fftSurfaceDimensions visual = (width,height,depth)
-  where width  = (xPosFun visual) (nSamples-1) visual
-        depth  = (zPosFun visual) (nSignals-1) visual
-        height = 2.0
-        nSamples = RH.numSamples $ renderSettings visual
-        nSignals = RH.numSignals $ renderSettings visual
+fftSurfaceDimensions visualIORef = do 
+  visual <- readIORef visualIORef
+  let width  = (xPosFun visual) (nSamples-1) visual
+      depth  = (zPosFun visual) (nSignals-1) visual
+      height = 2.0
+      nSamples = RH.numSamples $ renderSettings visual
+      nSignals = RH.numSignals $ renderSettings visual
+  return (width,height,depth)
 -- }}}
 
-fftSurfaceUpdate :: IORef AC.ContextSettings -> RH.RenderSettings -> IORef FFTSurface -> Int -> IO (FFTSurface)
+fftSurfaceUpdate :: IORef AC.ContextSettings -> IORef FFTSurface -> RH.RenderSettings -> Int -> IO ()
 -- {{{  
-fftSurfaceUpdate cSettingsIORef rSettings visualIORef t = do
+fftSurfaceUpdate cSettingsIORef visualIORef rSettings t = do
   cSettings <- readIORef cSettingsIORef
-
+ 
   -- Load current visual: 
   visualPrev <- readIORef visualIORef 
-  let visual = visualPrev { xLinScale = AC.xLinScale cSettings, 
+
+  let visual = visualPrev { renderSettings  = rSettings, 
+                            contextSettings = cSettings, 
+                            xLinScale = AC.xLinScale cSettings, 
                             xLogScale = AC.xLogScale cSettings, 
                             zLinScale = AC.zLinScale cSettings }
   -- Update visual settings from application context: 
@@ -232,16 +244,15 @@ fftSurfaceUpdate cSettingsIORef rSettings visualIORef t = do
   nBufCurr <- readIORef normalsBufIORef
   let nBufUpdated = if numNewSignalsRead > 0 then updateNormalsBuffer nBufCurr (take (numNewSignalsRead+2) vBufZAdjusted) nSignals else nBufCurr
   modifyIORef normalsBufIORef ( \_ -> nBufUpdated )
-
-  modifyIORef visualIORef (\vis -> vis { renderSettings  = rSettings, 
-                                         contextSettings = cSettings })
   
-  return visual
+  return ()
 -- }}}
 
-fftSurfaceRender :: FFTSurface -> IO ()
+fftSurfaceRender :: IORef FFTSurface -> IO ()
 -- {{{    
-fftSurfaceRender visual = do 
+fftSurfaceRender visualIORef = do 
+  visual <- readIORef visualIORef 
+  
   let rSettings = renderSettings visual
   let cSettings = contextSettings visual
 
@@ -286,6 +297,7 @@ fftSurfaceRender visual = do
     FTGL.renderFont gridfont marqueeText FTGL.Front
     fog $= Enabled
 -- }}}
+
 
 -- Helper functions: 
 
@@ -556,10 +568,17 @@ renderSurfaceSection dirX dirZ vArray nArray fArray secStart@(zStartIdx,xStartId
                                               vsTpl  = if dirZ == FrontToBack then (vsCurr,vsNext) else (vsNext,vsCurr)
                                               nsTpl  = if dirZ == FrontToBack then (nsCurr,nsNext) else (nsNext,nsCurr)
                                               fTpl   = if dirZ == FrontToBack then (fCurr,fNext) else (fNext,fCurr)
-                                          translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
-                                          renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
-                                          translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat) 
-                                          renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx )
+                                          let renderSec = 
+                                                if dirZ == FrontToBack 
+                                                then do translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
+                                                        renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
+                                                        translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat) 
+                                                        renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
+                                                else do renderSignalSurfaceStrip dirZ dirX applyFeaturesToSurface vsTpl nsTpl fTpl settings globalSigIdx 
+                                                        translate $ Vector3 0.0 (0.01) (0.0 :: GLfloat)
+                                                        renderSignalGridStrip dirZ dirX applyFeaturesToGrid vsTpl nsTpl fTpl settings globalSigIdx 
+                                                        translate $ Vector3 0.0 (-0.01) (0.0 :: GLfloat) 
+                                          renderSec )
            ) (zip sigIdcs [0..nSecSignals])
   ) else return () 
 -- }}}

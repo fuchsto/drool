@@ -19,25 +19,14 @@ module Drool.UI.Visuals.Visual (
     VState(..)
 ) where
 
-import Data.IORef (IORef)
+import Data.IORef
 import Graphics.Rendering.OpenGL ( GLfloat )
 import Drool.Utils.RenderHelpers ( RenderSettings )
 
-{-
-class Visual v where 
-  newVisual :: ContextSettings -> ContextObjects -> RenderSettings -> IO (v)
-  dimensions :: v -> (GLfloat,GLfloat,GLfloat)
-  pushSignal :: IORef v -> ContextSettings -> RenderSettings -> Int -> IO (v)
-  render :: v -> IO ()
--}
-
-class VState vs where
+class VState vs where 
   vsRenderSettings :: vs -> RenderSettings
 
-data Visual v = Visual { newVisual :: RenderSettings -> IO (v), 
-                dimensions :: v -> (GLfloat,GLfloat,GLfloat), 
-                update :: RenderSettings -> IORef v -> Int -> IO (v), 
-                render :: v -> IO () }
-
-
+data Visual = Visual { dimensions :: IO (GLfloat,GLfloat,GLfloat), 
+                       update :: RenderSettings -> Int -> IO (), 
+                       render :: IO () }
 

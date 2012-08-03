@@ -30,7 +30,7 @@ import Graphics.Rendering.OpenGL as GL
 import qualified Graphics.Rendering.FTGL as FTGL
 
 import Graphics.UI.Gtk as Gtk
-
+import qualified Graphics.UI.GLUT as GLUT ( initialize )
 import qualified Graphics.UI.Gtk.OpenGL as GtkGL
 
 import qualified Drool.Utils.SigGen as SigGen ( SignalGenerator(..) )
@@ -47,15 +47,14 @@ import qualified Control.Concurrent.Chan as CC ( readChan )
 import qualified Drool.UI.Visuals as Visuals
 
 
-display :: IORef (Visuals.Visual v) -> IORef v -> IORef AC.ContextSettings -> IORef RH.RenderSettings -> IO ()
-display visualDefIORef visualIORef contextSettingsIORef renderSettingsIORef = do
+display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IORef (Visuals.Visual) -> IO ()
+display contextSettingsIORef renderSettingsIORef visualIORef = do
 -- {{{
 --  renderSettingsPrev <- readIORef renderSettingsIORef
   contextSettings    <- readIORef contextSettingsIORef
   renderSettingsPrev <- readIORef renderSettingsIORef
 
-  visualDef <- readIORef visualDefIORef -- e.g. Visual FFTSurface
-  visual    <- readIORef visualIORef    -- e.g. FFTSurface
+  visual <- readIORef visualIORef    -- e.g. FFTSurface
 
   let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency contextSettings)
   let tick      = RH.tick renderSettingsPrev
@@ -86,11 +85,10 @@ display visualDefIORef visualIORef contextSettingsIORef renderSettingsIORef = do
   let nSamples = min numSamplesCurr numSamplesLast
   let nSignals = length $ DT.signalList signalBuf
 
-  modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.numSignals = nSignals, 
-                                                               RH.numSamples = nSamples } )
+  modifyIORef renderSettingsIORef ( \_ -> renderSettingsCurr { RH.numSignals    = nSignals, 
+                                                               RH.numNewSignals = nNewSignals, 
+                                                               RH.numSamples    = nSamples } )
   renderSettings <- readIORef renderSettingsIORef
-  
-  let renderSettings' = renderSettings { RH.numNewSignals = nNewSignals }
   
   let accIncRotation  = (AC.incRotationAccum contextSettings) 
   let incRotationStep = (AC.incRotation contextSettings) 
@@ -100,7 +98,9 @@ display visualDefIORef visualIORef contextSettingsIORef renderSettingsIORef = do
   modifyIORef contextSettingsIORef (\settings -> settings { AC.incRotationAccum = nextIncRotation } ) 
   
   -- Push new signal(s) to visual: 
-  visualUpdated <- (Visuals.update visualDef) renderSettings' visualIORef tick
+
+  (Visuals.update visual) renderSettings tick
+  visualUpdated <- readIORef visualIORef
   
   matrixMode $= Projection
   loadIdentity
@@ -178,7 +178,7 @@ display visualDefIORef visualIORef contextSettingsIORef renderSettingsIORef = do
   GL.diffuse  (Light 1) $= AC.lightDiffuse light1
   GL.specular (Light 1) $= AC.lightSpecular light1
 
-  let (visWidth,visHeight,visDepth) = (Visuals.dimensions visualDef) visualUpdated
+  (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
   
   fogMode $= Linear 0.0 (visDepth * 20.0)
   fogColor $= (Color4 0.0 0.0 0.0 1.0)
@@ -189,7 +189,7 @@ display visualDefIORef visualIORef contextSettingsIORef renderSettingsIORef = do
   GL.translate $ Vector3 (-0.5 * visWidth) 0 0
   GL.translate $ Vector3 0 0 (-0.5 * visDepth)
   
-  (Visuals.render visualDef) visualUpdated
+  Visuals.render visualUpdated
 
 -- }}} 
 
@@ -211,6 +211,8 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
 -- {{{
   window <- Gtk.windowNew
 
+  _ <- GLUT.initialize "drool visualizer" []
+
   Gtk.set window [ Gtk.containerBorderWidth := 0,
                    Gtk.windowTitle := "drool visualizer" ]
 
@@ -224,7 +226,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
 
   cObjects   <- readIORef contextObjectsIORef
   cSettings  <- readIORef contextSettingsIORef  
-  let sigGen = AC.signalGenerator cObjects
+  let sigGen  = AC.signalGenerator cObjects
   
   let renderSettings = RH.RenderSettings { RH.signalGenerator   = sigGen, 
                                            RH.samplingSem       = AC.samplingSem cObjects, 
@@ -240,16 +242,8 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   
   renderSettingsIORef <- newIORef renderSettings
 
-  -- Load a concrete visual definition (e.g. Visual FFTSurface): 
-  -- let visualDefIORef = AC.visualDefinition cObjects
-  -- visualDef <- readIORef visualDefIORef
-  let visualDef = Visuals.createFFTSurfaceVisual contextSettingsIORef
-
-  visualDefIORef <- newIORef visualDef
-  -- Create a new concrete visual state by using the definition's newVisual function:
-  visualInitState  <- (Visuals.newVisual visualDef) renderSettings
-  visualStateIORef <- newIORef visualInitState
-
+  let visualIORef = AC.visual cObjects
+  
   -- Initialise some GL setting just before the canvas first gets shown
   -- (We can't initialise these things earlier since the GL resources that
   -- we are using wouldn't have been setup yet)
@@ -300,7 +294,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   -- OnShow handler for GL canvas:
   _ <- Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
-      display visualDefIORef visualStateIORef contextSettingsIORef renderSettingsIORef
+      display contextSettingsIORef renderSettingsIORef visualIORef
       GtkGL.glDrawableSwapBuffers glwindow
     return True
 
