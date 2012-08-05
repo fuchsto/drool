@@ -41,6 +41,8 @@ import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 import qualified Drool.ContextObjects as AC
 
+import qualified Control.Monad as M ( forever ) 
+import qualified Control.Concurrent as C
 import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar, takeMVar, putMVar )
 import qualified Control.Concurrent.Chan as CC ( readChan )
 
@@ -54,7 +56,7 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   contextSettings    <- readIORef contextSettingsIORef
   renderSettingsPrev <- readIORef renderSettingsIORef
 
-  visual <- readIORef visualIORef    -- e.g. FFTSurface
+  visual <- readIORef visualIORef
 
   let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency contextSettings)
   let tick      = RH.tick renderSettingsPrev
@@ -70,7 +72,7 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   let featuresCurr = head (FE.signalFeaturesList featuresBuf)
 
   -- Wait until there is at least one signal ready for rendering. 
-  nNewSignals <- MV.takeMVar samplingSem 
+  let nNewSignals = RH.numNewSignals renderSettingsCurr
   
   -- Load most recent signal from buffer (last signal in list): 
   let recentSignal = DT.getRecentSignal signalBuf 
@@ -325,15 +327,23 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     liftIO $ Gtk.windowSetKeepAbove window False
 
   let timeoutMs = (Conv.freqToMs $ AC.renderingFrequency cSettings)
+
+{-
   -- Redraw canvas according to rendering frequency:
   updateCanvasTimer <- Gtk.timeoutAddFull (do
       Gtk.widgetQueueDraw canvas
       return True)
- -- Gtk.priorityHigh timeoutMs
     Gtk.priorityDefaultIdle timeoutMs
-
   -- Remove timer for redrawing canvas when closing window:
   _ <- Gtk.onDestroy window (Gtk.timeoutRemove updateCanvasTimer)
+-}
+
+  -- Try to redraw canvas on every new signal: 
+  sampleThread <- C.forkOS . M.forever $ do nNewSignals <- MV.takeMVar $ AC.samplingSem cObjects
+                                            modifyIORef renderSettingsIORef ( \rs -> rs { RH.numNewSignals = nNewSignals } )
+                                            Gtk.postGUISync $ Gtk.widgetQueueDraw canvas
+    
+
 
   Gtk.widgetShowAll window
 -- }}} 

@@ -125,6 +125,11 @@ main = do
   
   transformationChan <- CC.newChan
 
+  putStrLn "Draining playback buffer ..."
+  Pulse.simpleDrain soundTarget
+  putStrLn "Flushing playback buffer ..."
+  Pulse.simpleFlush soundTarget
+
   sampleTickIORef <- newIORef 0
   sampleThread    <- C.forkOS . M.forever $ do cSettings   <- readIORef contextSettings
                                                cObjects    <- readIORef contextObjects
@@ -134,18 +139,18 @@ main = do
                                                let fftWindowSize = AC.numFFTBands cSettings
                                                -- If sampling microphone input, read it: 
                                                let soundSamples = Pulse.simpleRead soundSource $ fftWindowSize :: IO[Float]
-                                               latency <- Pulse.simpleGetLatency soundSource
-                                               modifyIORef contextSettings ( \s -> s { AC.metrics = (AC.metrics s) { AC.latency = latency } } )
                                                -- If using a test signal, generate it: 
-                                               sampleTick <- readIORef sampleTickIORef 
                                                modifyIORef sampleTickIORef (\tick -> tick + 1)
+                                               sampleTick <- readIORef sampleTickIORef 
                                                let testSignalSamples = take numSamples (SigGen.genSignal sigGen sampleTick)
-                                               
                                                rawSamples <- if AC.signalSource cSettings == DT.Microphone then soundSamples else return $ map (\v -> realToFrac v) testSignalSamples
-                                               CC.writeChan transformationChan rawSamples
-
                                                let playback = if AC.playbackEnabled cSettings then Pulse.simpleWrite soundTarget rawSamples else return ()
                                                _ <- playback
+                                               
+                                               CC.writeChan transformationChan rawSamples
+
+                                               latency <- Pulse.simpleGetLatency soundSource
+                                               modifyIORef contextSettings ( \s -> s { AC.metrics = (AC.metrics s) { AC.latency = latency } } )
                                                return () 
 
   transformThread <- C.forkIO . M.forever $ do cSettings   <- readIORef contextSettings
