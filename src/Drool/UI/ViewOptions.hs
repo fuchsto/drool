@@ -250,11 +250,11 @@ initComponent gtkBuilder contextSettings contextObjects = do
   GH.bindCheckButton "checkbuttonReverseBuffer" gtkBuilder contextSettings (\v settings -> settings { AC.reverseBuffer = v })
 
   -- Lights
-  GH.bindCheckButton "checkbuttonLight1Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light0Enabled = v })
+  GH.bindCheckButton "checkbuttonLight1Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light0 = (AC.light0 settings) { AC.lightState = if v then Enabled else Disabled } })
   GH.bindColorButton "colorbuttonLight1Ambient"  gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightAmbient = c } } ) 
   GH.bindColorButton "colorbuttonLight1Diffuse"  gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightDiffuse = c } } ) 
   GH.bindColorButton "colorbuttonLight1Specular" gtkBuilder contextSettings (\c s -> s { AC.light0 = (AC.light0 s) { AC.lightSpecular = c } } ) 
-  GH.bindCheckButton "checkbuttonLight2Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light1Enabled = v })
+  GH.bindCheckButton "checkbuttonLight2Enabled"  gtkBuilder contextSettings (\v settings -> settings { AC.light1 = (AC.light1 settings) { AC.lightState = if v then Enabled else Disabled } })
   GH.bindColorButton "colorbuttonLight2Ambient"  gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightAmbient = c } } ) 
   GH.bindColorButton "colorbuttonLight2Diffuse"  gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightDiffuse = c } } ) 
   GH.bindColorButton "colorbuttonLight2Specular" gtkBuilder contextSettings (\c s -> s { AC.light1 = (AC.light1 s) { AC.lightSpecular = c } } ) 
@@ -300,12 +300,12 @@ updateSettings gtkBuilder settings = do
   GH.initAdjustment "adjFeatureSignalEnergySurfaceCoeff" gtkBuilder (realToFrac $ AC.featureSignalEnergySurfaceCoeff settings) 
   GH.initAdjustment "adjAutoPerspectiveSwitchInterval"   gtkBuilder (realToFrac $ AC.autoPerspectiveSwitchInterval settings) 
   
-  GH.initCheckButton "checkbuttonLight1Enabled" gtkBuilder (AC.light0Enabled settings)
+  GH.initCheckButton "checkbuttonLight1Enabled" gtkBuilder (if AC.lightState (AC.light0 settings) == Enabled then True else False)
   GH.initColorButton "colorbuttonLight1Ambient"  gtkBuilder (AC.lightAmbient $ AC.light0 settings)
   GH.initColorButton "colorbuttonLight1Diffuse"  gtkBuilder (AC.lightDiffuse $ AC.light0 settings)
   GH.initColorButton "colorbuttonLight1Specular" gtkBuilder (AC.lightSpecular $ AC.light0 settings)
   
-  GH.initCheckButton "checkbuttonLight2Enabled" gtkBuilder (AC.light1Enabled settings)
+  GH.initCheckButton "checkbuttonLight1Enabled" gtkBuilder (if AC.lightState (AC.light1 settings) == Enabled then True else False)
   GH.initColorButton "colorbuttonLight2Ambient"  gtkBuilder (AC.lightAmbient $ AC.light1 settings)
   GH.initColorButton "colorbuttonLight2Diffuse"  gtkBuilder (AC.lightDiffuse $ AC.light1 settings)
   GH.initColorButton "colorbuttonLight2Specular" gtkBuilder (AC.lightSpecular $ AC.light1 settings)

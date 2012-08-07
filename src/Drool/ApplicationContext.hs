@@ -26,7 +26,7 @@ module Drool.ApplicationContext (
 -- Moved ContextSettings to own module to solve ring dependency between Drool.Types
 -- and Drool.SigGen.
 
-import Graphics.Rendering.OpenGL ( GLfloat, Color3(..), Color4(..), BlendingFactor(..) )
+import Graphics.Rendering.OpenGL ( GLfloat, Color3(..), Color4(..), BlendingFactor(..), Capability(..) )
 import Data.IORef
 import qualified System.IO as SIO ( openFile, hPutStrLn, hGetLine, hClose, IOMode(..) ) 
 import qualified Control.Concurrent as CC ( ThreadId ) 
@@ -58,9 +58,7 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          -- Colors: 
                                          gridMaterial :: MaterialConfig, 
                                          surfaceMaterial :: MaterialConfig, 
-																				 light0Enabled :: Bool, 
                                          light0 :: LightConfig, 
-																				 light1Enabled :: Bool, 
                                          light1 :: LightConfig, 
                                          -- Scaling and opacity: 
                                          scaling :: Float,
@@ -125,9 +123,12 @@ data MaterialConfig = MaterialConfig { materialAmbient :: Color4 GLfloat,
                                        materialShininess :: GLfloat }
   deriving ( Show, Read ) 
 
-data LightConfig = LightConfig { lightAmbient :: Color4 GLfloat, 
-                                 lightDiffuse :: Color4 GLfloat, 
-                                 lightSpecular :: Color4 GLfloat } 
+data LightConfig = LightConfig { lightIndex     :: Int, 
+                                 lightIntensity :: GLfloat, 
+                                 lightState     :: Capability, 
+                                 lightAmbient   :: Color4 GLfloat, 
+                                 lightDiffuse   :: Color4 GLfloat, 
+                                 lightSpecular  :: Color4 GLfloat } 
   deriving ( Show, Read ) 
                              
 
@@ -156,14 +157,18 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            rangeAmps = [ 0.56, 1.0, 1.33, 1.61, 1.66 ], 
                                            gridOpacity = 1.0,
                                            surfaceOpacity = 90.0,
-																					 light0Enabled = True,
-                                           light0 = LightConfig { lightAmbient  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightDiffuse  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightSpecular = Color4 0.074 0.94 0.69 1.0 }, 
-																					 light1Enabled = True,
-                                           light1 = LightConfig { lightAmbient  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightDiffuse  = Color4 0.074 0.94 0.69 1.0, 
-                                                                  lightSpecular = Color4 0.074 0.94 0.69 1.0 }, 
+                                           light0 = LightConfig { lightIndex     = 0, 
+                                                                  lightState     = Enabled, 
+                                                                  lightIntensity = 1.0,
+                                                                  lightAmbient   = Color4 0.074 0.94 0.69 1.0, 
+                                                                  lightDiffuse   = Color4 0.074 0.94 0.69 1.0, 
+                                                                  lightSpecular  = Color4 0.074 0.94 0.69 1.0 }, 
+                                           light1 = LightConfig { lightIndex     = 1, 
+                                                                  lightState     = Enabled, 
+                                                                  lightIntensity = 1.0, 
+                                                                  lightAmbient   = Color4 0.074 0.94 0.69 1.0, 
+                                                                  lightDiffuse   = Color4 0.074 0.94 0.69 1.0, 
+                                                                  lightSpecular  = Color4 0.074 0.94 0.69 1.0 }, 
                                            surfaceMaterial = MaterialConfig { materialEmission  = Color4 0.0  0.0  0.0 0.0, 
                                                                               materialAmbient   = Color4 0.02 0.34 1.0 1.0, 
                                                                               materialDiffuse   = Color4 0.02 0.68 1.0 1.0, 
@@ -218,4 +223,8 @@ loadContextSettings filepath = do
   serSettings <- SIO.hGetLine handle
   let settings = read serSettings :: ContextSettings
   return settings
+
+instance Read Capability where
+  readsPrec _ s  = [(Enabled, "Enabled"), (Disabled, "Disabled")]
+
 

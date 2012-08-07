@@ -142,49 +142,18 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   
   GL.translate $ Vector3 0 0 viewDistance
 
-  -- Rotate/translate to change view perspective: 
-  case curPerspective of
-    DT.Isometric -> do
-      GL.translate $ Vector3 0 0.1 (-1.7::GLfloat)
-      GL.rotate (45::GLfloat) $ Vector3 1.0 0.0 0.0
-      GL.rotate (45::GLfloat) $ Vector3 0.0 1.0 0.0
-    DT.Top -> do
-      GL.translate $ Vector3 0 0 (-1.8::GLfloat)
-      GL.rotate (90::GLfloat) $ Vector3 1.0 0.0 0.0
-    DT.Front -> do
-      GL.translate $ Vector3 0 0 (-2.0::GLfloat)
-      GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
-    DT.Side -> do
-      GL.translate $ Vector3 0 0 (-2.0::GLfloat)
-      GL.rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
-      GL.rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
-
-  GL.rotate (DT.rotX fixedRotation)  $ Vector3 1.0 0.0 0.0
-  GL.rotate (DT.rotX accIncRotation) $ Vector3 1.0 0.0 0.0
-  GL.rotate (DT.rotY fixedRotation)  $ Vector3 0.0 1.0 0.0
-  GL.rotate (DT.rotY accIncRotation) $ Vector3 0.0 1.0 0.0
-  GL.rotate (DT.rotZ fixedRotation)  $ Vector3 0.0 0.0 1.0
-  GL.rotate (DT.rotZ accIncRotation) $ Vector3 0.0 0.0 1.0
+  RH.applyPerspective curPerspective
+  RH.applyGlobalRotation fixedRotation accIncRotation
 
   ---------------------------------------------------------------------------------------------------
   -- End of perspective transformations
   ---------------------------------------------------------------------------------------------------
 
-  let lightCoef = lCoeff + bCoeff 
+  let lightIntensity = lCoeff + bCoeff 
         where (lCoeff,bCoeff) = RH.featuresToIntensity featuresCurr FE.GlobalTarget contextSettings
 
-  -- Lighting
-  let light0 = AC.light0 contextSettings
-  light (Light 0) $= if AC.light0Enabled contextSettings then Enabled else Disabled
-  GL.ambient  (Light 0) $= RH.color4MulValue (AC.lightAmbient light0)  lightCoef
-  GL.diffuse  (Light 0) $= RH.color4MulValue (AC.lightDiffuse light0)  lightCoef
-  GL.specular (Light 0) $= RH.color4MulValue (AC.lightSpecular light0) lightCoef
-  
-  let light1 = AC.light1 contextSettings
-  light (Light 1) $= if AC.light1Enabled contextSettings then Enabled else Disabled
-  GL.ambient  (Light 1) $= RH.color4MulValue (AC.lightAmbient light1)  lightCoef
-  GL.diffuse  (Light 1) $= RH.color4MulValue (AC.lightDiffuse light1)  lightCoef
-  GL.specular (Light 1) $= RH.color4MulValue (AC.lightSpecular light1) lightCoef
+  RH.useLight $ (AC.light0 contextSettings) { AC.lightIntensity = lightIntensity }
+  RH.useLight $ (AC.light1 contextSettings) { AC.lightIntensity = lightIntensity }
 
   (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
   

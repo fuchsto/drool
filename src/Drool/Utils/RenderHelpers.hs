@@ -16,7 +16,10 @@
 
 module Drool.Utils.RenderHelpers (
     RenderSettings(..), 
+    applyGlobalRotation, 
+    applyPerspective, 
     nextPerspective, 
+    useLight, 
     applyBandRangeAmp, 
     bandRangeAmpSamples, 
     scaleSamples, 
@@ -54,14 +57,14 @@ import Data.Packed.Matrix as HM ( (><), Matrix )
 import Numeric.LinearAlgebra.Algorithms as LA ( inv ) 
 import Numeric.Container as NC ( vXm, fromList, toList )
 
-import qualified Drool.Types as DT ( SignalList(..), RenderPerspective(..) )
+import qualified Drool.Types as DT ( SignalList(..), RenderPerspective(..), RotationVector(..) )
 import Drool.Utils.SigGen as SigGen ( SValue, TValue, SignalGenerator(..) )
 import Drool.Utils.FeatureExtraction as FE ( 
     SignalFeatures(..), SignalFeaturesList(..), 
     emptyFeatures, 
     FeatureTarget(..), featureTargetFromIndex )
 import Drool.Utils.Conversions as Conv ( interleaveArrays, aZip ) 
-import Drool.ApplicationContext as AC ( ContextSettings(..) )
+import Drool.ApplicationContext as AC ( ContextSettings(..), LightConfig(..) )
 import Graphics.Rendering.OpenGL ( 
     Vector3 (..), 
     Vertex3 (..), 
@@ -69,6 +72,8 @@ import Graphics.Rendering.OpenGL (
     Normal3 (..), 
     Color3(..),
     Color4(..),
+    Light(..), 
+    light, 
     VertexComponent,
     renderPrimitive, 
     PrimitiveMode(..),
@@ -88,6 +93,11 @@ import Graphics.Rendering.OpenGL (
     Capability(..),
     polygonOffsetFill, 
     polygonOffsetLine, 
+    ambient, 
+    diffuse, 
+    specular, 
+    rotate, 
+    translate, 
     GLfloat )
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Control.Concurrent.MVar as MV ( MVar )
@@ -118,12 +128,50 @@ data RenderSettings = RenderSettings { signalGenerator :: SignalGenerator,
                                        -- Tick of rendering pass: 
                                        tick :: Int }
 
+applyPerspective :: DT.RenderPerspective -> IO ()
+applyPerspective p = do
+  case p of
+    DT.Isometric -> do
+      rotate (45::GLfloat) $ Vector3 1.0 0.0 0.0
+      rotate (45::GLfloat) $ Vector3 0.0 1.0 0.0
+    DT.Top -> do
+      rotate (90::GLfloat) $ Vector3 1.0 0.0 0.0
+    DT.Front -> do
+      rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
+    DT.Side -> do
+      rotate (20.0::GLfloat) $ Vector3 1.0 0.0 0.0
+      rotate (-90::GLfloat) $ Vector3 0.0 1.0 0.0
+
+applyGlobalRotation :: DT.RotationVector -> DT.RotationVector -> IO ()
+applyGlobalRotation fixedRotation incRotation = do
+  rotate (DT.rotX fixedRotation) $ Vector3 1.0 0.0 0.0
+  rotate (DT.rotX incRotation)   $ Vector3 1.0 0.0 0.0
+  rotate (DT.rotY fixedRotation) $ Vector3 0.0 1.0 0.0
+  rotate (DT.rotY incRotation)   $ Vector3 0.0 1.0 0.0
+  rotate (DT.rotZ fixedRotation) $ Vector3 0.0 0.0 1.0
+  rotate (DT.rotZ incRotation)   $ Vector3 0.0 0.0 1.0
+
 nextPerspective :: DT.RenderPerspective -> DT.RenderPerspective
 nextPerspective cur = case cur of 
   DT.Isometric -> DT.Top
   DT.Top       -> DT.Front 
   DT.Front     -> DT.Side
   DT.Side      -> DT.Isometric
+
+useLight :: AC.LightConfig -> IO ()
+useLight lightConfig = do 
+  let lightState = AC.lightState lightConfig
+  let lightIdx   = fromIntegral $ AC.lightIndex lightConfig
+  light (Light lightIdx) $= lightState
+  let lighting state = 
+        if state == Enabled then do
+          let intensity = AC.lightIntensity lightConfig
+          ambient  (Light lightIdx) $= color4MulValue (AC.lightAmbient  lightConfig) intensity
+          diffuse  (Light lightIdx) $= color4MulValue (AC.lightDiffuse  lightConfig) intensity
+          specular (Light lightIdx) $= color4MulValue (AC.lightSpecular lightConfig) intensity
+        else
+          return ()
+  lighting lightState
 
 -- Expects a sample, t, number of samples in total, list of band range amplifiers, and returns amplified sample for t. 
 applyBandRangeAmp :: SValue -> TValue -> Int -> [Float] -> SValue
