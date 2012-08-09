@@ -26,6 +26,8 @@ module Drool.ApplicationContext (
 -- Moved ContextSettings to own module to solve ring dependency between Drool.Types
 -- and Drool.SigGen.
 
+import Debug.Trace
+
 import Graphics.Rendering.OpenGL ( GLfloat, Color3(..), Color4(..), BlendingFactor(..), Capability(..) )
 import Data.IORef
 import qualified System.IO as SIO ( openFile, hPutStrLn, hGetLine, hClose, IOMode(..) ) 
@@ -225,6 +227,13 @@ loadContextSettings filepath = do
   return settings
 
 instance Read Capability where
-  readsPrec _ s  = [(Enabled, "Enabled"), (Disabled, "Disabled")]
+  readsPrec _ s  = tryParse [("Enabled", Enabled), ("Disabled", Disabled)]
+    where tryParse [] = []
+          tryParse ((attempt, result):xs) = if part == attempt 
+                                            then [(result, remain)]
+                                            else tryParse xs
+            where part     = take (length attempt) stripped
+                  remain   = drop (length attempt) stripped
+                  stripped = (dropWhile (\c -> c == ' ') s)
 
 
