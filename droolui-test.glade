@@ -240,6 +240,16 @@
     <property name="step_increment">0.10000000000000001</property>
     <property name="page_increment">1</property>
   </object>
+  <object class="GtkImage" id="iconPerspectiveIsometric1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-media-stop</property>
+  </object>
+  <object class="GtkImage" id="iconPerspectiveSide1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-media-stop</property>
+  </object>
   <object class="GtkImage" id="iconPerspectiveTop1">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -297,16 +307,6 @@
     <property name="stock">gtk-media-record</property>
   </object>
   <object class="GtkImage" id="iconPerspectiveFront1">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveIsometric1">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="stock">gtk-media-stop</property>
-  </object>
-  <object class="GtkImage" id="iconPerspectiveSide1">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-stop</property>
@@ -505,7 +505,7 @@
     <data>
       <row>
         <col id="0">0</col>
-        <col id="1" translatable="yes">Surface</col>
+        <col id="1" translatable="yes">Blank</col>
       </row>
       <row>
         <col id="0">1</col>
@@ -513,6 +513,10 @@
       </row>
       <row>
         <col id="0">2</col>
+        <col id="1" translatable="yes">FFT Surface</col>
+      </row>
+      <row>
+        <col id="0">3</col>
         <col id="1" translatable="yes">Tunnel</col>
       </row>
     </data>
@@ -532,7 +536,6 @@
             <property name="can_focus">False</property>
             <child>
               <object class="GtkMenuItem" id="menuitemFile">
-                <property name="use_action_appearance">False</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">_File</property>
@@ -544,7 +547,6 @@
                     <child>
                       <object class="GtkImageMenuItem" id="menuitemLoadSettings">
                         <property name="label">gtk-open</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -554,7 +556,6 @@
                     <child>
                       <object class="GtkImageMenuItem" id="menuitemSaveSettingsAs">
                         <property name="label">gtk-save-as</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -563,7 +564,6 @@
                     </child>
                     <child>
                       <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>
@@ -571,7 +571,6 @@
                     <child>
                       <object class="GtkImageMenuItem" id="menuitemQuit">
                         <property name="label">gtk-quit</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
@@ -621,11 +620,9 @@
                             <child>
                               <object class="GtkButton" id="buttonVisualizer">
                                 <property name="label" translatable="yes">Show visualizer</property>
-                                <property name="use_action_appearance">False</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
-                                <property name="use_action_appearance">False</property>
                               </object>
                             </child>
                           </object>
@@ -645,11 +642,9 @@
                             <child>
                               <object class="GtkButton" id="buttonFreezeVisualizer">
                                 <property name="label" translatable="yes">Freeze</property>
-                                <property name="use_action_appearance">False</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
-                                <property name="use_action_appearance">False</property>
                                 <property name="image">iconFreezeVisualizer12</property>
                               </object>
                             </child>
@@ -738,11 +733,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonVisualModelEdit">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconEditVisualModel</property>
                                       </object>
                                       <packing>
@@ -797,11 +790,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonVisualBackgroundEdit">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconEditVisualBackground</property>
                                       </object>
                                       <packing>
@@ -882,13 +873,11 @@
                                     <property name="can_focus">False</property>
                                     <child>
                                       <object class="GtkButton" id="buttonPerspectiveTop">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">31</property>
                                         <property name="height_request">25</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconPerspectiveTop1</property>
                                       </object>
                                       <packing>
@@ -915,13 +904,11 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonPerspectiveFront">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">30</property>
                                         <property name="height_request">25</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconPerspectiveFront1</property>
                                       </object>
                                       <packing>
@@ -948,13 +935,11 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonPerspectiveSide">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">30</property>
                                         <property name="height_request">25</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconPerspectiveSide1</property>
                                       </object>
                                       <packing>
@@ -981,13 +966,11 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonPerspectiveIsometric">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">30</property>
                                         <property name="height_request">25</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconPerspectiveIsometric1</property>
                                       </object>
                                       <packing>
@@ -1557,12 +1540,10 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonAutoSwitchTop">
                                         <property name="label" translatable="yes">Top</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">63</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -1576,12 +1557,10 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonAutoSwitchFront">
                                         <property name="label" translatable="yes">Front</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">80</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -1594,12 +1573,10 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonAutoSwitchSide">
                                         <property name="label" translatable="yes">Side</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">66</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -1613,12 +1590,10 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonAutoSwitchIsometric">
                                         <property name="label" translatable="yes">Isometric</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">96</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -1631,12 +1606,10 @@
                                     </child>
                                     <child>
                                       <object class="GtkToggleButton" id="buttonToggleAutoPerspectiveSwitch">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">40</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">imagePlay1</property>
                                       </object>
                                       <packing>
@@ -1797,7 +1770,7 @@
                                         <property name="label" translatable="yes">X Linear</property>
                                       </object>
                                       <packing>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                         <property name="x_padding">5</property>
                                       </packing>
                                     </child>
@@ -1813,7 +1786,7 @@
                                       <packing>
                                         <property name="top_attach">1</property>
                                         <property name="bottom_attach">2</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                         <property name="x_padding">5</property>
                                       </packing>
                                     </child>
@@ -1829,7 +1802,7 @@
                                       <packing>
                                         <property name="top_attach">2</property>
                                         <property name="bottom_attach">3</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                         <property name="x_padding">5</property>
                                       </packing>
                                     </child>
@@ -1941,11 +1914,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkColorButton" id="colorbuttonLight1Ambient">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="color">#efa2135e8925</property>
                                       </object>
                                       <packing>
@@ -1953,7 +1924,7 @@
                                         <property name="right_attach">3</property>
                                         <property name="top_attach">1</property>
                                         <property name="bottom_attach">2</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
@@ -1969,11 +1940,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkColorButton" id="colorbuttonLight2Ambient">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="color">#efa2135e8925</property>
                                       </object>
                                       <packing>
@@ -1981,7 +1950,7 @@
                                         <property name="right_attach">3</property>
                                         <property name="top_attach">2</property>
                                         <property name="bottom_attach">3</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
@@ -2020,11 +1989,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonLight1Enabled">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">False</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -2033,16 +2000,14 @@
                                         <property name="right_attach">2</property>
                                         <property name="top_attach">1</property>
                                         <property name="bottom_attach">2</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonLight2Enabled">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -2051,16 +2016,14 @@
                                         <property name="right_attach">2</property>
                                         <property name="top_attach">2</property>
                                         <property name="bottom_attach">3</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
                                       <object class="GtkColorButton" id="colorbuttonLight1Diffuse">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="color">#efa2135e8925</property>
                                       </object>
                                       <packing>
@@ -2068,16 +2031,14 @@
                                         <property name="right_attach">4</property>
                                         <property name="top_attach">1</property>
                                         <property name="bottom_attach">2</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
                                       <object class="GtkColorButton" id="colorbuttonLight2Diffuse">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="color">#efa2135e8925</property>
                                       </object>
                                       <packing>
@@ -2085,16 +2046,14 @@
                                         <property name="right_attach">4</property>
                                         <property name="top_attach">2</property>
                                         <property name="bottom_attach">3</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
                                       <object class="GtkColorButton" id="colorbuttonLight1Specular">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="color">#efa2135e8925</property>
                                       </object>
                                       <packing>
@@ -2102,16 +2061,14 @@
                                         <property name="right_attach">5</property>
                                         <property name="top_attach">1</property>
                                         <property name="bottom_attach">2</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
                                     </child>
                                     <child>
                                       <object class="GtkColorButton" id="colorbuttonLight2Specular">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="color">#efa2135e8925</property>
                                       </object>
                                       <packing>
@@ -2119,8 +2076,11 @@
                                         <property name="right_attach">5</property>
                                         <property name="top_attach">2</property>
                                         <property name="bottom_attach">3</property>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                       </packing>
+                                    </child>
+                                    <child>
+                                      <placeholder/>
                                     </child>
                                     <child>
                                       <placeholder/>
@@ -2154,11 +2114,9 @@
                                 <child>
                                   <object class="GtkCheckButton" id="checkbuttonReverseBuffer">
                                     <property name="label" translatable="yes">Reverse</property>
-                                    <property name="use_action_appearance">False</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
-                                    <property name="use_action_appearance">False</property>
                                     <property name="xalign">0.5</property>
                                     <property name="draw_indicator">True</property>
                                   </object>
@@ -2226,11 +2184,9 @@
                                     <child>
                                       <object class="GtkButton" id="buttonLoadViewSettings">
                                         <property name="label" translatable="yes">Load view settings</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconLoadSettings</property>
                                       </object>
                                       <packing>
@@ -2243,11 +2199,9 @@
                                     <child>
                                       <object class="GtkButton" id="buttonSaveviewSettings">
                                         <property name="label" translatable="yes">Save view settings</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconSaveSettings</property>
                                       </object>
                                       <packing>
@@ -2305,11 +2259,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonResetIncRotationX">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconResetRotX</property>
                                       </object>
                                       <packing>
@@ -2353,11 +2305,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonResetIncRotationY">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconResetRotY</property>
                                       </object>
                                       <packing>
@@ -2400,11 +2350,9 @@
                                     </child>
                                     <child>
                                       <object class="GtkButton" id="buttonResetIncRotationZ">
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="image">iconResetRotZ</property>
                                       </object>
                                       <packing>
@@ -2419,7 +2367,7 @@
                                     <property name="right_attach">2</property>
                                     <property name="top_attach">8</property>
                                     <property name="bottom_attach">9</property>
-                                    <property name="y_options"></property>
+                                    <property name="y_options"/>
                                     <property name="y_padding">2</property>
                                   </packing>
                                 </child>
@@ -2567,7 +2515,7 @@
                                   <packing>
                                     <property name="left_attach">4</property>
                                     <property name="right_attach">5</property>
-                                    <property name="x_options"></property>
+                                    <property name="x_options"/>
                                   </packing>
                                 </child>
                                 <child>
@@ -2586,7 +2534,7 @@
                                     <property name="right_attach">5</property>
                                     <property name="top_attach">1</property>
                                     <property name="bottom_attach">2</property>
-                                    <property name="x_options"></property>
+                                    <property name="x_options"/>
                                   </packing>
                                 </child>
                                 <child>
@@ -2655,7 +2603,7 @@
                                   <packing>
                                     <property name="left_attach">6</property>
                                     <property name="right_attach">7</property>
-                                    <property name="x_options"></property>
+                                    <property name="x_options"/>
                                   </packing>
                                 </child>
                                 <child>
@@ -2674,7 +2622,7 @@
                                     <property name="right_attach">7</property>
                                     <property name="top_attach">1</property>
                                     <property name="bottom_attach">2</property>
-                                    <property name="x_options"></property>
+                                    <property name="x_options"/>
                                   </packing>
                                 </child>
                               </object>
@@ -2825,12 +2773,10 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonUseFFT">
                                         <property name="label" translatable="yes">FFT</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">130</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="focus_on_click">False</property>
                                         <property name="xalign">1</property>
                                         <property name="image_position">right</property>
@@ -2892,11 +2838,9 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonUseAmp">
                                         <property name="label" translatable="yes">Amplification</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">1</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -2959,12 +2903,10 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonUseIIR">
                                         <property name="label" translatable="yes">IIR</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="width_request">130</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="focus_on_click">False</property>
                                         <property name="xalign">1</property>
                                         <property name="image_position">right</property>
@@ -3073,7 +3015,7 @@
                                     <property name="label" translatable="yes">Frequencies</property>
                                   </object>
                                   <packing>
-                                    <property name="x_options"></property>
+                                    <property name="x_options"/>
                                     <property name="y_padding">4</property>
                                   </packing>
                                 </child>
@@ -3089,7 +3031,7 @@
                                   <packing>
                                     <property name="top_attach">1</property>
                                     <property name="bottom_attach">2</property>
-                                    <property name="x_options"></property>
+                                    <property name="x_options"/>
                                     <property name="y_padding">4</property>
                                   </packing>
                                 </child>
@@ -3407,11 +3349,9 @@
                                     <child>
                                       <object class="GtkButton" id="buttonActivateSignalGenerator">
                                         <property name="label" translatable="yes">Activate</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">True</property>
-                                        <property name="use_action_appearance">False</property>
                                       </object>
                                       <packing>
                                         <property name="left_attach">3</property>
@@ -3452,7 +3392,7 @@
                                         <property name="label" translatable="yes">Sampling rate</property>
                                       </object>
                                       <packing>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                         <property name="y_options">GTK_EXPAND</property>
                                       </packing>
                                     </child>
@@ -3493,12 +3433,10 @@
                                         <child>
                                           <object class="GtkButton" id="buttonStartMicRecording">
                                             <property name="label" translatable="yes">Start Recording</property>
-                                            <property name="use_action_appearance">False</property>
                                             <property name="width_request">130</property>
                                             <property name="visible">True</property>
                                             <property name="can_focus">True</property>
                                             <property name="receives_default">True</property>
-                                            <property name="use_action_appearance">False</property>
                                             <property name="image">iconMicStartRecording5</property>
                                           </object>
                                         </child>
@@ -3506,8 +3444,8 @@
                                       <packing>
                                         <property name="left_attach">3</property>
                                         <property name="right_attach">4</property>
-                                        <property name="x_options"></property>
-                                        <property name="y_options"></property>
+                                        <property name="x_options"/>
+                                        <property name="y_options"/>
                                       </packing>
                                     </child>
                                     <child>
@@ -3519,8 +3457,8 @@
                                       <packing>
                                         <property name="left_attach">2</property>
                                         <property name="right_attach">3</property>
-                                        <property name="x_options"></property>
-                                        <property name="y_options"></property>
+                                        <property name="x_options"/>
+                                        <property name="y_options"/>
                                       </packing>
                                     </child>
                                   </object>
@@ -3555,7 +3493,7 @@
                                         <property name="justify">right</property>
                                       </object>
                                       <packing>
-                                        <property name="x_options"></property>
+                                        <property name="x_options"/>
                                         <property name="y_options">GTK_EXPAND</property>
                                         <property name="x_padding">5</property>
                                       </packing>
@@ -3570,7 +3508,7 @@
                                         <property name="left_attach">1</property>
                                         <property name="right_attach">2</property>
                                         <property name="x_options">GTK_EXPAND</property>
-                                        <property name="y_options"></property>
+                                        <property name="y_options"/>
                                         <property name="x_padding">10</property>
                                       </packing>
                                     </child>
@@ -3583,11 +3521,9 @@
                                         <child>
                                           <object class="GtkButton" id="buttonOpenFile">
                                             <property name="label" translatable="yes">Open and play</property>
-                                            <property name="use_action_appearance">False</property>
                                             <property name="visible">True</property>
                                             <property name="can_focus">True</property>
                                             <property name="receives_default">True</property>
-                                            <property name="use_action_appearance">False</property>
                                           </object>
                                         </child>
                                       </object>
@@ -3595,7 +3531,7 @@
                                         <property name="left_attach">2</property>
                                         <property name="right_attach">3</property>
                                         <property name="x_options">GTK_EXPAND</property>
-                                        <property name="y_options"></property>
+                                        <property name="y_options"/>
                                       </packing>
                                     </child>
                                   </object>
@@ -3880,11 +3816,9 @@
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonPlayback">
                                         <property name="label" translatable="yes">Enable Playback </property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -3938,11 +3872,9 @@ or the feedback will consume your soul.</property>
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonUseNormals">
                                         <property name="label" translatable="yes">Use normals</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -3969,11 +3901,9 @@ or the feedback will consume your soul.</property>
                                     <child>
                                       <object class="GtkCheckButton" id="checkbuttonRenderNormals">
                                         <property name="label" translatable="yes">Render normals</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="use_action_appearance">False</property>
                                         <property name="xalign">0.5</property>
                                         <property name="draw_indicator">True</property>
                                       </object>
@@ -4050,11 +3980,9 @@ and it doesn't look that nice, either. </property>
                                         <child>
                                           <object class="GtkButton" id="buttonSetMarquee">
                                             <property name="label" translatable="yes">Set</property>
-                                            <property name="use_action_appearance">False</property>
                                             <property name="visible">True</property>
                                             <property name="can_focus">True</property>
                                             <property name="receives_default">True</property>
-                                            <property name="use_action_appearance">False</property>
                                           </object>
                                           <packing>
                                             <property name="expand">False</property>
@@ -4178,8 +4106,6 @@ and it doesn't look that nice, either. </property>
                     <property name="related_action">actionFFTSurfaceSettingsSave</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="related_action">actionFFTSurfaceSettingsSave</property>
-                    <property name="use_action_appearance">False</property>
                     <property name="label" translatable="yes">Save</property>
                     <property name="use_underline">True</property>
                     <property name="stock_id">gtk-save</property>
@@ -4195,8 +4121,6 @@ and it doesn't look that nice, either. </property>
                     <property name="related_action">actionFFTSurfaceSettingsLoad</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="related_action">actionFFTSurfaceSettingsLoad</property>
-                    <property name="use_action_appearance">False</property>
                     <property name="label" translatable="yes">Load</property>
                     <property name="use_underline">True</property>
                     <property name="stock_id">gtk-open</property>
@@ -4347,7 +4271,7 @@ and it doesn't look that nice, either. </property>
                       <packing>
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
@@ -4363,11 +4287,9 @@ and it doesn't look that nice, either. </property>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonSurfaceDiffuse">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#3e7ebb46ffe2</property>
                       </object>
                       <packing>
@@ -4375,7 +4297,7 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">4</property>
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
@@ -4402,11 +4324,9 @@ and it doesn't look that nice, either. </property>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonSurfaceEmission">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#000000000000</property>
                       </object>
                       <packing>
@@ -4414,16 +4334,14 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">2</property>
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonSurfaceAmbient">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#3e7ebb46ffe2</property>
                       </object>
                       <packing>
@@ -4431,7 +4349,7 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">3</property>
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
@@ -4444,16 +4362,14 @@ and it doesn't look that nice, either. </property>
                       <packing>
                         <property name="top_attach">2</property>
                         <property name="bottom_attach">3</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonGridEmission">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#ffffffffffff</property>
                       </object>
                       <packing>
@@ -4461,16 +4377,14 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">2</property>
                         <property name="top_attach">2</property>
                         <property name="bottom_attach">3</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonGridAmbient">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#000000000000</property>
                       </object>
                       <packing>
@@ -4478,16 +4392,14 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">3</property>
                         <property name="top_attach">2</property>
                         <property name="bottom_attach">3</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonGridDiffuse">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#ffffffffffff</property>
                       </object>
                       <packing>
@@ -4495,7 +4407,7 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">4</property>
                         <property name="top_attach">2</property>
                         <property name="bottom_attach">3</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
@@ -4511,11 +4423,9 @@ and it doesn't look that nice, either. </property>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonSurfaceSpecular">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#000000000000</property>
                       </object>
                       <packing>
@@ -4523,16 +4433,14 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">5</property>
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkColorButton" id="colorbuttonGridSpecular">
-                        <property name="use_action_appearance">False</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
-                        <property name="use_action_appearance">False</property>
                         <property name="color">#000000000000</property>
                       </object>
                       <packing>
@@ -4540,7 +4448,7 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">5</property>
                         <property name="top_attach">2</property>
                         <property name="bottom_attach">3</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
@@ -4569,7 +4477,7 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">6</property>
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
                     </child>
                     <child>
@@ -4587,8 +4495,11 @@ and it doesn't look that nice, either. </property>
                         <property name="right_attach">6</property>
                         <property name="top_attach">2</property>
                         <property name="bottom_attach">3</property>
-                        <property name="x_options"></property>
+                        <property name="x_options"/>
                       </packing>
+                    </child>
+                    <child>
+                      <placeholder/>
                     </child>
                     <child>
                       <placeholder/>
@@ -4707,12 +4618,10 @@ and it doesn't look that nice, either. </property>
             <child>
               <object class="GtkButton" id="buttonFFTSurfaceDlgClose">
                 <property name="label">gtk-close</property>
-                <property name="use_action_appearance">False</property>
                 <property name="width_request">130</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="use_action_appearance">False</property>
                 <property name="use_stock">True</property>
               </object>
             </child>

@@ -1,12 +1,12 @@
 -----------------------------------------------------------------------------
 --
 -- Module      :  Drool.Types
--- Copyright   :
--- License     :  AllRightsReserved
+-- Copyright   :  2012, Tobias Fuchs
+-- License     :  MIT
 --
--- Maintainer  :
--- Stability   :
--- Portability :
+-- Maintainer  : twh.fuchs@gmail.com
+-- Stability   : experimental
+-- Portability : POSIX
 --
 -- |
 --
@@ -35,7 +35,6 @@ module Drool.Types (
 import Data.Array.IO
 import Graphics.Rendering.OpenGL
 import Drool.Utils.SigGen ( SValue )
-
 
 -- A signal is an array of samples (sample type is GLfloat):
 newtype Signal = CSignal { signalArray :: IOUArray Int Float }

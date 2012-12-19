@@ -44,25 +44,11 @@ initComponent gtkBuilder contextSettings contextObjects = do
 
   button_view_perspectiveTop <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveTop"
   _ <- Gtk.onClicked button_view_perspectiveTop $ do
-    
-    visualInitState      <- Visuals.newFFTSurface contextSettings 
-    visualInitStateIORef <- newIORef visualInitState
-    cObjects <- readIORef contextObjects
-    let visualIORef = AC.visual cObjects
-    _ <- atomicModifyIORef visualIORef ( \_ -> (Visuals.newFFTSurfaceVisual contextSettings visualInitStateIORef,True) )
-
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.renderPerspective = DT.Top }
 
   button_view_perspectiveFront <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToButton "buttonPerspectiveFront"
   _ <- Gtk.onClicked button_view_perspectiveFront $ do
-
-    visualInitState      <- Visuals.newSpheres contextSettings 
-    visualInitStateIORef <- newIORef visualInitState
-    cObjects <- readIORef contextObjects
-    let visualIORef = AC.visual cObjects
-    _ <- atomicModifyIORef visualIORef ( \_ -> (Visuals.newSpheresVisual contextSettings visualInitStateIORef,True) )
-
     settings <- readIORef contextSettings
     contextSettings $=! settings { AC.renderPerspective = DT.Front }
 

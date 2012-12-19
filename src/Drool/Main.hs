@@ -34,6 +34,7 @@ import qualified Drool.ContextObjects as AC
 
 import qualified Drool.UI.Menubar as Menubar
 import qualified Drool.UI.ViewOptions as ViewOptions
+import qualified Drool.UI.VisualOptions as VisualOptions
 import qualified Drool.UI.FeatureExtractionOptions as FeatureExtractionOptions
 import qualified Drool.UI.TransformationOptions as TransformationOptions
 import qualified Drool.UI.SignalBufferOptions as SignalBufferOptions
@@ -75,7 +76,7 @@ main = do
 
   contextSettings <- newIORef ( AC.defaultContextSettings )
 
-  visualInitState      <- Visuals.newFFTSurface contextSettings 
+  visualInitState      <- Visuals.newFFTSurfaceState contextSettings 
   visualInitStateIORef <- newIORef visualInitState
   visualIORef <- newIORef $ Visuals.newFFTSurfaceVisual contextSettings visualInitStateIORef
 
@@ -108,6 +109,7 @@ main = do
   -- Initialize all GUI components: 
   _ <- Menubar.initComponent builder contextSettings contextObjects
   _ <- SignalBufferOptions.initComponent builder contextSettings contextObjects
+  _ <- VisualOptions.initComponent builder contextSettings contextObjects
   _ <- ViewOptions.initComponent builder contextSettings contextObjects
   _ <- SignalSourceOptions.initComponent builder contextSettings contextObjects
   _ <- TransformationOptions.initComponent builder contextSettings contextObjects

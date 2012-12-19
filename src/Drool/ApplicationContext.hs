@@ -1,12 +1,12 @@
 -----------------------------------------------------------------------------
 --
 -- Module      :  Drool.ApplicationContext
--- Copyright   :
--- License     :  AllRightsReserved
+-- Copyright   :  2012, Tobias Fuchs
+-- License     :  MIT
 --
--- Maintainer  :
--- Stability   :
--- Portability :
+-- Maintainer  :  twh.fuchs@gmail.com
+-- Stability   :  experimental
+-- Portability :  POSIX
 --
 -- |
 --
@@ -41,6 +41,7 @@ import qualified Drool.Utils.Conversions as Conv ( blendModeSourceIndex, blendMo
 import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList(..), featureTargetIndex, FeatureTarget(..) ) 
 import qualified Control.Concurrent.MVar as MV ( MVar )
 import qualified Control.Concurrent.Chan as CC ( Chan )
+
 
 -- Shared settings for communication between main controller, view options
 -- and rendering. 

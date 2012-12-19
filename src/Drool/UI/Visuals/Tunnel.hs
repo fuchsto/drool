@@ -1,8 +1,8 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Drool.UI.Visuals.Spheres
+-- Module      :  Drool.UI.Visuals.Tunnel
 -- Copyright   :  Tobias Fuchs
--- License     :  MIT
+-- License     :  AllRightsReserved
 --
 -- Maintainer  :  twh.fuchs@gmail.com
 -- Stability   :  experimental
@@ -14,10 +14,10 @@
 
 {-# OPTIONS -O2 -Wall #-}
 
-module Drool.UI.Visuals.Spheres (
-    SpheresState, -- hidden type constructor
-    newSpheresVisual, 
-    newSpheresState
+module Drool.UI.Visuals.Tunnel (
+    TunnelState, -- hidden type constructor
+    newTunnelVisual, 
+    newTunnelState
 ) where
 
 -- Imports
@@ -46,43 +46,40 @@ import Graphics.Rendering.OpenGL as GL (
     ColorMaterialParameter(..) )
 -- }}}
 
-data SpheresState = SpheresState { contextSettings :: AC.ContextSettings, 
-                                   renderSettings  :: RH.RenderSettings, 
-                                   gridMaterial    :: AC.MaterialConfig, 
-                                   surfaceMaterial :: AC.MaterialConfig, 
-                                   gridOpacity     :: GLfloat, 
-                                   surfaceOpacity  :: GLfloat, 
-                                   radius          :: GLfloat, 
-                                   numSamples      :: Int }
-
-instance VState SpheresState where 
-  vsRenderSettings = renderSettings
+data TunnelState = TunnelState { contextSettings :: AC.ContextSettings, 
+                                 renderSettings  :: RH.RenderSettings, 
+                                 gridMaterial    :: AC.MaterialConfig, 
+                                 surfaceMaterial :: AC.MaterialConfig, 
+                                 gridOpacity     :: GLfloat, 
+                                 surfaceOpacity  :: GLfloat, 
+                                 radius          :: GLfloat, 
+                                 numSamples      :: Int }
 
 -- Hook Visual state IORef to concrete implementations: 
-newSpheresVisual :: IORef AC.ContextSettings -> IORef SpheresState -> Visual
-newSpheresVisual contextSettingsIORef stateIORef = Visual { dimensions = spheresDimensions stateIORef, 
-                                                            update     = spheresUpdate contextSettingsIORef stateIORef, 
-                                                            render     = spheresRender stateIORef }
+newTunnelVisual :: IORef AC.ContextSettings -> IORef TunnelState -> Visual
+newTunnelVisual contextSettingsIORef stateIORef = Visual { dimensions = tunnelDimensions stateIORef, 
+                                                           update     = tunnelUpdate contextSettingsIORef stateIORef, 
+                                                           render     = tunnelRender stateIORef }
 
 
-newSpheresState :: IORef AC.ContextSettings -> IO SpheresState
+newTunnelState :: IORef AC.ContextSettings -> IO TunnelState
 -- {{{
-newSpheresState cSettingsIORef = do
+newTunnelState cSettingsIORef = do
   cSettings <- readIORef cSettingsIORef
-  let settings = SpheresState { contextSettings = cSettings, 
-                                renderSettings  = undefined, 
-                                gridMaterial    = undefined, 
-                                surfaceMaterial = undefined,
-                                gridOpacity     = undefined, 
-                                surfaceOpacity  = undefined, 
-                                radius          = 1, 
-                                numSamples      = 0 }
+  let settings = TunnelState { contextSettings = cSettings, 
+                               renderSettings  = undefined, 
+                               gridMaterial    = undefined, 
+                               surfaceMaterial = undefined,
+                               gridOpacity     = undefined, 
+                               surfaceOpacity  = undefined, 
+                               radius          = 1, 
+                               numSamples      = 0 }
   return settings
 -- }}}
 
-spheresDimensions :: IORef SpheresState -> IO (GLfloat,GLfloat,GLfloat)
+tunnelDimensions :: IORef TunnelState -> IO (GLfloat,GLfloat,GLfloat)
 -- {{{
-spheresDimensions visualIORef = do
+tunnelDimensions visualIORef = do
   visual <- readIORef $ visualIORef
   let width  = r * 2.0
       height = r * 2.0
@@ -91,9 +88,9 @@ spheresDimensions visualIORef = do
   return (width,height,depth)
 -- }}}
 
-spheresUpdate :: IORef AC.ContextSettings -> IORef SpheresState -> RH.RenderSettings -> Int -> IO ()
+tunnelUpdate :: IORef AC.ContextSettings -> IORef TunnelState -> RH.RenderSettings -> Int -> IO ()
 -- {{{
-spheresUpdate cSettingsIORef visualIORef rSettings t = do
+tunnelUpdate cSettingsIORef visualIORef rSettings t = do
   cSettings <- readIORef cSettingsIORef
 
   visualPrev <- readIORef visualIORef 
@@ -139,29 +136,10 @@ spheresUpdate cSettingsIORef visualIORef rSettings t = do
   return ()
 -- }}}
 
-spheresRender :: IORef SpheresState -> IO ()
+tunnelRender :: IORef TunnelState -> IO ()
 -- {{{
-spheresRender visualIORef = do 
+tunnelRender visualIORef = do 
   visual <- readIORef visualIORef
-  
-  let r         = realToFrac $ radius visual
-      gMaterial = gridMaterial visual
-      gOpacity  = gridOpacity visual
-      sMaterial = surfaceMaterial visual
-      sOpacity  = surfaceOpacity visual
-
-  materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient sMaterial) sOpacity
-  materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse sMaterial) sOpacity
-  materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular sMaterial) sOpacity
-  materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission sMaterial) sOpacity
-  materialShininess FrontAndBack $= AC.materialShininess sMaterial
-  renderObject Solid (Sphere' r 50 50)
-
-  materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
-  materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
-  materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
-  materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
-  materialShininess FrontAndBack $= AC.materialShininess gMaterial
-  renderObject Wireframe (Sphere' (r * 1.01) 40 40)
+  return ()
 -- }}}
 

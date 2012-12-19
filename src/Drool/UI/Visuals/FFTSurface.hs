@@ -15,9 +15,9 @@
 {-# OPTIONS -O2 -Wall #-}
 
 module Drool.UI.Visuals.FFTSurface (
-    FFTSurface, -- hidden type constructor
+    FFTSurfaceState, -- hidden type constructor
     newFFTSurfaceVisual, 
-    newFFTSurface 
+    newFFTSurfaceState
 ) where
 
 import Debug.Trace
@@ -90,33 +90,33 @@ import qualified Graphics.Rendering.FTGL as FTGL
 
 -- Settings for current visual, excluding those independent from 
 -- visual used: 
-data FFTSurface = FFTSurface { -- maps x index to x position: 
-                               xPosFun :: (Int -> FFTSurface -> GLfloat),
-                               -- maps signal index to z position: 
-                               zPosFun :: (Int -> FFTSurface -> GLfloat), 
-                               -- scales sample (vertex y position) according to x and z index: 
-                               scaleFun :: (SigGen.SValue -> Int -> Int -> SigGen.SValue), 
-                               -- Linear scaling of X axis
-                               xLinScale :: GLfloat, 
-                               -- Log scaling of X axis
-                               xLogScale :: GLfloat, 
-                               -- Linear scaling of Z axis
-                               zLinScale :: GLfloat, 
-                               -- Containing one normal vector for every sample vertex: 
-                               normalsBuf :: IORef [[ Normal3 GLfloat ]], 
-                               vertexBuf :: IORef [[ Vertex3 GLfloat ]], 
+data FFTSurfaceState = FFTSurfaceState { -- maps x index to x position: 
+                                         xPosFun :: (Int -> FFTSurfaceState -> GLfloat),
+                                         -- maps signal index to z position: 
+                                         zPosFun :: (Int -> FFTSurfaceState -> GLfloat), 
+                                         -- scales sample (vertex y position) according to x and z index: 
+                                         scaleFun :: (SigGen.SValue -> Int -> Int -> SigGen.SValue), 
+                                         -- Linear scaling of X axis
+                                         xLinScale :: GLfloat, 
+                                         -- Log scaling of X axis
+                                         xLogScale :: GLfloat, 
+                                         -- Linear scaling of Z axis
+                                         zLinScale :: GLfloat, 
+                                         -- Containing one normal vector for every sample vertex: 
+                                         normalsBuf :: IORef [[ Normal3 GLfloat ]], 
+                                         vertexBuf :: IORef [[ Vertex3 GLfloat ]], 
 
-                               reverseBuffer :: Bool, 
-                               
-                               fillFont :: IORef FTGL.Font, 
-                               gridFont :: IORef FTGL.Font, 
-                               
-                               -- Do not use IORefs. The visual must not change the 
-                               -- global state of application and rendering context!
-                               contextSettings :: AC.ContextSettings, 
-                               renderSettings :: RH.RenderSettings }
+                                         reverseBuffer :: Bool, 
+                                         
+                                         fillFont :: IORef FTGL.Font, 
+                                         gridFont :: IORef FTGL.Font, 
+                                         
+                                         -- Do not use IORefs. The visual must not change the 
+                                         -- global state of application and rendering context!
+                                         contextSettings :: AC.ContextSettings, 
+                                         renderSettings :: RH.RenderSettings }
 
-instance VState FFTSurface where 
+instance VState FFTSurfaceState where 
   vsRenderSettings = renderSettings
 
 -- Hook Visual interface function definitions to concrete implementations. 
@@ -129,18 +129,18 @@ instance VState FFTSurface where
 --   update visual
 --   render visual
 --  
-newFFTSurfaceVisual :: IORef AC.ContextSettings -> IORef FFTSurface -> Visual 
+newFFTSurfaceVisual :: IORef AC.ContextSettings -> IORef FFTSurfaceState -> Visual 
 newFFTSurfaceVisual contextSettingsIORef stateIORef = Visual { -- curried: FFTSurface
                                                                dimensions    = fftSurfaceDimensions stateIORef, 
-                                                               -- curried: RenderSettings -> IORef FFTSurface -> Int -> IO (FFTSurface)
+                                                               -- curried: RenderSettings -> IORef FFTSurfaceState -> Int -> IO (FFTSurface)
                                                                update        = fftSurfaceUpdate contextSettingsIORef stateIORef, 
-                                                               -- curried: FFTSurface 
+                                                               -- curried: FFTSurfaceState 
                                                                render        = fftSurfaceRender stateIORef }
 
 
-newFFTSurface :: IORef AC.ContextSettings -> IO (FFTSurface)
+newFFTSurfaceState :: IORef AC.ContextSettings -> IO FFTSurfaceState
 -- {{{
-newFFTSurface cSettingsIORef = do
+newFFTSurfaceState cSettingsIORef = do
   vertexBufIORef  <- newIORef []
   normalsBufIORef <- newIORef []
 
@@ -167,23 +167,23 @@ newFFTSurface cSettingsIORef = do
                                 n'   = fromIntegral nSig
                                 nSig = RH.numSignals (renderSettings visual)
 
-  let settings = FFTSurface { xPosFun         = xPosFunc, 
-                              zPosFun         = zPosFunc, 
-                              scaleFun        = (\s _ _ -> s), 
-                              xLinScale       = AC.xLinScale cSettings, 
-                              xLogScale       = AC.xLogScale cSettings, 
-                              zLinScale       = AC.zLinScale cSettings,
-                              vertexBuf       = vertexBufIORef, 
-                              normalsBuf      = normalsBufIORef, 
-                              reverseBuffer   = AC.reverseBuffer cSettings, 
-                              fillFont        = fillFontIORef,
-                              gridFont        = gridFontIORef, 
-                              contextSettings = cSettings, 
-                              renderSettings  = undefined }
+  let settings = FFTSurfaceState { xPosFun         = xPosFunc, 
+                                   zPosFun         = zPosFunc, 
+                                   scaleFun        = (\s _ _ -> s), 
+                                   xLinScale       = AC.xLinScale cSettings, 
+                                   xLogScale       = AC.xLogScale cSettings, 
+                                   zLinScale       = AC.zLinScale cSettings,
+                                   vertexBuf       = vertexBufIORef, 
+                                   normalsBuf      = normalsBufIORef, 
+                                   reverseBuffer   = AC.reverseBuffer cSettings, 
+                                   fillFont        = fillFontIORef,
+                                   gridFont        = gridFontIORef, 
+                                   contextSettings = cSettings, 
+                                   renderSettings  = undefined }
   return settings
 -- }}}
 
-fftSurfaceDimensions :: IORef FFTSurface -> IO (GLfloat,GLfloat,GLfloat)
+fftSurfaceDimensions :: IORef FFTSurfaceState -> IO (GLfloat,GLfloat,GLfloat)
 -- {{{
 fftSurfaceDimensions visualIORef = do 
   visual <- readIORef visualIORef
@@ -195,7 +195,7 @@ fftSurfaceDimensions visualIORef = do
   return (width,height,depth)
 -- }}}
 
-fftSurfaceUpdate :: IORef AC.ContextSettings -> IORef FFTSurface -> RH.RenderSettings -> Int -> IO ()
+fftSurfaceUpdate :: IORef AC.ContextSettings -> IORef FFTSurfaceState -> RH.RenderSettings -> Int -> IO ()
 -- {{{  
 fftSurfaceUpdate cSettingsIORef visualIORef rSettings t = do
   cSettings <- readIORef cSettingsIORef
@@ -252,7 +252,7 @@ fftSurfaceUpdate cSettingsIORef visualIORef rSettings t = do
   return ()
 -- }}}
 
-fftSurfaceRender :: IORef FFTSurface -> IO ()
+fftSurfaceRender :: IORef FFTSurfaceState -> IO ()
 -- {{{    
 fftSurfaceRender visualIORef = do 
   visual <- readIORef visualIORef 
@@ -347,7 +347,7 @@ updateNormalsBuffer nBuf vBuf@(_:_:_:_) nSignals = case vBuf of
 updateNormalsBuffer nBuf _ _ = nBuf
 -- }}}
 
-verticesFromSamples :: [ SigGen.SValue ] -> Int -> FFTSurface -> [ Vertex3 GLfloat ]
+verticesFromSamples :: [ SigGen.SValue ] -> Int -> FFTSurfaceState -> [ Vertex3 GLfloat ]
 verticesFromSamples samples signalIdx visual = zipWith ( \xIdx s -> let x  = (xPosFun visual) xIdx visual
                                                                         y  = realToFrac $ (scaleFun visual) s signalIdx xIdx 
                                                                         z  = 0.0 in
@@ -357,7 +357,7 @@ verticesFromSamples samples signalIdx visual = zipWith ( \xIdx s -> let x  = (xP
 -- Expects a 2-dimensional list of vertices, considering the first dimension a z-Index, 
 -- and a function mapping z-Indices to z-coordinates. 
 -- Updates z-coordinate in every vertex to (zPosFunc zIndex). 
-updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> FFTSurface -> [[ Vertex3 GLfloat ]]
+updateVerticesZCoord :: [[ Vertex3 GLfloat ]] -> FFTSurfaceState -> [[ Vertex3 GLfloat ]]
 updateVerticesZCoord signalsVertices visual = zipWith (\sigVertices zIdx -> setSignalZVal sigVertices zIdx) signalsVertices [0..]
   where setSignalZVal vertexList z = map (\v -> Vertex3 (vx3x v) (vx3y v) (zCoord z) ) vertexList
         nSignals = length signalsVertices
@@ -596,7 +596,7 @@ renderSurface :: [[ Vertex3 GLfloat ]] ->
                  Vector3 GLfloat -> 
                  Int -> 
                  AC.ContextSettings -> 
-                 FFTSurface -> 
+                 FFTSurfaceState -> 
                  IO ()
 -- {{{
 renderSurface vBuf nBuf fBuf viewpoint nSamples settings visual = do

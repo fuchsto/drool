@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 --
--- Module      :  Drool.UI.Visuals.Spheres
+-- Module      :  Drool.UI.Visuals.Disco
 -- Copyright   :  Tobias Fuchs
 -- License     :  MIT
 --
@@ -14,10 +14,10 @@
 
 {-# OPTIONS -O2 -Wall #-}
 
-module Drool.UI.Visuals.Spheres (
-    SpheresState, -- hidden type constructor
-    newSpheresVisual, 
-    newSpheresState
+module Drool.UI.Visuals.Disco (
+    DiscoState, -- hidden type constructor
+    newDiscoVisual, 
+    newDiscoState
 ) where
 
 -- Imports
@@ -46,30 +46,30 @@ import Graphics.Rendering.OpenGL as GL (
     ColorMaterialParameter(..) )
 -- }}}
 
-data SpheresState = SpheresState { contextSettings :: AC.ContextSettings, 
-                                   renderSettings  :: RH.RenderSettings, 
-                                   gridMaterial    :: AC.MaterialConfig, 
-                                   surfaceMaterial :: AC.MaterialConfig, 
-                                   gridOpacity     :: GLfloat, 
-                                   surfaceOpacity  :: GLfloat, 
-                                   radius          :: GLfloat, 
-                                   numSamples      :: Int }
+data DiscoState = DiscoState { contextSettings :: AC.ContextSettings, 
+                               renderSettings  :: RH.RenderSettings, 
+                               gridMaterial    :: AC.MaterialConfig, 
+                               surfaceMaterial :: AC.MaterialConfig, 
+                               gridOpacity     :: GLfloat, 
+                               surfaceOpacity  :: GLfloat, 
+                               radius          :: GLfloat, 
+                               numSamples      :: Int }
 
-instance VState SpheresState where 
+instance VState DiscoState where 
   vsRenderSettings = renderSettings
 
 -- Hook Visual state IORef to concrete implementations: 
-newSpheresVisual :: IORef AC.ContextSettings -> IORef SpheresState -> Visual
-newSpheresVisual contextSettingsIORef stateIORef = Visual { dimensions = spheresDimensions stateIORef, 
+newDiscoVisual :: IORef AC.ContextSettings -> IORef DiscoState -> Visual
+newDiscoVisual contextSettingsIORef stateIORef = Visual { dimensions = spheresDimensions stateIORef, 
                                                             update     = spheresUpdate contextSettingsIORef stateIORef, 
                                                             render     = spheresRender stateIORef }
 
 
-newSpheresState :: IORef AC.ContextSettings -> IO SpheresState
+newDiscoState :: IORef AC.ContextSettings -> IO DiscoState
 -- {{{
-newSpheresState cSettingsIORef = do
+newDiscoState cSettingsIORef = do
   cSettings <- readIORef cSettingsIORef
-  let settings = SpheresState { contextSettings = cSettings, 
+  let settings = DiscoState { contextSettings = cSettings, 
                                 renderSettings  = undefined, 
                                 gridMaterial    = undefined, 
                                 surfaceMaterial = undefined,
@@ -80,7 +80,7 @@ newSpheresState cSettingsIORef = do
   return settings
 -- }}}
 
-spheresDimensions :: IORef SpheresState -> IO (GLfloat,GLfloat,GLfloat)
+spheresDimensions :: IORef DiscoState -> IO (GLfloat,GLfloat,GLfloat)
 -- {{{
 spheresDimensions visualIORef = do
   visual <- readIORef $ visualIORef
@@ -91,7 +91,7 @@ spheresDimensions visualIORef = do
   return (width,height,depth)
 -- }}}
 
-spheresUpdate :: IORef AC.ContextSettings -> IORef SpheresState -> RH.RenderSettings -> Int -> IO ()
+spheresUpdate :: IORef AC.ContextSettings -> IORef DiscoState -> RH.RenderSettings -> Int -> IO ()
 -- {{{
 spheresUpdate cSettingsIORef visualIORef rSettings t = do
   cSettings <- readIORef cSettingsIORef
@@ -139,7 +139,7 @@ spheresUpdate cSettingsIORef visualIORef rSettings t = do
   return ()
 -- }}}
 
-spheresRender :: IORef SpheresState -> IO ()
+spheresRender :: IORef DiscoState -> IO ()
 -- {{{
 spheresRender visualIORef = do 
   visual <- readIORef visualIORef

@@ -26,6 +26,9 @@ module Drool.UI.GtkHelpers (
   bindColorButton,
   initColorButton, 
 
+  bindComboBox, 
+  initComboBox, 
+
   bindColorAlphaButton,
   initColorAlphaButton
 ) where
@@ -73,6 +76,20 @@ initCheckButton :: [Char] -> GtkBuilder.Builder -> Bool -> IO ()
 initCheckButton elemId gtkBuilder value = do
   checkbutton <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToCheckButton elemId
   Gtk.toggleButtonSetActive checkbutton value
+
+bindComboBox :: [Char] -> GtkBuilder.Builder -> IORef AC.ContextSettings -> (Int -> AC.ContextSettings -> AC.ContextSettings) -> IO ()
+bindComboBox elemId gtkBuilder contextSettings updateFun = do
+  combobox  <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox elemId
+  _ <- Gtk.on combobox Gtk.changed $ do
+    settings  <- readIORef contextSettings
+    activeIdx <- Gtk.comboBoxGetActive combobox
+    modifyIORef contextSettings (updateFun activeIdx)
+  return ()
+  
+initComboBox :: [Char] -> GtkBuilder.Builder -> Int -> IO ()
+initComboBox elemId gtkBuilder value = do
+  combobox  <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox elemId
+  Gtk.comboBoxSetActive combobox value
 
 bindColorAlphaButton :: [Char] -> GtkBuilder.Builder -> IORef AC.ContextSettings -> (GL.Color4 GL.GLfloat -> AC.ContextSettings -> AC.ContextSettings) -> IO ()
 bindColorAlphaButton elemId gtkBuilder contextSettings updateFun = do
