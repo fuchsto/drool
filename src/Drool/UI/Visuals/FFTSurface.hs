@@ -270,16 +270,7 @@ fftSurfaceRender visualIORef = do
       zPosFunc     = zPosFun visual
       surfaceWidth = xPosFunc (nSamples-1) visual
       surfaceDepth = zPosFunc (nSignals-1) visual
-  
-  -- Get inverse of model view matrix: 
-  glModelViewMatrix <- GL.get (matrix (Just (Modelview 0))) :: IO (GLmatrix GLfloat)
-  -- Resolve view point in model view coordinates: 
-  viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
 
-  renderSurface vBuf nBuf (FE.signalFeaturesList fBuf) viewpoint nSamples cSettings visual
-
-  -- Render marquee text, if any
-  blendFunc $= ( One, One )
   -- colorMaterial $= Just (Front, AmbientAndDiffuse)
   let marqueeText = AC.marqueeText cSettings
   gridfont <- readIORef $ gridFont visual
@@ -288,7 +279,6 @@ fftSurfaceRender visualIORef = do
   marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
 
   preservingMatrix $ do 
-    fog $= Disabled
     let fontWidth = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
     -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)
     let fontScaling = (surfaceWidth * 1.5) / fontWidth
@@ -299,7 +289,17 @@ fftSurfaceRender visualIORef = do
     FTGL.renderFont fillfont marqueeText FTGL.Front
     color $ Color4 0 0 0 (0.5::GLfloat)
     FTGL.renderFont gridfont marqueeText FTGL.Front
-    fog $= Enabled
+  
+  -- Render marquee text, if any
+  -- blendFunc $= ( One, One )
+
+  -- Get inverse of model view matrix: 
+  glModelViewMatrix <- GL.get (matrix (Just (Modelview 0))) :: IO (GLmatrix GLfloat)
+  -- Resolve view point in model view coordinates: 
+  viewpoint <- RH.getViewpointFromModelView glModelViewMatrix
+
+  renderSurface vBuf nBuf (FE.signalFeaturesList fBuf) viewpoint nSamples cSettings visual
+
 -- }}}
 
 

@@ -27,6 +27,7 @@ import qualified Drool.ContextObjects as AC
 import qualified Drool.UI.GtkHelpers as GH
 import Drool.UI.Visuals as Visuals ( VisualModel(..), visualModelFromIndex, newVisual )
 import Drool.UI.Visuals.Spheres as Visuals 
+import Drool.UI.Visuals.Tunnel as Visuals 
 import Drool.UI.Visuals.FFTSurface as Visuals 
 
 -- Initializes GUI component for view options.
@@ -44,8 +45,11 @@ initComponent gtkBuilder contextSettings contextObjects = do
     spheresInitStateIORef    <- newIORef spheresInitState
     fftSurfaceInitState      <- Visuals.newFFTSurfaceState contextSettings 
     fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
+    tunnelInitState          <- Visuals.newTunnelState contextSettings 
+    tunnelInitStateIORef     <- newIORef tunnelInitState
     atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
                                                  Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
+                                                 Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
                                                  Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
                                                  _                       -> (v,True) )
     return ()

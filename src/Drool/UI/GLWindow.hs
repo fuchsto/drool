@@ -48,6 +48,7 @@ import qualified Control.Concurrent.Chan as CC ( readChan )
 
 import qualified Drool.UI.Visuals as Visuals
 
+import Graphics.UI.GLUT ( Object(Sphere'), renderObject, Flavour(..) )
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IORef (Visuals.Visual) -> IO ()
 display contextSettingsIORef renderSettingsIORef visualIORef = do
@@ -109,7 +110,7 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   
   matrixMode $= Projection
   loadIdentity
-  perspective (realToFrac (AC.viewAngle contextSettings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 10
+  perspective (realToFrac (AC.viewAngle contextSettings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 100
 
   clear [ColorBuffer, DepthBuffer]
   
@@ -139,34 +140,61 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx contextSettings
   
   blendFunc $= (blendModeSource, blendModeFrameBuffer)
-  
-  GL.translate $ Vector3 0 0 viewDistance
 
-  RH.applyPerspective curPerspective
-  RH.applyGlobalRotation fixedRotation accIncRotation
+  preservingMatrix $ do
+
+    let lightIntensity = lCoeff + bCoeff 
+          where (lCoeff,bCoeff) = RH.featuresToIntensity featuresCurr FE.GlobalTarget contextSettings
+
+    RH.useLight $ (AC.light0 contextSettings) { AC.lightIntensity = lightIntensity }
+    RH.useLight $ (AC.light1 contextSettings) { AC.lightIntensity = lightIntensity }
+    GL.position (Light 0) $= lightPos0
+    GL.position (Light 1) $= lightPos1
+    
+    ---------------------------------------------------------------------------------------------------
+    -- Perspective transformations
+    ---------------------------------------------------------------------------------------------------
+
+    GL.translate $ Vector3 0 0 viewDistance
+
+    RH.applyPerspective curPerspective
+    RH.applyGlobalRotation fixedRotation accIncRotation
+
+    ---------------------------------------------------------------------------------------------------
+    -- End of perspective transformations
+    ---------------------------------------------------------------------------------------------------
+
+    (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
+    
+    fogMode  $= Linear 0.0 (visDepth * 20.0)
+    fogColor $= (Color4 0.0 0.0 0.0 1.0)
+
+--    GL.position (Light 0) $= lightPos0
+--    GL.position (Light 0) $= lightPos1
+
+    GL.translate $ Vector3 (-0.5 * visWidth) 0 0
+    GL.translate $ Vector3 0 0 (-0.5 * visDepth)
+
+    Visuals.render visualUpdated
 
   ---------------------------------------------------------------------------------------------------
-  -- End of perspective transformations
+  -- Render background
   ---------------------------------------------------------------------------------------------------
-
-  let lightIntensity = lCoeff + bCoeff 
-        where (lCoeff,bCoeff) = RH.featuresToIntensity featuresCurr FE.GlobalTarget contextSettings
-
-  RH.useLight $ (AC.light0 contextSettings) { AC.lightIntensity = lightIntensity }
-  RH.useLight $ (AC.light1 contextSettings) { AC.lightIntensity = lightIntensity }
-
-  (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
   
-  fogMode $= Linear 0.0 (visDepth * 20.0)
-  fogColor $= (Color4 0.0 0.0 0.0 1.0)
+  clear [DepthBuffer]
 
-  GL.position (Light 0) $= lightPos0
-  GL.position (Light 0) $= lightPos1
-
-  GL.translate $ Vector3 (-0.5 * visWidth) 0 0
-  GL.translate $ Vector3 0 0 (-0.5 * visDepth)
-  
-  Visuals.render visualUpdated
+  matrixMode $= Modelview 0
+  preservingMatrix $ do 
+    GL.translate $ Vector3 0 0 (-5.0 :: GLfloat)
+    let gMaterial = AC.surfaceMaterial contextSettings
+        gOpacity  = 0.5
+    materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
+    materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
+    materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
+    materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
+    materialShininess FrontAndBack $= AC.materialShininess gMaterial
+    renderObject Solid (Sphere' 2.0 50 50)
+    renderObject Wireframe (Sphere' (2.0 * 1.01) 40 40)
 
 -- }}} 
 

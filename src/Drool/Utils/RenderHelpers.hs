@@ -42,6 +42,10 @@ module Drool.Utils.RenderHelpers (
     vx3x, 
     vx3y, 
     vx3z, 
+    vx4x, 
+    vx4y, 
+    vx4z, 
+    vx4w, 
 
     getViewpointFromModelView, 
     featuresToIntensity
@@ -221,6 +225,19 @@ vx3y (Vertex3 _ y _) = y
 -- Resolve z component of a 3-dimensional Vertex
 vx3z :: Vertex3 a -> a
 vx3z (Vertex3 _ _ z) = z
+
+-- Resolve x component of a 4-dimensional Vertex
+vx4x :: Vertex4 a -> a
+vx4x (Vertex4 x _ _ _) = x
+-- Resolve y component of a 4-dimensional Vertex
+vx4y :: Vertex4 a -> a
+vx4y (Vertex4 _ y _ _) = y
+-- Resolve z component of a 4-dimensional Vertex
+vx4z :: Vertex4 a -> a
+vx4z (Vertex4 _ _ z _) = z
+-- Resolve w component of a 4-dimensional Vertex
+vx4w :: Vertex4 a -> a
+vx4w (Vertex4 _ _ _ w) = w
 
 -- Resolve x component of a 3-dimensional Normal
 n3x :: Normal3 a -> a
