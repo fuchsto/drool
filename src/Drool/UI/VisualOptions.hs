@@ -36,24 +36,62 @@ initComponent :: GtkBuilder.Builder -> IORef AC.ContextSettings -> IORef AC.Cont
 initComponent gtkBuilder contextSettings contextObjects = do
   putStrLn "Initializing VisualOptions component"
 
-  comboboxVisualModel <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxVisualModel"
-  _ <- Gtk.on comboboxVisualModel Gtk.changed $ do 
-    modelIdx <- Gtk.comboBoxGetActive comboboxVisualModel
+  comboboxVisualForeground <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxVisualForegroundModel"
+  _ <- Gtk.on comboboxVisualForeground Gtk.changed $ do 
+    modelIdx <- Gtk.comboBoxGetActive comboboxVisualForeground
     cObjects <- readIORef contextObjects
-    let visualIORef = AC.visual cObjects
+    let visualIORef = AC.visualForeground cObjects
     spheresInitState         <- Visuals.newSpheresState contextSettings 
     spheresInitStateIORef    <- newIORef spheresInitState
     fftSurfaceInitState      <- Visuals.newFFTSurfaceState contextSettings 
     fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
     tunnelInitState          <- Visuals.newTunnelState contextSettings 
     tunnelInitStateIORef     <- newIORef tunnelInitState
-    atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
-                                                 Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
-                                                 Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
-                                                 Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
-                                                 _                       -> (v,True) )
+    _ <- atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
+                                                      Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
+                                                      Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
+                                                      Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
+                                                      _                       -> (v,True) )
     return ()
-  
+
+  comboboxVisualMiddleground <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxVisualMiddlegroundModel"
+  _ <- Gtk.on comboboxVisualMiddleground Gtk.changed $ do
+    modelIdx <- Gtk.comboBoxGetActive comboboxVisualMiddleground
+    cObjects <- readIORef contextObjects
+    let visualIORef = AC.visualMiddleground cObjects
+    spheresInitState         <- Visuals.newSpheresState contextSettings 
+    spheresInitStateIORef    <- newIORef spheresInitState
+    fftSurfaceInitState      <- Visuals.newFFTSurfaceState contextSettings 
+    fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
+    tunnelInitState          <- Visuals.newTunnelState contextSettings 
+    tunnelInitStateIORef     <- newIORef tunnelInitState
+    _ <- atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
+                                                      Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
+                                                      Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
+                                                      Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
+                                                      _                       -> (v,True) )
+    
+    return ()
+
+  comboboxVisualBackground <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxVisualBackgroundModel"
+  _ <- Gtk.on comboboxVisualMiddleground Gtk.changed $ do
+    modelIdx <- Gtk.comboBoxGetActive comboboxVisualBackground
+    cObjects <- readIORef contextObjects
+    let visualIORef = AC.visualBackground cObjects
+    spheresInitState         <- Visuals.newSpheresState contextSettings 
+    spheresInitStateIORef    <- newIORef spheresInitState
+    fftSurfaceInitState      <- Visuals.newFFTSurfaceState contextSettings 
+    fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
+    tunnelInitState          <- Visuals.newTunnelState contextSettings 
+    tunnelInitStateIORef     <- newIORef tunnelInitState
+    _ <- atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
+                                                      Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
+                                                      Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
+                                                      Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
+                                                      _                       -> (v,True) )
+    
+    return ()
+    
   return True
 
 updateSettings :: GtkBuilder.Builder -> AC.ContextSettings -> IO Bool

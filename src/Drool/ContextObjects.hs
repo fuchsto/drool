@@ -26,7 +26,9 @@ import qualified Drool.Utils.FeatureExtraction as FE ( SignalFeaturesList )
 import Drool.UI.Visuals
 
 -- Non-serializable context settings. 
-data ContextObjects = ContextObjects { visual :: IORef Visual, 
+data ContextObjects = ContextObjects { visualForeground :: IORef Visual, 
+                                       visualMiddleground :: IORef Visual, 
+                                       visualBackground :: IORef Visual, 
                                        visualDefinitionChanged :: Bool, 
                                        samplingThreadId :: CC.ThreadId, 
                                        samplingSem :: MV.MVar Int, 

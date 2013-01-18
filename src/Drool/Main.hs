@@ -80,9 +80,14 @@ main = do
   visualInitStateIORef <- newIORef visualInitState
   visualIORef <- newIORef $ Visuals.newFFTSurfaceVisual contextSettings visualInitStateIORef
 
+  visualForegroundIORef <- newIORef $ Visuals.newBlankVisual 
+  visualBackgroundIORef <- newIORef $ Visuals.newBlankVisual 
+
   -- Load a concrete visual definition (e.g. Visual FFTSurface): 
   contextObjects  <- newIORef (
-    AC.ContextObjects { AC.visual                  = visualIORef, 
+    AC.ContextObjects { AC.visualForeground        = visualForegroundIORef, 
+                        AC.visualMiddleground      = visualIORef, 
+                        AC.visualBackground        = visualBackgroundIORef, 
                         AC.samplingThreadId        = undefined, 
                         AC.samplingSem             = initSamplingSem, 
                         AC.numNewSignalsChan       = numNewSignalsChan, 

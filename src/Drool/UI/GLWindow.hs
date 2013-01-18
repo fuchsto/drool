@@ -41,7 +41,7 @@ import qualified Drool.Types as DT
 import qualified Drool.ApplicationContext as AC
 import qualified Drool.ContextObjects as AC
 
-import qualified Control.Monad as M ( forever ) 
+import qualified Control.Monad as M ( forever, forM ) 
 import qualified Control.Concurrent as C
 import qualified Control.Concurrent.MVar as MV ( MVar, swapMVar, takeMVar, putMVar )
 import qualified Control.Concurrent.Chan as CC ( readChan )
@@ -50,8 +50,17 @@ import qualified Drool.UI.Visuals as Visuals
 
 import Graphics.UI.GLUT ( Object(Sphere'), renderObject, Flavour(..) )
 
-display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IORef (Visuals.Visual) -> IO ()
-display contextSettingsIORef renderSettingsIORef visualIORef = do
+
+display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> [ IORef (Visuals.Visual) ] -> IO ()
+display contextSettingsIORef renderSettingsIORef visualIORefs = do
+  clear [ColorBuffer, DepthBuffer]
+  _ <- M.forM visualIORefs ( \visualIORef -> preservingMatrix $ do
+                                               displayModel contextSettingsIORef renderSettingsIORef visualIORef )
+
+  return ()
+
+displayModel :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IORef (Visuals.Visual) -> IO ()
+displayModel contextSettingsIORef renderSettingsIORef visualIORef = do
 -- {{{
 --  renderSettingsPrev <- readIORef renderSettingsIORef
   contextSettings    <- readIORef contextSettingsIORef
@@ -111,8 +120,6 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   matrixMode $= Projection
   loadIdentity
   perspective (realToFrac (AC.viewAngle contextSettings)) (fromIntegral canvasInitWidth / fromIntegral canvasInitHeight) 0.1 100
-
-  clear [ColorBuffer, DepthBuffer]
   
   matrixMode $= Modelview 0
   loadIdentity
@@ -141,6 +148,26 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
   
   blendFunc $= (blendModeSource, blendModeFrameBuffer)
 
+  ---------------------------------------------------------------------------------------------------
+  -- Render background
+  ---------------------------------------------------------------------------------------------------
+
+{-  
+  matrixMode $= Modelview 0
+  preservingMatrix $ do 
+    GL.translate $ Vector3 0 0 (-5.0 :: GLfloat)
+    let gMaterial = AC.surfaceMaterial contextSettings
+        gOpacity  = 0.9
+    materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
+    materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
+    materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
+    materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
+    materialShininess FrontAndBack $= AC.materialShininess gMaterial
+    renderObject Solid (Sphere' 2.0 50 50)
+    renderObject Wireframe (Sphere' (2.0 * 1.01) 40 40)
+-}
+  clear [DepthBuffer]
+
   preservingMatrix $ do
 
     let lightIntensity = lCoeff + bCoeff 
@@ -166,35 +193,13 @@ display contextSettingsIORef renderSettingsIORef visualIORef = do
 
     (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
     
-    fogMode  $= Linear 0.0 (visDepth * 20.0)
-    fogColor $= (Color4 0.0 0.0 0.0 1.0)
+    -- fogMode  $= Linear 0.0 (visDepth * 20.0)
+    -- fogColor $= (Color4 0.0 0.0 0.0 1.0)
 
---    GL.position (Light 0) $= lightPos0
---    GL.position (Light 0) $= lightPos1
-
-    GL.translate $ Vector3 (-0.5 * visWidth) 0 0
-    GL.translate $ Vector3 0 0 (-0.5 * visDepth)
+    -- GL.translate $ Vector3 (-0.5 * visWidth) 0 0
+    -- GL.translate $ Vector3 0 0 (-0.5 * visDepth)
 
     Visuals.render visualUpdated
-
-  ---------------------------------------------------------------------------------------------------
-  -- Render background
-  ---------------------------------------------------------------------------------------------------
-  
-  clear [DepthBuffer]
-
-  matrixMode $= Modelview 0
-  preservingMatrix $ do 
-    GL.translate $ Vector3 0 0 (-5.0 :: GLfloat)
-    let gMaterial = AC.surfaceMaterial contextSettings
-        gOpacity  = 0.5
-    materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
-    materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
-    materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
-    materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
-    materialShininess FrontAndBack $= AC.materialShininess gMaterial
-    renderObject Solid (Sphere' 2.0 50 50)
-    renderObject Wireframe (Sphere' (2.0 * 1.01) 40 40)
 
 -- }}} 
 
@@ -247,7 +252,9 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   
   renderSettingsIORef <- newIORef renderSettings
 
-  let visualIORef = AC.visual cObjects
+  let visualForegroundIORef   = AC.visualForeground cObjects
+      visualMiddlegroundIORef = AC.visualMiddleground cObjects
+      visualBackgroundIORef   = AC.visualBackground cObjects
   
   -- Initialise some GL setting just before the canvas first gets shown
   -- (We can't initialise these things earlier since the GL resources that
@@ -270,7 +277,7 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
     blend $= Enabled
     multisample $= Enabled
     sampleAlphaToCoverage $= Enabled
-    fog $= Enabled
+    -- fog $= Enabled
 
     lineWidthRange <- GL.get smoothLineWidthRange
     lineWidth $= fst lineWidthRange -- use thinnest possible lines
@@ -299,7 +306,8 @@ initComponent _ contextSettingsIORef contextObjectsIORef = do
   -- OnShow handler for GL canvas:
   _ <- Gtk.onExpose canvas $ \_ -> do
     GtkGL.withGLDrawingArea canvas $ \glwindow -> do
-      display contextSettingsIORef renderSettingsIORef visualIORef
+      let visualModels = [ visualBackgroundIORef, visualMiddlegroundIORef, visualForegroundIORef ]
+      display contextSettingsIORef renderSettingsIORef visualModels
       GtkGL.glDrawableSwapBuffers glwindow
     return True
 

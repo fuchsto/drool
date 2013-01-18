@@ -86,8 +86,12 @@ initComponent gtkBuilder contextSettings _ = do
       Gtk.ResponseOk -> do filepath <- Gtk.fileChooserGetFilename fileChooseDlg
                            putStrLn $ "Loading settings from " ++ show filepath
                            case filepath of 
-                             Just path -> do settings <- AC.loadContextSettings path
-                                             writeIORef contextSettings settings
+                             Just path -> do cSettings <- readIORef contextSettings
+                                             let curAmp = AC.signalAmpDb cSettings
+                                             settings <- AC.loadContextSettings path
+                                             -- Preserve signal amplification setting: 
+                                             let newSettings = settings { AC.signalAmpDb = curAmp }
+                                             writeIORef contextSettings newSettings
                                              _ <- ViewOptions.updateSettings gtkBuilder settings
                                              _ <- TransformationOptions.updateSettings gtkBuilder settings
                                              return ()
