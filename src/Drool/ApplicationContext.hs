@@ -26,8 +26,6 @@ module Drool.ApplicationContext (
 -- Moved ContextSettings to own module to solve ring dependency between Drool.Types
 -- and Drool.SigGen.
 
-import Debug.Trace
-
 import Graphics.Rendering.OpenGL ( GLfloat, Color3(..), Color4(..), BlendingFactor(..), Capability(..) )
 import Data.IORef
 import qualified System.IO as SIO ( openFile, hPutStrLn, hGetLine, hClose, IOMode(..) ) 
@@ -47,7 +45,10 @@ import qualified Control.Concurrent.Chan as CC ( Chan )
 -- and rendering. 
 -- This record is serializable so it can be saved to a settings file. 
 data ContextSettings = ContextSettings { settingsFile :: Maybe String, 
-
+                                         visualForegroundSettingsFile :: Maybe String, 
+                                         visualMiddlegroundSettingsFile :: Maybe String, 
+                                         visualBackgroundSettingsFile :: Maybe String, 
+                                         
                                       -- Signal Buffer Options: 
                                          signalPushFrequency :: Int,  -- Maximum frequency signals are pushed to rendering 
                                          renderingFrequency :: Int, -- Maximum frequency of GL rendering loop
@@ -77,6 +78,12 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
                                          -- Blending: 
                                          blendModeSourceIdx :: Int, 
                                          blendModeFrameBufferIdx :: Int,
+                                         
+                                         blendModeFMSourceIdx :: Int, 
+                                         blendModeFMFrameBufferIdx :: Int,
+                                         blendModeMBSourceIdx :: Int, 
+                                         blendModeMBFrameBufferIdx :: Int,
+                                         
                                          -- Feature Influence: 
                                          -- Target of signal energy feature (none, local, global): 
                                          featureSignalEnergyTargetIdx :: Int, 
@@ -91,9 +98,6 @@ data ContextSettings = ContextSettings { settingsFile :: Maybe String,
 
                                          reverseBuffer :: Bool, 
 
-                                         -- Vector stuff: 
-                                         useNormals :: Bool, 
-                                         normalsScale :: Float, 
                                          -- Perspective: 
                                          renderPerspective :: RenderPerspective,
                                          autoPerspectiveSwitch :: Bool, 
@@ -140,6 +144,10 @@ data Metrics = Metrics { latency :: Integer } -- in ms
 
 defaultContextSettings :: ContextSettings
 defaultContextSettings = ContextSettings { settingsFile = Nothing, 
+                                           visualForegroundSettingsFile = Nothing, 
+                                           visualMiddlegroundSettingsFile = Nothing, 
+                                           visualBackgroundSettingsFile = Nothing, 
+                                           
                                            signalPushFrequency = 200, 
                                            renderingFrequency = 30, 
                                            signalBufferSize = 30,
@@ -153,10 +161,14 @@ defaultContextSettings = ContextSettings { settingsFile = Nothing,
                                            zLinScale = 5.0, 
                                            viewAngle = 121.0, 
                                            viewDistance = -2.1, 
-                                           blendModeSourceIdx = Conv.blendModeSourceIndex SrcAlpha, 
-                                           blendModeFrameBufferIdx = Conv.blendModeFrameBufferIndex OneMinusSrcAlpha, 
-                                           useNormals = True, 
-                                           normalsScale = 10.0, 
+                                           
+                                           blendModeSourceIdx        = Conv.blendModeSourceIndex SrcAlpha, 
+                                           blendModeFrameBufferIdx   = Conv.blendModeFrameBufferIndex OneMinusSrcAlpha, 
+                                           blendModeFMSourceIdx      = Conv.blendModeSourceIndex SrcAlpha, 
+                                           blendModeFMFrameBufferIdx = Conv.blendModeFrameBufferIndex OneMinusSrcAlpha, 
+                                           blendModeMBSourceIdx      = Conv.blendModeSourceIndex SrcAlpha, 
+                                           blendModeMBFrameBufferIdx = Conv.blendModeFrameBufferIndex OneMinusSrcAlpha, 
+                                           
                                            rangeAmps = [ 0.56, 1.0, 1.33, 1.61, 1.66 ], 
                                            gridOpacity = 1.0,
                                            surfaceOpacity = 90.0,

@@ -53,10 +53,30 @@ import Graphics.UI.GLUT ( Object(Sphere'), renderObject, Flavour(..) )
 
 display :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> [ IORef (Visuals.Visual) ] -> IO ()
 display contextSettingsIORef renderSettingsIORef visualIORefs = do
-  clear [ColorBuffer, DepthBuffer]
-  _ <- M.forM visualIORefs ( \visualIORef -> preservingMatrix $ do
-                                               displayModel contextSettingsIORef renderSettingsIORef visualIORef )
 
+  contextSettings <- readIORef contextSettingsIORef
+  
+  let blendModeFMSource      = Conv.blendModeSourceFromIndex $ AC.blendModeFMSourceIdx contextSettings
+      blendModeFMFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFMFrameBufferIdx contextSettings
+      blendModeMBSource      = Conv.blendModeSourceFromIndex $ AC.blendModeMBSourceIdx contextSettings
+      blendModeMBFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeMBFrameBufferIdx contextSettings
+  
+  clear [ColorBuffer, DepthBuffer]
+  
+  preservingMatrix $ do
+    -- Render foreground model: 
+    displayModel contextSettingsIORef renderSettingsIORef (visualIORefs !! 0) 
+    blendFunc $= (blendModeMBSource, blendModeMBFrameBuffer)
+  
+  preservingMatrix $ do
+    -- Render middleground model: 
+    displayModel contextSettingsIORef renderSettingsIORef (visualIORefs !! 1) 
+    blendFunc $= (blendModeFMSource, blendModeFMFrameBuffer)
+  
+  preservingMatrix $ do
+    -- Render middleground model: 
+    displayModel contextSettingsIORef renderSettingsIORef (visualIORefs !! 2) 
+  
   return ()
 
 displayModel :: IORef AC.ContextSettings -> IORef RH.RenderSettings -> IORef (Visuals.Visual) -> IO ()
@@ -146,26 +166,8 @@ displayModel contextSettingsIORef renderSettingsIORef visualIORef = do
   let blendModeSource      = Conv.blendModeSourceFromIndex $ AC.blendModeSourceIdx contextSettings
   let blendModeFrameBuffer = Conv.blendModeFrameBufferFromIndex $ AC.blendModeFrameBufferIdx contextSettings
   
-  blendFunc $= (blendModeSource, blendModeFrameBuffer)
+  -- blendFunc $= (blendModeSource, blendModeFrameBuffer)
 
-  ---------------------------------------------------------------------------------------------------
-  -- Render background
-  ---------------------------------------------------------------------------------------------------
-
-{-  
-  matrixMode $= Modelview 0
-  preservingMatrix $ do 
-    GL.translate $ Vector3 0 0 (-5.0 :: GLfloat)
-    let gMaterial = AC.surfaceMaterial contextSettings
-        gOpacity  = 0.9
-    materialAmbient   FrontAndBack $= RH.color4MulAlpha (AC.materialAmbient gMaterial) gOpacity
-    materialDiffuse   FrontAndBack $= RH.color4MulAlpha (AC.materialDiffuse gMaterial) gOpacity
-    materialSpecular  FrontAndBack $= RH.color4MulAlpha (AC.materialSpecular gMaterial) gOpacity
-    materialEmission  FrontAndBack $= RH.color4MulAlpha (AC.materialEmission gMaterial) gOpacity
-    materialShininess FrontAndBack $= AC.materialShininess gMaterial
-    renderObject Solid (Sphere' 2.0 50 50)
-    renderObject Wireframe (Sphere' (2.0 * 1.01) 40 40)
--}
   clear [DepthBuffer]
 
   preservingMatrix $ do
@@ -191,7 +193,7 @@ displayModel contextSettingsIORef renderSettingsIORef visualIORef = do
     -- End of perspective transformations
     ---------------------------------------------------------------------------------------------------
 
-    (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
+    -- (visWidth,visHeight,visDepth) <- (Visuals.dimensions visualUpdated) 
     
     -- fogMode  $= Linear 0.0 (visDepth * 20.0)
     -- fogColor $= (Color4 0.0 0.0 0.0 1.0)

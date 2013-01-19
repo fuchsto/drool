@@ -42,8 +42,14 @@ import Graphics.Rendering.OpenGL as GL (
     materialDiffuse, 
     materialSpecular,
     materialShininess,
+    fog, 
+    Color4(..),
     colorMaterial, 
     ColorMaterialParameter(..) )
+import Graphics.Rendering.OpenGL.GL as GL (
+    fogMode, 
+    fogColor, 
+    FogMode(..) )
 -- }}}
 
 data SpheresState = SpheresState { contextSettings :: AC.ContextSettings, 
@@ -144,6 +150,10 @@ spheresRender :: IORef SpheresState -> IO ()
 spheresRender visualIORef = do 
   visual <- readIORef visualIORef
   
+  (visWidth,visHeight,visDepth) <- (spheresDimensions visualIORef) 
+  fogMode  $= Linear 0.0 (visDepth * 20.0)
+  fogColor $= (Color4 0.0 0.0 0.0 1.0)
+
   let r         = realToFrac $ radius visual
       gMaterial = gridMaterial visual
       gOpacity  = gridOpacity visual

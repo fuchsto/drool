@@ -25,7 +25,8 @@ import Data.IORef
 import qualified Drool.ApplicationContext as AC
 import qualified Drool.ContextObjects as AC
 import qualified Drool.UI.GtkHelpers as GH
-import Drool.UI.Visuals as Visuals ( VisualModel(..), visualModelFromIndex, newVisual )
+import Drool.UI.Visuals as Visuals ( VisualModel(..), visualModelFromIndex )
+import Drool.UI.Visuals.Blank as Visuals 
 import Drool.UI.Visuals.Spheres as Visuals 
 import Drool.UI.Visuals.Tunnel as Visuals 
 import Drool.UI.Visuals.FFTSurface as Visuals 
@@ -47,12 +48,21 @@ initComponent gtkBuilder contextSettings contextObjects = do
     fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
     tunnelInitState          <- Visuals.newTunnelState contextSettings 
     tunnelInitStateIORef     <- newIORef tunnelInitState
-    _ <- atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
-                                                      Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
-                                                      Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
-                                                      Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
-                                                      _                       -> (v,True) )
+    _ <- modifyIORef visualIORef ( \_ -> case Visuals.visualModelFromIndex modelIdx of
+                                                Visuals.FFTSurfaceModel -> Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef
+                                                Visuals.TunnelModel     -> Visuals.newTunnelVisual contextSettings tunnelInitStateIORef
+                                                Visuals.SpheresModel    -> Visuals.newSpheresVisual contextSettings spheresInitStateIORef
+                                                _                       -> Visuals.newBlankVisual )
     return ()
+  
+  comboboxBlendingFMSource <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxBlendingFMSource"
+  _ <- Gtk.on comboboxBlendingFMSource Gtk.changed $ do
+    modeIdx <- Gtk.comboBoxGetActive comboboxBlendingFMSource
+    modifyIORef contextSettings ( \settings -> settings { AC.blendModeFMSourceIdx = modeIdx } )
+  comboboxBlendingFMFrameBuffer <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxBlendingFMFrameBuffer"
+  _ <- Gtk.on comboboxBlendingFMFrameBuffer Gtk.changed $ do
+    modeIdx <- Gtk.comboBoxGetActive comboboxBlendingFMFrameBuffer
+    modifyIORef contextSettings ( \settings -> settings { AC.blendModeFMFrameBufferIdx = modeIdx } )
 
   comboboxVisualMiddleground <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxVisualMiddlegroundModel"
   _ <- Gtk.on comboboxVisualMiddleground Gtk.changed $ do
@@ -65,16 +75,24 @@ initComponent gtkBuilder contextSettings contextObjects = do
     fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
     tunnelInitState          <- Visuals.newTunnelState contextSettings 
     tunnelInitStateIORef     <- newIORef tunnelInitState
-    _ <- atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
-                                                      Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
-                                                      Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
-                                                      Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
-                                                      _                       -> (v,True) )
-    
+    _ <- modifyIORef visualIORef ( \_ -> case Visuals.visualModelFromIndex modelIdx of
+                                                Visuals.FFTSurfaceModel -> Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef 
+                                                Visuals.TunnelModel     -> Visuals.newTunnelVisual contextSettings tunnelInitStateIORef
+                                                Visuals.SpheresModel    -> Visuals.newSpheresVisual contextSettings spheresInitStateIORef
+                                                _                       -> Visuals.newBlankVisual )
     return ()
 
+  comboboxBlendingMBSource <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxBlendingMBSource"
+  _ <- Gtk.on comboboxBlendingMBSource Gtk.changed $ do
+    modeIdx <- Gtk.comboBoxGetActive comboboxBlendingMBSource
+    modifyIORef contextSettings ( \settings -> settings { AC.blendModeMBSourceIdx = modeIdx } )
+  comboboxBlendingMBFrameBuffer <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxBlendingMBFrameBuffer"
+  _ <- Gtk.on comboboxBlendingMBFrameBuffer Gtk.changed $ do
+    modeIdx <- Gtk.comboBoxGetActive comboboxBlendingMBFrameBuffer
+    modifyIORef contextSettings ( \settings -> settings { AC.blendModeMBFrameBufferIdx = modeIdx } )
+
   comboboxVisualBackground <- GtkBuilder.builderGetObject gtkBuilder Gtk.castToComboBox "comboboxVisualBackgroundModel"
-  _ <- Gtk.on comboboxVisualMiddleground Gtk.changed $ do
+  _ <- Gtk.on comboboxVisualBackground Gtk.changed $ do
     modelIdx <- Gtk.comboBoxGetActive comboboxVisualBackground
     cObjects <- readIORef contextObjects
     let visualIORef = AC.visualBackground cObjects
@@ -84,12 +102,11 @@ initComponent gtkBuilder contextSettings contextObjects = do
     fftSurfaceInitStateIORef <- newIORef fftSurfaceInitState
     tunnelInitState          <- Visuals.newTunnelState contextSettings 
     tunnelInitStateIORef     <- newIORef tunnelInitState
-    _ <- atomicModifyIORef visualIORef ( \v -> case Visuals.visualModelFromIndex modelIdx of
-                                                      Visuals.FFTSurfaceModel -> (Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef,True) 
-                                                      Visuals.TunnelModel     -> (Visuals.newTunnelVisual contextSettings tunnelInitStateIORef,True) 
-                                                      Visuals.SpheresModel    -> (Visuals.newSpheresVisual contextSettings spheresInitStateIORef,True)
-                                                      _                       -> (v,True) )
-    
+    _ <- modifyIORef visualIORef ( \_ -> case Visuals.visualModelFromIndex modelIdx of
+                                                Visuals.FFTSurfaceModel -> Visuals.newFFTSurfaceVisual contextSettings fftSurfaceInitStateIORef
+                                                Visuals.TunnelModel     -> Visuals.newTunnelVisual contextSettings tunnelInitStateIORef
+                                                Visuals.SpheresModel    -> Visuals.newSpheresVisual contextSettings spheresInitStateIORef
+                                                _                       -> Visuals.newBlankVisual )
     return ()
     
   return True

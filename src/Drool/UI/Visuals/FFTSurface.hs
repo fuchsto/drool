@@ -278,6 +278,11 @@ fftSurfaceRender visualIORef = do
 
   marqueeBBox <- FTGL.getFontBBox gridfont marqueeText 
 
+  (visWidth,visHeight,visDepth) <- (fftSurfaceDimensions visualIORef) 
+  GL.translate $ Vector3 (-0.5 * visWidth) 0 0
+  GL.translate $ Vector3 0 0 (-0.5 * visDepth)
+
+
   preservingMatrix $ do 
     let fontWidth = realToFrac $ (marqueeBBox !! 3) - (marqueeBBox !! 0)
     -- let fontHeight = realToFrac $ (marqueeBBox !! 4) - (marqueeBBox !! 1)

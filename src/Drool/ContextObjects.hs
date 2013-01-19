@@ -29,6 +29,7 @@ import Drool.UI.Visuals
 data ContextObjects = ContextObjects { visualForeground :: IORef Visual, 
                                        visualMiddleground :: IORef Visual, 
                                        visualBackground :: IORef Visual, 
+                                       
                                        visualDefinitionChanged :: Bool, 
                                        samplingThreadId :: CC.ThreadId, 
                                        samplingSem :: MV.MVar Int, 
